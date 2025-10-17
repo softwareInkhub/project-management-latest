@@ -2,27 +2,27 @@
 import React, { useState } from 'react';
 import { 
   Plus, 
-  Search, 
-  Filter, 
   MoreVertical, 
   Calendar, 
-  Users, 
   Clock,
   CheckCircle,
   AlertCircle,
   Play,
   Pause,
-  Archive,
   Edit,
-  Trash2,
-  Eye
+  Eye,
+  FolderKanban,
+  TrendingUp
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { ProgressBar } from '../components/ui/ProgressBar';
 import { Avatar } from '../components/ui/Avatar';
+import { StatsCard } from '../components/ui/StatsCard';
+import { SearchFilterSection } from '../components/ui/SearchFilterSection';
 import { AppLayout } from '../components/AppLayout';
+import { useTabs } from '../hooks/useTabs';
 
 // Mock data for projects
 const projects = [
@@ -143,6 +143,7 @@ const ProjectsPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
+  const { openTab } = useTabs();
 
   const filteredProjects = projects.filter(project => {
     const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -165,62 +166,85 @@ const ProjectsPage = () => {
 
   return (
     <AppLayout>
-      <div className="max-w-7xl mx-auto px-4 lg:px-6 py-8 overflow-x-hidden">
+      <div className="w-full px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8 overflow-x-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8 space-y-4 sm:space-y-0">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Projects</h1>
-            <p className="text-gray-600 mt-1">Manage and track all your projects in one place</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Projects</h1>
+            <p className="text-sm sm:text-base text-gray-600 mt-1">Manage and track all your projects in one place</p>
           </div>
-          <Button className="flex items-center space-x-2">
-            <Plus size={18} />
-            <span>New Project</span>
+          <Button className="flex items-center justify-center space-x-2 w-full sm:w-auto">
+            <Plus size={16} className="sm:w-4 sm:h-4" />
+            <span className="text-sm sm:text-base">New Project</span>
           </Button>
         </div>
 
-        {/* Filters and Search */}
-        <div className="flex flex-col md:flex-row gap-4 mb-8">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Search projects..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-          
-          <div className="flex gap-2">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="paused">Paused</option>
-              <option value="completed">Completed</option>
-              <option value="planning">Planning</option>
-            </select>
-            
-            <select
-              value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">All Priority</option>
-              <option value="high">High</option>
-              <option value="medium">Medium</option>
-              <option value="low">Low</option>
-            </select>
-          </div>
+        {/* Project Stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+          <StatsCard
+            title="Active Projects"
+            value={projects.filter(p => p.status === 'active').length}
+            icon={Play}
+            iconColor="blue"
+          />
+          <StatsCard
+            title="Completed"
+            value={projects.filter(p => p.status === 'completed').length}
+            icon={CheckCircle}
+            iconColor="green"
+          />
+          <StatsCard
+            title="On Hold"
+            value={projects.filter(p => p.status === 'paused').length}
+            icon={Pause}
+            iconColor="yellow"
+          />
+          <StatsCard
+            title="Avg. Progress"
+            value={`${Math.round(projects.reduce((acc, p) => acc + p.progress, 0) / projects.length)}%`}
+            icon={TrendingUp}
+            iconColor="purple"
+          />
         </div>
 
+        {/* Filters and Search */}
+        <SearchFilterSection
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="Search projects..."
+          variant="modern"
+          showActiveFilters={true}
+          filters={[
+            {
+              key: 'status',
+              label: 'Status',
+              value: statusFilter,
+              onChange: setStatusFilter,
+              options: [
+                { value: 'all', label: 'All Status' },
+                { value: 'active', label: 'Active' },
+                { value: 'paused', label: 'Paused' },
+                { value: 'completed', label: 'Completed' },
+                { value: 'planning', label: 'Planning' }
+              ]
+            },
+            {
+              key: 'priority',
+              label: 'Priority',
+              value: priorityFilter,
+              onChange: setPriorityFilter,
+              options: [
+                { value: 'all', label: 'All Priority' },
+                { value: 'high', label: 'High' },
+                { value: 'medium', label: 'Medium' },
+                { value: 'low', label: 'Low' }
+              ]
+            }
+          ]}
+        />
+
         {/* Projects Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {filteredProjects.map((project) => (
             <Card key={project.id} hover className="relative">
               <CardHeader>
@@ -233,13 +257,29 @@ const ProjectsPage = () => {
                     <p className="text-sm text-gray-600 line-clamp-2">{project.description}</p>
                   </div>
                   <div className="flex items-center space-x-1">
-                    <Button variant="ghost" size="sm">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => {
+                        // Open project details in a new tab
+                        openTab(`/project/${project.id}`, `Project: ${project.name}`);
+                      }}
+                      title="View Project Details"
+                    >
                       <Eye size={16} />
                     </Button>
-                    <Button variant="ghost" size="sm">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      title="Edit Project"
+                    >
                       <Edit size={16} />
                     </Button>
-                    <Button variant="ghost" size="sm">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      title="More Options"
+                    >
                       <MoreVertical size={16} />
                     </Button>
                   </div>
@@ -318,44 +358,6 @@ const ProjectsPage = () => {
           </div>
         )}
 
-        {/* Project Stats */}
-        <div className="mt-12 grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card>
-            <CardContent className="text-center py-6">
-              <div className="text-3xl font-bold text-blue-600 mb-2">
-                {projects.filter(p => p.status === 'active').length}
-              </div>
-              <div className="text-sm text-gray-600">Active Projects</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="text-center py-6">
-              <div className="text-3xl font-bold text-green-600 mb-2">
-                {projects.filter(p => p.status === 'completed').length}
-              </div>
-              <div className="text-sm text-gray-600">Completed</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="text-center py-6">
-              <div className="text-3xl font-bold text-yellow-600 mb-2">
-                {projects.filter(p => p.status === 'paused').length}
-              </div>
-              <div className="text-sm text-gray-600">On Hold</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="text-center py-6">
-              <div className="text-3xl font-bold text-purple-600 mb-2">
-                {Math.round(projects.reduce((acc, p) => acc + p.progress, 0) / projects.length)}%
-              </div>
-              <div className="text-sm text-gray-600">Avg. Progress</div>
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </AppLayout>
   );

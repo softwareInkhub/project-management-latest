@@ -2,13 +2,12 @@
 import React, { useState } from 'react';
 import { 
   Plus, 
-  Search, 
-  Filter, 
   MoreVertical, 
   Calendar, 
   User, 
   Clock,
   CheckCircle,
+  CheckSquare,
   Circle,
   AlertCircle,
   Flag,
@@ -24,7 +23,11 @@ import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
+import { StatsCard } from '../components/ui/StatsCard';
+import { SearchFilterSection } from '../components/ui/SearchFilterSection';
+import { ViewToggle } from '../components/ui/ViewToggle';
 import { AppLayout } from '../components/AppLayout';
+import { useTabs } from '../hooks/useTabs';
 
 // Mock data for tasks
 const tasks = [
@@ -145,6 +148,7 @@ const TasksPage = () => {
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [projectFilter, setProjectFilter] = useState('all');
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
+  const { openTab } = useTabs();
 
   const filteredTasks = tasks.filter(task => {
     const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -169,90 +173,130 @@ const TasksPage = () => {
   };
 
   const isOverdue = (dueDate: string) => {
-    return new Date(dueDate) < new Date() && !tasks.find(t => t.dueDate === dueDate)?.status === 'completed';
+    const task = tasks.find(t => t.dueDate === dueDate);
+    return new Date(dueDate) < new Date() && task?.status !== 'completed';
   };
 
   return (
     <AppLayout>
-      <div className="max-w-7xl mx-auto px-4 lg:px-6 py-8 overflow-x-hidden">
+      <div className="w-full px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8 overflow-x-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8 space-y-4 sm:space-y-0">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Tasks</h1>
-            <p className="text-gray-600 mt-1">Manage and track all your tasks across projects</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Tasks</h1>
+            <p className="text-sm sm:text-base text-gray-600 mt-1">Manage and track all your tasks across projects</p>
           </div>
-          <Button className="flex items-center space-x-2">
-            <Plus size={18} />
-            <span>New Task</span>
+          <Button className="flex items-center justify-center space-x-2 w-full sm:w-auto">
+            <Plus size={16} className="sm:w-4 sm:h-4" />
+            <span className="text-sm sm:text-base">New Task</span>
           </Button>
         </div>
 
-        {/* Filters and Search */}
-        <div className="flex flex-col lg:flex-row gap-4 mb-8">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Search tasks..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-          
-          <div className="flex gap-2 flex-wrap">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">All Status</option>
-              <option value="todo">To Do</option>
-              <option value="in_progress">In Progress</option>
-              <option value="completed">Completed</option>
-              <option value="blocked">Blocked</option>
-            </select>
-            
-            <select
-              value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">All Priority</option>
-              <option value="high">High</option>
-              <option value="medium">Medium</option>
-              <option value="low">Low</option>
-            </select>
-
-            <select
-              value={projectFilter}
-              onChange={(e) => setProjectFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">All Projects</option>
-              {Array.from(new Set(tasks.map(t => t.project))).map(project => (
-                <option key={project} value={project}>{project}</option>
-              ))}
-            </select>
-
-            <div className="flex border border-gray-300 rounded-lg">
-              <button
-                onClick={() => setViewMode('list')}
-                className={`px-3 py-2 text-sm ${viewMode === 'list' ? 'bg-blue-50 text-blue-700' : 'text-gray-600'}`}
-              >
-                List
-              </button>
-              <button
-                onClick={() => setViewMode('kanban')}
-                className={`px-3 py-2 text-sm ${viewMode === 'kanban' ? 'bg-blue-50 text-blue-700' : 'text-gray-600'}`}
-              >
-                Kanban
-              </button>
-            </div>
-          </div>
+        {/* Task Stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+          <StatsCard
+            title="To Do"
+            value={tasks.filter(t => t.status === 'todo').length}
+            icon={Circle}
+            iconColor="blue"
+          />
+          <StatsCard
+            title="In Progress"
+            value={tasks.filter(t => t.status === 'in_progress').length}
+            icon={Clock}
+            iconColor="yellow"
+          />
+          <StatsCard
+            title="Completed"
+            value={tasks.filter(t => t.status === 'completed').length}
+            icon={CheckCircle}
+            iconColor="green"
+          />
+          <StatsCard
+            title="Overdue"
+            value={tasks.filter(t => isOverdue(t.dueDate)).length}
+            icon={AlertCircle}
+            iconColor="red"
+          />
         </div>
+
+        {/* Filters and Search */}
+        <SearchFilterSection
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="Search tasks..."
+          variant="modern"
+          showActiveFilters={true}
+          filters={[
+            {
+              key: 'status',
+              label: 'Status',
+              value: statusFilter,
+              onChange: setStatusFilter,
+              options: [
+                { value: 'all', label: 'All Status' },
+                { value: 'todo', label: 'To Do' },
+                { value: 'in_progress', label: 'In Progress' },
+                { value: 'completed', label: 'Completed' },
+                { value: 'blocked', label: 'Blocked' }
+              ]
+            },
+            {
+              key: 'priority',
+              label: 'Priority',
+              value: priorityFilter,
+              onChange: setPriorityFilter,
+              options: [
+                { value: 'all', label: 'All Priority' },
+                { value: 'high', label: 'High' },
+                { value: 'medium', label: 'Medium' },
+                { value: 'low', label: 'Low' }
+              ]
+            },
+            {
+              key: 'project',
+              label: 'Project',
+              value: projectFilter,
+              onChange: setProjectFilter,
+              options: [
+                { value: 'all', label: 'All Projects' },
+                ...Array.from(new Set(tasks.map(t => t.project))).map(project => ({
+                  value: project,
+                  label: project
+                }))
+              ]
+            }
+          ]}
+          viewToggle={{
+            currentView: viewMode,
+            views: [
+              {
+                value: 'list',
+                label: 'List',
+                icon: (
+                  <div className="w-3 h-3 flex flex-col space-y-0.5">
+                    <div className="w-full h-0.5 rounded-sm bg-current"></div>
+                    <div className="w-full h-0.5 rounded-sm bg-current"></div>
+                    <div className="w-full h-0.5 rounded-sm bg-current"></div>
+                  </div>
+                )
+              },
+              {
+                value: 'kanban',
+                label: 'Kanban',
+                icon: (
+                  <div className="w-3 h-3 grid grid-cols-2 gap-0.5">
+                    <div className="w-1 h-1 rounded-sm bg-current"></div>
+                    <div className="w-1 h-1 rounded-sm bg-current"></div>
+                    <div className="w-1 h-1 rounded-sm bg-current"></div>
+                    <div className="w-1 h-1 rounded-sm bg-current"></div>
+                  </div>
+                )
+              }
+            ],
+            onChange: (view: 'list' | 'kanban') => setViewMode(view)
+          }}
+        />
 
         {/* Tasks List */}
         {viewMode === 'list' ? (
@@ -342,13 +386,29 @@ const TasksPage = () => {
 
                     {/* Actions */}
                     <div className="flex items-center space-x-1 ml-4">
-                      <Button variant="ghost" size="sm">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => {
+                          // Open task details in a new tab
+                          openTab(`/task/${task.id}`, `Task: ${task.title}`);
+                        }}
+                        title="View Task Details"
+                      >
                         <Eye size={16} />
                       </Button>
-                      <Button variant="ghost" size="sm">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        title="Edit Task"
+                      >
                         <Edit size={16} />
                       </Button>
-                      <Button variant="ghost" size="sm">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        title="More Options"
+                      >
                         <MoreVertical size={16} />
                       </Button>
                     </div>
@@ -359,7 +419,7 @@ const TasksPage = () => {
           </div>
         ) : (
           /* Kanban View */
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             {Object.entries(statusConfig).map(([status, config]) => {
               const statusTasks = filteredTasks.filter(task => task.status === status);
               const Icon = config.icon;
@@ -430,44 +490,6 @@ const TasksPage = () => {
           </div>
         )}
 
-        {/* Task Stats */}
-        <div className="mt-12 grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card>
-            <CardContent className="text-center py-6">
-              <div className="text-3xl font-bold text-blue-600 mb-2">
-                {tasks.filter(t => t.status === 'todo').length}
-              </div>
-              <div className="text-sm text-gray-600">To Do</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="text-center py-6">
-              <div className="text-3xl font-bold text-yellow-600 mb-2">
-                {tasks.filter(t => t.status === 'in_progress').length}
-              </div>
-              <div className="text-sm text-gray-600">In Progress</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="text-center py-6">
-              <div className="text-3xl font-bold text-green-600 mb-2">
-                {tasks.filter(t => t.status === 'completed').length}
-              </div>
-              <div className="text-sm text-gray-600">Completed</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="text-center py-6">
-              <div className="text-3xl font-bold text-red-600 mb-2">
-                {tasks.filter(t => isOverdue(t.dueDate)).length}
-              </div>
-              <div className="text-sm text-gray-600">Overdue</div>
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </AppLayout>
   );

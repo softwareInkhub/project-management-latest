@@ -17,6 +17,7 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { ProgressBar } from '../components/ui/ProgressBar';
 import { Avatar } from '../components/ui/Avatar';
+import { StatsCard } from '../components/ui/StatsCard';
 import { AppLayout } from '../components/AppLayout';
 import { useAuth } from '../hooks/useAuth';
 
@@ -121,87 +122,52 @@ const Dashboard = () => {
 
   return (
     <AppLayout>
-      <div className="max-w-7xl mx-auto px-4 lg:px-6 py-8 overflow-x-hidden">
+      <div className="w-full px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8 overflow-x-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8 space-y-4 sm:space-y-0">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-            <p className="text-gray-600 mt-1">Welcome back, {user?.name || 'User'}! Here's what's happening.</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard</h1>
+            <p className="text-sm sm:text-base text-gray-600 mt-1">Welcome back, {user?.name || 'User'}! Here's what's happening.</p>
           </div>
-          <Button className="flex items-center space-x-2">
-            <Plus size={18} />
-            <span>New Project</span>
+          <Button className="flex items-center justify-center space-x-2 w-full sm:w-auto">
+            <Plus size={16} className="sm:w-4 sm:h-4" />
+            <span className="text-sm sm:text-base">New Project</span>
           </Button>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardContent className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Projects</p>
-                <p className="text-3xl font-bold text-gray-900">24</p>
-                <p className="text-sm text-green-600 flex items-center mt-1">
-                  <TrendingUp size={14} className="mr-1" />
-                  +12% from last month
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <FolderKanban className="w-6 h-6 text-blue-600" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Active Tasks</p>
-                <p className="text-3xl font-bold text-gray-900">156</p>
-                <p className="text-sm text-blue-600 flex items-center mt-1">
-                  <Activity size={14} className="mr-1" />
-                  8 completed today
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <CheckSquare className="w-6 h-6 text-green-600" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Team Members</p>
-                <p className="text-3xl font-bold text-gray-900">12</p>
-                <p className="text-sm text-purple-600 flex items-center mt-1">
-                  <Users size={14} className="mr-1" />
-                  2 new this week
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                <Users className="w-6 h-6 text-purple-600" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Completion Rate</p>
-                <p className="text-3xl font-bold text-gray-900">87%</p>
-                <p className="text-sm text-orange-600 flex items-center mt-1">
-                  <Target size={14} className="mr-1" />
-                  +5% this month
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                <Target className="w-6 h-6 text-orange-600" />
-              </div>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8">
+          <StatsCard
+            title="Total Projects"
+            value="24"
+            subtitle="+12% from last month"
+            icon={FolderKanban}
+            iconColor="blue"
+          />
+          <StatsCard
+            title="Active Tasks"
+            value="156"
+            subtitle="8 completed today"
+            icon={CheckSquare}
+            iconColor="green"
+          />
+          <StatsCard
+            title="Team Members"
+            value="12"
+            subtitle="2 new this week"
+            icon={Users}
+            iconColor="purple"
+          />
+          <StatsCard
+            title="Completion Rate"
+            value="87%"
+            subtitle="+5% this month"
+            icon={Target}
+            iconColor="orange"
+          />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
           {/* Project Progress Chart */}
           <div className="lg:col-span-2">
             <Card>
@@ -266,7 +232,7 @@ const Dashboard = () => {
         </div>
 
         {/* Upcoming Tasks */}
-        <div className="mt-8">
+        <div className="mt-6 sm:mt-8">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -308,13 +274,13 @@ const Dashboard = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="mt-8">
+        <div className="mt-6 sm:mt-8">
           <Card>
             <CardHeader>
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 <Button variant="outline" className="h-20 flex flex-col items-center justify-center space-y-2">
                   <FolderKanban className="w-6 h-6" />
                   <span>Create Project</span>

@@ -27,7 +27,11 @@ import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
+import { StatsCard } from '../components/ui/StatsCard';
+import { SearchFilterSection } from '../components/ui/SearchFilterSection';
+import { ViewToggle } from '../components/ui/ViewToggle';
 import { AppLayout } from '../components/AppLayout';
+import { useTabs } from '../hooks/useTabs';
 
 // Mock data for team members
 const teamMembers = [
@@ -219,6 +223,7 @@ const TeamPage = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [roleFilter, setRoleFilter] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const { openTab } = useTabs();
 
   const filteredMembers = teamMembers.filter(member => {
     const matchesSearch = member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -261,221 +266,191 @@ const TeamPage = () => {
 
   return (
     <AppLayout>
-      <div className="max-w-7xl mx-auto px-4 lg:px-6 py-8 overflow-x-hidden">
+      <div className="w-full px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8 overflow-x-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8 space-y-4 sm:space-y-0">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Team</h1>
-            <p className="text-gray-600 mt-1">Manage your team members and their roles</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Team</h1>
+            <p className="text-sm sm:text-base text-gray-600 mt-1">Manage your team members and their roles</p>
           </div>
-          <div className="flex space-x-3">
-            <Button variant="outline" className="flex items-center space-x-2">
-              <UserPlus size={18} />
-              <span>Invite Member</span>
+          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
+            <Button variant="outline" className="flex items-center justify-center space-x-2 w-full sm:w-auto">
+              <UserPlus size={16} className="sm:w-4 sm:h-4" />
+              <span className="text-sm sm:text-base">Invite Member</span>
             </Button>
-            <Button className="flex items-center space-x-2">
-              <Plus size={18} />
-              <span>Add Member</span>
+            <Button className="flex items-center justify-center space-x-2 w-full sm:w-auto">
+              <Plus size={16} className="sm:w-4 sm:h-4" />
+              <span className="text-sm sm:text-base">Add Member</span>
             </Button>
           </div>
         </div>
 
         {/* Team Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardContent className="flex items-center justify-between py-6">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Members</p>
-                <p className="text-3xl font-bold text-gray-900">{teamMembers.length}</p>
-                <p className="text-sm text-green-600 flex items-center mt-1">
-                  <TrendingUp size={14} className="mr-1" />
-                  +2 this month
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Users className="w-6 h-6 text-blue-600" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="flex items-center justify-between py-6">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Active Members</p>
-                <p className="text-3xl font-bold text-gray-900">
-                  {teamMembers.filter(m => m.status === 'active').length}
-                </p>
-                <p className="text-sm text-blue-600 flex items-center mt-1">
-                  <CheckCircle size={14} className="mr-1" />
-                  {Math.round((teamMembers.filter(m => m.status === 'active').length / teamMembers.length) * 100)}% online
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <CheckCircle className="w-6 h-6 text-green-600" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="flex items-center justify-between py-6">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Managers</p>
-                <p className="text-3xl font-bold text-gray-900">
-                  {teamMembers.filter(m => m.isManager).length}
-                </p>
-                <p className="text-sm text-purple-600 flex items-center mt-1">
-                  <Crown size={14} className="mr-1" />
-                  Leadership team
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                <Crown className="w-6 h-6 text-purple-600" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="flex items-center justify-between py-6">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Avg. Performance</p>
-                <p className="text-3xl font-bold text-gray-900">
-                  {Math.round(teamMembers.reduce((acc, m) => acc + m.performance, 0) / teamMembers.length)}%
-                </p>
-                <p className="text-sm text-orange-600 flex items-center mt-1">
-                  <Award size={14} className="mr-1" />
-                  Team excellence
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                <Award className="w-6 h-6 text-orange-600" />
-              </div>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+          <StatsCard
+            title="Total Members"
+            value={teamMembers.length}
+            subtitle="+2 this month"
+            icon={Users}
+            iconColor="blue"
+          />
+          <StatsCard
+            title="Active Members"
+            value={teamMembers.filter(m => m.status === 'active').length}
+            subtitle={`${Math.round((teamMembers.filter(m => m.status === 'active').length / teamMembers.length) * 100)}% online`}
+            icon={CheckCircle}
+            iconColor="green"
+          />
+          <StatsCard
+            title="Managers"
+            value={teamMembers.filter(m => m.isManager).length}
+            subtitle="Leadership team"
+            icon={Crown}
+            iconColor="purple"
+          />
+          <StatsCard
+            title="Avg. Performance"
+            value={`${Math.round(teamMembers.reduce((acc, m) => acc + m.performance, 0) / teamMembers.length)}%`}
+            subtitle="Team excellence"
+            icon={Award}
+            iconColor="orange"
+          />
         </div>
 
         {/* Filters and Search */}
-        <div className="flex flex-col lg:flex-row gap-4 mb-8">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Search team members..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-          
-          <div className="flex gap-2 flex-wrap">
-            <select
-              value={departmentFilter}
-              onChange={(e) => setDepartmentFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">All Departments</option>
-              {Array.from(new Set(teamMembers.map(m => m.department))).map(dept => (
-                <option key={dept} value={dept}>{dept}</option>
-              ))}
-            </select>
-            
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="away">Away</option>
-              <option value="offline">Offline</option>
-            </select>
-
-            <select
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">All Roles</option>
-              <option value="manager">Managers</option>
-              <option value="admin">Admins</option>
-              <option value="member">Members</option>
-            </select>
-
-            <div className="flex border border-gray-300 rounded-lg">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`px-3 py-2 text-sm ${viewMode === 'grid' ? 'bg-blue-50 text-blue-700' : 'text-gray-600'}`}
-              >
-                Grid
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`px-3 py-2 text-sm ${viewMode === 'list' ? 'bg-blue-50 text-blue-700' : 'text-gray-600'}`}
-              >
-                List
-              </button>
-            </div>
-          </div>
-        </div>
+        <SearchFilterSection
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="Search team members by name, role, or department..."
+          variant="modern"
+          showActiveFilters={true}
+          filters={[
+            {
+              key: 'department',
+              label: 'Department',
+              value: departmentFilter,
+              onChange: setDepartmentFilter,
+              options: [
+                { value: 'all', label: 'All Departments' },
+                ...Array.from(new Set(teamMembers.map(m => m.department))).map(dept => ({
+                  value: dept,
+                  label: dept
+                }))
+              ]
+            },
+            {
+              key: 'status',
+              label: 'Status',
+              value: statusFilter,
+              onChange: setStatusFilter,
+              options: [
+                { value: 'all', label: 'All Status' },
+                { value: 'active', label: 'Active' },
+                { value: 'away', label: 'Away' },
+                { value: 'offline', label: 'Offline' }
+              ]
+            },
+            {
+              key: 'role',
+              label: 'Role',
+              value: roleFilter,
+              onChange: setRoleFilter,
+              options: [
+                { value: 'all', label: 'All Roles' },
+                { value: 'manager', label: 'Managers' },
+                { value: 'admin', label: 'Admins' },
+                { value: 'member', label: 'Members' }
+              ]
+            }
+          ]}
+          viewToggle={{
+            currentView: viewMode,
+            views: [
+              {
+                value: 'grid',
+                label: 'Grid',
+                icon: (
+                  <div className="w-3 h-3 grid grid-cols-2 gap-0.5">
+                    <div className="w-1 h-1 rounded-sm bg-current"></div>
+                    <div className="w-1 h-1 rounded-sm bg-current"></div>
+                    <div className="w-1 h-1 rounded-sm bg-current"></div>
+                    <div className="w-1 h-1 rounded-sm bg-current"></div>
+                  </div>
+                )
+              },
+              {
+                value: 'list',
+                label: 'List',
+                icon: (
+                  <div className="w-3 h-3 flex flex-col space-y-0.5">
+                    <div className="w-full h-0.5 rounded-sm bg-current"></div>
+                    <div className="w-full h-0.5 rounded-sm bg-current"></div>
+                    <div className="w-full h-0.5 rounded-sm bg-current"></div>
+                  </div>
+                )
+              }
+            ],
+            onChange: (view: 'grid' | 'list') => setViewMode(view)
+          }}
+        />
 
         {/* Team Members */}
         {viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
             {filteredMembers.map((member) => (
               <Card key={member.id} hover className="relative">
-                <CardContent className="p-6">
+                <CardContent className="p-4">
                   <div className="text-center">
                     {/* Avatar and Status */}
-                    <div className="relative inline-block mb-4">
-                      <Avatar name={member.name} size="xl" />
-                      <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${
+                    <div className="relative inline-block mb-3">
+                      <Avatar name={member.name} size="lg" />
+                      <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
                         member.status === 'active' ? 'bg-green-500' :
                         member.status === 'away' ? 'bg-yellow-500' : 'bg-gray-400'
                       }`}></div>
                     </div>
 
                     {/* Name and Role */}
-                    <h3 className="text-lg font-semibold text-gray-900 mb-1">{member.name}</h3>
-                    <p className="text-sm text-gray-600 mb-2">{member.role}</p>
-                    <p className="text-xs text-gray-500 mb-3">{member.department}</p>
+                    <h3 className="text-sm font-semibold text-gray-900 mb-1 truncate">{member.name}</h3>
+                    <p className="text-xs text-gray-600 mb-1 truncate">{member.role}</p>
+                    <p className="text-xs text-gray-500 mb-2 truncate">{member.department}</p>
 
                     {/* Role Badge */}
                     {getRoleBadge(member) && (
-                      <div className="mb-3">
+                      <div className="mb-2">
                         {getRoleBadge(member)}
                       </div>
                     )}
 
                     {/* Status */}
-                    <Badge variant={statusConfig[member.status as keyof typeof statusConfig].color as any} size="sm" className="mb-4">
+                    <Badge variant={statusConfig[member.status as keyof typeof statusConfig].color as any} size="sm" className="mb-3 text-xs">
                       <div className="flex items-center space-x-1">
                         {getStatusIcon(member.status)}
-                        <span>{statusConfig[member.status as keyof typeof statusConfig].label}</span>
+                        <span className="hidden sm:inline">{statusConfig[member.status as keyof typeof statusConfig].label}</span>
                       </div>
                     </Badge>
 
                     {/* Stats */}
-                    <div className="grid grid-cols-2 gap-4 mb-4 text-center">
+                    <div className="grid grid-cols-2 gap-2 mb-3 text-center">
                       <div>
-                        <div className="text-lg font-semibold text-gray-900">{member.projects}</div>
+                        <div className="text-sm font-semibold text-gray-900">{member.projects}</div>
                         <div className="text-xs text-gray-500">Projects</div>
                       </div>
                       <div>
-                        <div className="text-lg font-semibold text-gray-900">{member.tasksCompleted}</div>
+                        <div className="text-sm font-semibold text-gray-900">{member.tasksCompleted}</div>
                         <div className="text-xs text-gray-500">Tasks</div>
                       </div>
                     </div>
 
                     {/* Performance */}
-                    <div className="mb-4">
+                    <div className="mb-3">
                       <div className="flex justify-between text-xs text-gray-600 mb-1">
-                        <span>Performance</span>
+                        <span>Perf.</span>
                         <span>{member.performance}%</span>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="w-full bg-gray-200 rounded-full h-1.5">
                         <div 
-                          className={`h-2 rounded-full ${
+                          className={`h-1.5 rounded-full ${
                             member.performance >= 90 ? 'bg-green-500' :
                             member.performance >= 80 ? 'bg-yellow-500' : 'bg-red-500'
                           }`}
@@ -484,33 +459,32 @@ const TeamPage = () => {
                       </div>
                     </div>
 
-                    {/* Skills */}
-                    <div className="mb-4">
-                      <div className="text-xs text-gray-600 mb-2">Top Skills</div>
+                    {/* Skills - Simplified */}
+                    <div className="mb-3">
                       <div className="flex flex-wrap gap-1 justify-center">
-                        {member.skills.slice(0, 3).map((skill, index) => (
-                          <span key={index} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
+                        {member.skills.slice(0, 2).map((skill, index) => (
+                          <span key={index} className="px-1.5 py-0.5 bg-gray-100 text-gray-700 text-xs rounded-full truncate max-w-[60px]">
                             {skill}
                           </span>
                         ))}
-                        {member.skills.length > 3 && (
-                          <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
-                            +{member.skills.length - 3}
+                        {member.skills.length > 2 && (
+                          <span className="px-1.5 py-0.5 bg-gray-100 text-gray-700 text-xs rounded-full">
+                            +{member.skills.length - 2}
                           </span>
                         )}
                       </div>
                     </div>
 
-                    {/* Actions */}
-                    <div className="flex justify-center space-x-2">
-                      <Button variant="outline" size="sm">
-                        <MessageSquare size={14} />
+                    {/* Actions - Simplified */}
+                    <div className="flex justify-center space-x-1">
+                      <Button variant="outline" size="sm" className="p-1.5">
+                        <MessageSquare size={12} />
                       </Button>
-                      <Button variant="outline" size="sm">
-                        <Mail size={14} />
+                      <Button variant="outline" size="sm" className="p-1.5">
+                        <Mail size={12} />
                       </Button>
-                      <Button variant="outline" size="sm">
-                        <MoreVertical size={14} />
+                      <Button variant="outline" size="sm" className="p-1.5">
+                        <MoreVertical size={12} />
                       </Button>
                     </div>
                   </div>
