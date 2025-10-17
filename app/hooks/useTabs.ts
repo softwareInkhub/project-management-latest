@@ -54,7 +54,14 @@ export const useTabs = () => {
       isClosable: true
     };
 
-    setTabs(prev => [...prev, newTab]);
+    setTabs(prev => {
+      // Prevent duplicate tabs
+      const exists = prev.find(tab => tab.path === path);
+      if (exists) {
+        return prev;
+      }
+      return [...prev, newTab];
+    });
     setActiveTabId(newTab.id);
     router.push(path);
   };
@@ -113,7 +120,7 @@ export const useTabs = () => {
       setTabs(prev => [...prev, newTab]);
       setActiveTabId(newTab.id);
     }
-  }, [pathname, tabs]);
+  }, [pathname]);
 
   // Load tabs from localStorage on mount
   useEffect(() => {
