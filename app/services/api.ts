@@ -32,17 +32,41 @@ interface Task {
 }
 
 interface Project {
+  // Identity
   id: string;
+  projectId?: string;
+  
+  // Basic Information
   name: string;
-  description: string;
+  title?: string;
+  description?: string;
+  company: string;
+  
+  // Status & Priority
   status: string;
-  priority: string;
+  priority: 'Low' | 'Medium' | 'High';
+  
+  // Timeline
   startDate: string;
   endDate: string;
+  
+  // Resources & Budget
+  budget: string;
+  team: string | string[];
+  assignee: string;
+  
+  // Progress & Tasks
   progress: number;
-  team: any[];
-  createdAt: string;
-  updatedAt: string;
+  tasks: string | string[];
+  
+  // Additional Metadata
+  tags: string | string[];
+  notes?: string;
+  
+  // Timestamps
+  createdAt?: string;
+  updatedAt?: string;
+  timestamp?: string;
 }
 
 interface Team {
@@ -153,6 +177,10 @@ class ApiService {
         // Handle POST/CREATE response which returns "createdItem"
         data.data = this.convertDynamoDBItem(data.createdItem);
         console.log('Converted createdItem to data:', data);
+      } else if (data.success && data.item) {
+        // Handle single item GET response
+        data.data = this.convertDynamoDBItem(data.item);
+        console.log('Converted item to data:', data);
       } else if (data.success && data.data) {
         // Fallback for other endpoints that might use "data"
         if (Array.isArray(data.data)) {
@@ -314,49 +342,191 @@ class ApiService {
 
   // Project Operations
   async getProjects(): Promise<ApiResponse<Project[]>> {
-    return this.makeRequest<Project[]>('?tableName=projects', {
+    // Use pagination to get all projects
+    const result = await this.makeRequest<Project[]>('?tableName=project-management-projects&pagination=true', {
       method: 'GET',
     });
+
+    // Handle the response format from your CRUD API
+    if (result.success && result.data && result.data.items) {
+      return {
+        success: true,
+        data: result.data.items,
+        error: null
+      };
+    }
+
+    return result;
   }
 
   async getProjectById(id: string): Promise<ApiResponse<Project>> {
-    return this.makeRequest<Project>(`?tableName=projects&id=${id}`, {
+    const result = await this.makeRequest<Project>(`?tableName=project-management-projects&id=${id}`, {
       method: 'GET',
     });
+
+    // Handle the response format from your CRUD API
+    if (result.success && result.data && result.data.item) {
+      return {
+        success: true,
+        data: result.data.item,
+        error: null
+      };
+    }
+
+    return result;
   }
 
   async createProject(project: Partial<Project>): Promise<ApiResponse<Project>> {
-    const payload = {
-      item: {
-        ...project,
+    try {
+      // Clean the project data to remove any circular references
+      const cleanProject = JSON.parse(JSON.stringify(project, (key, value) => {
+        // Remove any React DOM elements or circular references
+        if (value && typeof value === 'object') {
+          if (value.constructor && value.constructor.name === 'HTMLOptionElement') {
+            return value.value || value.textContent || '';
+          }
+          if (value.constructor && value.constructor.name === 'FiberNode') {
+            return undefined;
+          }
+        }
+        return value;
+      }));
+      
+      // Generate unique ID for the project
+      const projectId = `project-${Date.now()}`;
+      
+      const payload = {
+        item: {
+          ...cleanProject,
+          id: projectId,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }
+      };
+
+      console.log('🧹 Cleaned project data:', cleanProject);
+      console.log('📦 Payload:', payload);
+
+      const result = await this.makeRequest<Project>('?tableName=project-management-projects', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      // Handle the response format from your CRUD API
+      if (result.success) {
+        // The API returns success: true and the key fields, but we need the full item
+        // Let's fetch the created project to get the complete data
+        const getResult = await this.getProjectById(projectId);
+        if (getResult.success) {
+          return {
+            success: true,
+            data: getResult.data,
+            error: null
+          };
+        }
+      }
+
+      return result;
+    } catch (error) {
+      console.error('❌ Error cleaning project data:', error);
+      // Fallback: create a minimal clean project
+      const projectId = `project-${Date.now()}`;
+      const fallbackProject = {
+        name: String(project.name || ''),
+        description: String(project.description || ''),
+        productOwner: String(project.productOwner || ''),
+        scrumMaster: String(project.scrumMaster || ''),
+        startDate: String(project.startDate || ''),
+        endDate: String(project.endDate || ''),
+        status: String(project.status || 'Planning'),
+        team: Array.isArray(project.team) ? project.team.map(String) : [],
+        id: projectId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-      }
-    };
+      };
+      
+      const payload = {
+        item: fallbackProject
+      };
 
-    return this.makeRequest<Project>('?tableName=projects', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
+      console.log('🔄 Using fallback project data:', fallbackProject);
+
+      const result = await this.makeRequest<Project>('?tableName=project-management-projects', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      // Fetch the created project to get complete data
+      if (result.success) {
+        const getResult = await this.getProjectById(projectId);
+        if (getResult.success) {
+          return {
+            success: true,
+            data: getResult.data,
+            error: null
+          };
+        }
+      }
+
+      return result;
+    }
   }
 
   async updateProject(id: string, updates: Partial<Project>): Promise<ApiResponse<Project>> {
+    console.log('🔄 Updating project with ID:', id);
+    console.log('📝 Update data:', updates);
+    
+    // Clean the update data to remove any circular references
+    const cleanUpdates = JSON.parse(JSON.stringify(updates, (key, value) => {
+      // Remove any React DOM elements or circular references
+      if (value && typeof value === 'object') {
+        if (value.constructor && value.constructor.name === 'HTMLOptionElement') {
+          return value.value || value.textContent || '';
+        }
+        if (value.constructor && value.constructor.name === 'FiberNode') {
+          return undefined;
+        }
+      }
+      return value;
+    }));
+    
+    console.log('🧹 Cleaned update data:', cleanUpdates);
+    
+    // Filter out key fields that cannot be updated
+    const { id: projectId, projectId: altId, createdAt, timestamp, ...updateableFields } = cleanUpdates;
+    
     const payload = {
-      id,
+      key: {
+        id: id
+      },
       updates: {
-        ...updates,
+        ...updateableFields,
         updatedAt: new Date().toISOString(),
       }
     };
 
-    return this.makeRequest<Project>('?tableName=projects', {
+    console.log('📦 Update payload:', payload);
+
+    const result = await this.makeRequest<Project>('?tableName=project-management-projects', {
       method: 'PUT',
       body: JSON.stringify(payload),
     });
+
+    // Handle the response format from your CRUD API
+    if (result.success && result.data && result.data.updatedItem) {
+      // The API returns the updated item in the updatedItem field
+      return {
+        success: true,
+        data: result.data.updatedItem,
+        error: null
+      };
+    }
+
+    return result;
   }
 
   async deleteProject(id: string): Promise<ApiResponse<void>> {
-    return this.makeRequest<void>(`?tableName=projects&id=${id}`, {
+    return this.makeRequest<void>(`?tableName=project-management-projects&id=${id}`, {
       method: 'DELETE',
     });
   }

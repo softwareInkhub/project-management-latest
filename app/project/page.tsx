@@ -1,5 +1,6 @@
 'use client';
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { apiService } from '../services/api';
 import { 
   Plus, 
   MoreVertical, 
@@ -18,7 +19,9 @@ import {
   Users,
   Target,
   Search,
-  Filter
+  Filter,
+  Crown,
+  User
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -31,128 +34,72 @@ import { ViewToggle } from '../components/ui/ViewToggle';
 import { AppLayout } from '../components/AppLayout';
 import { useTabs } from '../hooks/useTabs';
 import { useSidebar } from '../components/AppLayout';
+import ProjectForm, { Project } from '../components/ui/ProjectForm';
 
-// Mock data for projects
-const projects = [
-  {
-    id: 1,
-    name: 'Website Redesign',
-    description: 'Complete overhaul of the company website with modern design and improved UX',
-    status: 'active',
-    progress: 75,
-    startDate: '2024-01-15',
-    endDate: '2024-03-30',
-    team: [
-      { name: 'Sarah Johnson', role: 'Designer' },
-      { name: 'Mike Chen', role: 'Developer' },
-      { name: 'Emily Davis', role: 'PM' }
-    ],
-    tasks: { completed: 15, total: 20 },
-    priority: 'high',
-    color: 'blue'
-  },
-  {
-    id: 2,
-    name: 'Mobile App Development',
-    description: 'Building a cross-platform mobile application for iOS and Android',
-    status: 'active',
-    progress: 45,
-    startDate: '2024-02-01',
-    endDate: '2024-05-15',
-    team: [
-      { name: 'Alex Rodriguez', role: 'Mobile Dev' },
-      { name: 'Lisa Wang', role: 'UI/UX' },
-      { name: 'David Kim', role: 'Backend' }
-    ],
-    tasks: { completed: 9, total: 20 },
-    priority: 'high',
-    color: 'green'
-  },
-  {
-    id: 3,
-    name: 'API Integration',
-    description: 'Integrating third-party APIs and building internal API services',
-    status: 'paused',
-    progress: 30,
-    startDate: '2024-01-20',
-    endDate: '2024-04-10',
-    team: [
-      { name: 'Tom Wilson', role: 'Backend Dev' },
-      { name: 'Anna Smith', role: 'DevOps' }
-    ],
-    tasks: { completed: 6, total: 20 },
-    priority: 'medium',
-    color: 'yellow'
-  },
-  {
-    id: 4,
-    name: 'User Research Study',
-    description: 'Conducting comprehensive user research to improve product decisions',
-    status: 'completed',
-    progress: 100,
-    startDate: '2024-01-01',
-    endDate: '2024-02-15',
-    team: [
-      { name: 'Rachel Green', role: 'Researcher' },
-      { name: 'John Doe', role: 'Analyst' }
-    ],
-    tasks: { completed: 12, total: 12 },
-    priority: 'medium',
-    color: 'purple'
-  },
-  {
-    id: 5,
-    name: 'Database Migration',
-    description: 'Migrating legacy database to modern cloud infrastructure',
-    status: 'planning',
-    progress: 10,
-    startDate: '2024-03-01',
-    endDate: '2024-06-30',
-    team: [
-      { name: 'Maria Garcia', role: 'DBA' },
-      { name: 'Kevin Lee', role: 'DevOps' }
-    ],
-    tasks: { completed: 2, total: 20 },
-    priority: 'low',
-    color: 'orange'
-  },
-  {
-    id: 6,
-    name: 'Marketing Campaign',
-    description: 'Launching a comprehensive marketing campaign for Q2 product release',
-    status: 'active',
-    progress: 60,
-    startDate: '2024-02-15',
-    endDate: '2024-04-30',
-    team: [
-      { name: 'Jennifer Brown', role: 'Marketing' },
-      { name: 'Chris Taylor', role: 'Content' }
-    ],
-    tasks: { completed: 12, total: 20 },
-    priority: 'high',
-    color: 'pink'
-  }
-];
-
-const statusColors = {
-  active: 'success',
-  paused: 'warning',
-  completed: 'info',
-  planning: 'default'
+// Status and priority mapping
+const normalizeStatus = (status: string): string => {
+  const statusMap: Record<string, string> = {
+    'Planning': 'planning',
+    'Active': 'active',
+    'Completed': 'completed',
+    'On Hold': 'on-hold'
+  };
+  return statusMap[status] || status.toLowerCase();
 };
 
-const priorityColors = {
-  high: 'danger',
-  medium: 'warning',
-  low: 'default'
+// Helper function to get team count
+const getTeamCount = (team: string | string[] | undefined): number => {
+  if (!team) return 0;
+  if (Array.isArray(team)) return team.length;
+  return 1;
+};
+
+// Helper function to parse tasks array
+const getTasksArray = (tasks: string | string[] | undefined): string[] => {
+  if (!tasks) return [];
+  if (Array.isArray(tasks)) return tasks;
+  try {
+    return JSON.parse(tasks);
+  } catch {
+    return [];
+  }
+};
+
+// Helper function to parse tags array
+const getTagsArray = (tags: string | string[] | undefined): string[] => {
+  if (!tags) return [];
+  if (Array.isArray(tags)) return tags;
+  try {
+    return JSON.parse(tags);
+  } catch (error) {
+    console.warn('Failed to parse tags JSON:', tags, error);
+    return [];
+  }
+};
+
+const statusColors: Record<string, 'success' | 'warning' | 'info' | 'default'> = {
+  'Active': 'success',
+  'On Hold': 'warning',
+  'Completed': 'info',
+  'Planning': 'default'
+};
+
+const priorityColors: Record<string, 'danger' | 'warning' | 'default'> = {
+  'High': 'danger',
+  'Medium': 'warning',
+  'Low': 'default'
 };
 
 const ProjectsPage = () => {
+  const [projects, setProjects] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [viewMode, setViewMode] = useState<'list' | 'card'>('card');
   const [selectedProject, setSelectedProject] = useState<any>(null);
+  const [isProjectFormOpen, setIsProjectFormOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isProjectPreviewOpen, setIsProjectPreviewOpen] = useState(false);
   const [isPreviewAnimating, setIsPreviewAnimating] = useState(false);
   const [activePredefinedFilter, setActivePredefinedFilter] = useState('all');
@@ -163,18 +110,45 @@ const ProjectsPage = () => {
   const { openTab } = useTabs();
   const { isCollapsed } = useSidebar();
 
+  // Fetch projects from API
+  const fetchProjects = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      console.log('📋 Fetching projects...');
+      const res = await apiService.getProjects();
+      
+      if (res.success && res.data) {
+        console.log('✅ Projects fetched:', res.data.length);
+        setProjects(res.data);
+      } else {
+        console.error('❌ Failed to fetch projects:', res.error);
+        alert(`Failed to fetch projects: ${res.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching projects:', error);
+      alert('An unexpected error occurred while fetching projects');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Load projects on mount
+  useEffect(() => {
+    fetchProjects();
+  }, [fetchProjects]);
+
   // Predefined filters
   const predefinedFilters = [
     { id: 'all', label: 'All Projects', count: projects.length },
-    { id: 'active', label: 'Active', count: projects.filter(p => p.status === 'active').length },
-    { id: 'completed', label: 'Completed', count: projects.filter(p => p.status === 'completed').length },
-    { id: 'paused', label: 'Paused', count: projects.filter(p => p.status === 'paused').length },
-    { id: 'planning', label: 'Planning', count: projects.filter(p => p.status === 'planning').length }
+    { id: 'Active', label: 'Active', count: projects.filter(p => p.status === 'Active').length },
+    { id: 'Completed', label: 'Completed', count: projects.filter(p => p.status === 'Completed').length },
+    { id: 'On Hold', label: 'On Hold', count: projects.filter(p => p.status === 'On Hold').length },
+    { id: 'Planning', label: 'Planning', count: projects.filter(p => p.status === 'Planning').length }
   ];
 
   const filteredProjects = projects.filter(project => {
-    const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         project.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (project.name || project.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (project.description || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || project.status === statusFilter;
     const matchesPriority = priorityFilter === 'all' || project.priority === priorityFilter;
     
@@ -190,7 +164,7 @@ const ProjectsPage = () => {
       if (value && value !== 'all' && value !== '') {
         if (key === 'status' && project.status !== value) matchesAdvanced = false;
         if (key === 'priority' && project.priority !== value) matchesAdvanced = false;
-        if (key === 'department' && project.team.some((t: any) => t.department === value)) matchesAdvanced = false;
+        // Additional filters can be added here
       }
     });
     
@@ -224,9 +198,58 @@ const ProjectsPage = () => {
   };
 
   const handleEditProject = (project: any) => {
-    setSelectedProject(project);
+    setEditingProject(project);
+    setIsProjectFormOpen(true);
     setIsProjectPreviewOpen(false);
-    // TODO: Open edit form
+  };
+
+  const handleCreateProject = () => {
+    setEditingProject(null);
+    setIsProjectFormOpen(true);
+  };
+
+  const handleProjectFormSubmit = async (projectData: any) => {
+    try {
+      if (editingProject) {
+        // Update existing project
+        console.log('🔄 Updating project:', editingProject.id, projectData);
+        const result = await apiService.updateProject(editingProject.id, projectData);
+        
+        if (result.success) {
+          console.log('✅ Project updated successfully:', result.data);
+          setIsProjectFormOpen(false);
+          setEditingProject(null);
+          // Refresh projects list
+          fetchProjects();
+        } else {
+          console.error('❌ Failed to update project:', result.error);
+          alert(`Failed to update project: ${result.error}`);
+        }
+      } else {
+        // Create new project
+        console.log('🆕 Creating new project:', projectData);
+        const result = await apiService.createProject(projectData);
+        
+        if (result.success) {
+          console.log('✅ Project created successfully:', result.data);
+          setIsProjectFormOpen(false);
+          setEditingProject(null);
+          // Refresh projects list
+          fetchProjects();
+        } else {
+          console.error('❌ Failed to create project:', result.error);
+          alert(`Failed to create project: ${result.error}`);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error with project operation:', error);
+      alert('An unexpected error occurred while processing the project');
+    }
+  };
+
+  const handleProjectFormCancel = () => {
+    setIsProjectFormOpen(false);
+    setEditingProject(null);
   };
 
   const closeProjectPreview = () => {
@@ -315,7 +338,10 @@ const ProjectsPage = () => {
               onChange={(view: 'list' | 'card') => setViewMode(view)}
             />
             <div className="hidden lg:block">
-              <Button className="flex items-center justify-center space-x-2 w-full sm:w-auto">
+              <Button 
+                className="flex items-center justify-center space-x-2 w-full sm:w-auto"
+                onClick={handleCreateProject}
+              >
                 <Plus size={16} className="sm:w-4 sm:h-4" />
                 <span className="text-sm sm:text-base">New Project</span>
               </Button>
@@ -466,7 +492,7 @@ const ProjectsPage = () => {
                     <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mt-2">
                       <Badge variant={statusColors[project.status as keyof typeof statusColors] as any} size="sm" className="text-xs">
                         {getStatusIcon(project.status)}
-                        <span className="ml-1 text-xs capitalize">{project.status}</span>
+                        <span className="ml-1 text-xs capitalize">{project.status || 'Unknown'}</span>
                       </Badge>
                       <Badge variant={priorityColors[project.priority as keyof typeof priorityColors] as any} size="sm" className="text-xs">
                         {getPriorityIcon(project.priority)}
@@ -481,13 +507,20 @@ const ProjectsPage = () => {
                         <div className="w-16 sm:w-20 bg-gray-200 rounded-full h-1.5">
                           <div 
                             className="h-1.5 bg-blue-500 rounded-full"
-                            style={{ width: `${project.progress}%` }}
+                            style={{ width: `${project.progress || 0}%` }}
                           ></div>
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Users size={12} className="text-gray-500" />
-                        <span className="text-xs text-gray-500">{project.team.length} members</span>
+                        <span className="text-xs text-gray-500">
+                          {getTeamCount(project.team)} team(s)
+                          {Array.isArray(project.team) && project.team.length > 0 && (
+                            <span className="ml-1">
+                              ({project.team.slice(0, 2).join(', ')}{project.team.length > 2 ? '...' : ''})
+                            </span>
+                          )}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -504,19 +537,35 @@ const ProjectsPage = () => {
                     {/* Header with Project Icon and Title */}
                     <div className="flex items-start space-x-2 sm:space-x-3">
                       <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-xs sm:text-sm flex-shrink-0">
-                        {project.name.charAt(0)}
+                        {(project.name || project.title || 'P').charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-gray-900 text-xs sm:text-sm leading-tight line-clamp-2">{project.name}</h4>
-                        <p className="text-xs text-gray-600 mt-1 line-clamp-1 hidden sm:block">{project.description}</p>
+                        <h4 className="font-medium text-gray-900 text-xs sm:text-sm leading-tight line-clamp-2">{project.name || project.title || 'Untitled Project'}</h4>
+                        <p className="text-xs text-gray-600 mt-1 line-clamp-1 hidden sm:block">{project.description || 'No description'}</p>
                       </div>
+                    </div>
+
+                    {/* Product Owner & Scrum Master */}
+                    <div className="flex flex-col sm:flex-row gap-1 sm:gap-2 text-xs">
+                      {project.productOwner && (
+                        <div className="flex items-center text-gray-600">
+                          <Crown className="w-3 h-3 mr-1" />
+                          <span className="truncate">PO: {project.productOwner}</span>
+                        </div>
+                      )}
+                      {project.scrumMaster && (
+                        <div className="flex items-center text-gray-600">
+                          <User className="w-3 h-3 mr-1" />
+                          <span className="truncate">SM: {project.scrumMaster}</span>
+                        </div>
+                      )}
                     </div>
                     
                     {/* Status and Priority Badges - Stacked on mobile */}
                     <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
                       <Badge variant={statusColors[project.status as keyof typeof statusColors] as any} size="sm" className="text-xs">
                         {getStatusIcon(project.status)}
-                        <span className="ml-1 text-xs capitalize">{project.status}</span>
+                        <span className="ml-1 text-xs capitalize">{project.status || 'Unknown'}</span>
                       </Badge>
                       <div className="hidden sm:block">
                         <Badge variant={priorityColors[project.priority as keyof typeof priorityColors] as any} size="sm" className="text-xs">
@@ -529,21 +578,23 @@ const ProjectsPage = () => {
                     <div className="flex items-center justify-between text-xs text-gray-500">
                       <div className="flex items-center space-x-1">
                         <Target size={8} className="sm:w-3 sm:h-3" />
-                        <span className="text-xs">{project.progress}%</span>
+                        <span className="text-xs">{project.progress || 0}%</span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <div className="flex items-center space-x-1">
                           <Users size={8} className="sm:w-3 sm:h-3" />
-                          <span className="text-xs">{project.team.length}</span>
+                          <span className="text-xs">{getTeamCount(project.team)}</span>
                         </div>
                       </div>
                     </div>
                     
-                    {/* Team - Show only first member on mobile */}
-                    <div className="flex items-center space-x-1 sm:space-x-2">
-                      <Avatar name={project.team[0]?.name || 'Unknown'} size="sm" />
-                      <span className="text-xs text-gray-500 hidden sm:inline">{project.team[0]?.name || 'Unknown'}</span>
-                    </div>
+                    {/* Assignee */}
+                    {project.assignee && (
+                      <div className="flex items-center space-x-1 sm:space-x-2">
+                        <Avatar name={project.assignee} size="sm" />
+                        <span className="text-xs text-gray-500 hidden sm:inline">{project.assignee}</span>
+                      </div>
+                    )}
                     
                     {/* Timeline - Minimal on mobile */}
                     <div className="flex items-center justify-between">
@@ -563,15 +614,27 @@ const ProjectsPage = () => {
           </div>
         )}
 
+        {/* Loading State */}
+        {isLoading && (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading projects...</p>
+          </div>
+        )}
+
         {/* Empty State */}
-        {filteredProjects.length === 0 && (
+        {!isLoading && filteredProjects.length === 0 && (
           <div className="text-center py-12">
             <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <FolderKanban className="w-12 h-12 text-gray-400" />
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">No projects found</h3>
-            <p className="text-gray-600 mb-6">Try adjusting your search or filter criteria</p>
-            <Button>Create New Project</Button>
+            <p className="text-gray-600 mb-6">
+              {projects.length === 0 
+                ? 'No projects available. Create your first project to get started.' 
+                : 'Try adjusting your search or filter criteria'}
+            </p>
+            <Button onClick={handleCreateProject}>Create New Project</Button>
           </div>
         )}
 
@@ -609,7 +672,7 @@ const ProjectsPage = () => {
                       <FolderKanban className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <h2 className="text-2xl font-bold text-gray-900">{selectedProject.name}</h2>
+                      <h2 className="text-2xl font-bold text-gray-900">{selectedProject.name || selectedProject.title || 'Untitled Project'}</h2>
                       <p className="text-gray-500 text-sm">Project Details</p>
                     </div>
                   </div>
@@ -638,13 +701,13 @@ const ProjectsPage = () => {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       <div>
                         <label className="block text-sm font-semibold text-gray-800 mb-2">Description</label>
-                        <p className="text-gray-600">{selectedProject.description}</p>
+                        <p className="text-gray-600">{selectedProject.description || 'No description available'}</p>
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-gray-800 mb-2">Status</label>
                         <Badge variant={statusColors[selectedProject.status as keyof typeof statusColors] as any} size="md">
                           {getStatusIcon(selectedProject.status)}
-                          <span className="ml-2 capitalize">{selectedProject.status}</span>
+                          <span className="ml-2 capitalize">{selectedProject.status || 'Unknown'}</span>
                         </Badge>
                       </div>
                     </div>
@@ -657,13 +720,13 @@ const ProjectsPage = () => {
                         <label className="block text-sm font-semibold text-gray-800 mb-2">Progress</label>
                         <div className="space-y-2">
                           <div className="flex justify-between text-sm text-gray-600">
-                            <span>{selectedProject.tasks.completed} of {selectedProject.tasks.total} tasks</span>
-                            <span>{selectedProject.progress}%</span>
+                            <span>{getTasksArray(selectedProject.tasks).length} task(s)</span>
+                            <span>{selectedProject.progress || 0}%</span>
                           </div>
                           <div className="w-full bg-gray-200 rounded-full h-3">
                             <div 
                               className="h-3 bg-blue-500 rounded-full transition-all duration-1000 ease-out"
-                              style={{ width: `${selectedProject.progress}%` }}
+                              style={{ width: `${selectedProject.progress || 0}%` }}
                             ></div>
                           </div>
                         </div>
@@ -692,31 +755,88 @@ const ProjectsPage = () => {
                     </div>
                   </div>
 
-                  {/* Team */}
+                  {/* Team and Assignment */}
                   <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                    <div className="space-y-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       <div>
-                        <label className="block text-sm font-semibold text-gray-800 mb-2">Team Members ({selectedProject.team.length})</label>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          {selectedProject.team.map((member: any, index: number) => (
-                            <div key={index} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                              <Avatar name={member.name} size="md" />
-                              <div>
-                                <p className="font-medium text-gray-900">{member.name}</p>
-                                <p className="text-sm text-gray-600">{member.role}</p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                        <label className="block text-sm font-semibold text-gray-800 mb-2">Team(s)</label>
+                        <p className="text-gray-600">
+                          {Array.isArray(selectedProject.team) 
+                            ? selectedProject.team.join(', ') 
+                            : selectedProject.team || 'No team assigned'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-800 mb-2">Assignee</label>
+                        <p className="text-gray-600">{selectedProject.assignee || 'Not assigned'}</p>
                       </div>
                     </div>
                   </div>
+
+                  {/* Budget and Additional Info */}
+                  <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-800 mb-2">Budget</label>
+                        <p className="text-gray-600">${selectedProject.budget || '0'}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-800 mb-2">Company</label>
+                        <p className="text-gray-600">{selectedProject.company || 'N/A'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Tasks and Tags */}
+                  {(selectedProject.tasks || selectedProject.tags) && (
+                    <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {selectedProject.tasks && (
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-800 mb-2">Tasks</label>
+                            <p className="text-gray-600">
+                              {getTasksArray(selectedProject.tasks).length} task(s)
+                            </p>
+                          </div>
+                        )}
+                        {selectedProject.tags && (
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-800 mb-2">Tags</label>
+                            <div className="flex flex-wrap gap-2">
+                              {getTagsArray(selectedProject.tags).map((tag: string, index: number) => (
+                                <span key={index} className="px-3 py-1 bg-gray-100 text-gray-600 text-sm rounded-full">
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Notes */}
+                  {selectedProject.notes && (
+                    <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                      <label className="block text-sm font-semibold text-gray-800 mb-2">Notes</label>
+                      <p className="text-gray-600 whitespace-pre-wrap">{selectedProject.notes}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* Project Form Modal */}
+      <ProjectForm
+        project={editingProject}
+        onSubmit={handleProjectFormSubmit}
+        onCancel={handleProjectFormCancel}
+        isOpen={isProjectFormOpen}
+        isCollapsed={isCollapsed}
+      />
     </AppLayout>
   );
 };
