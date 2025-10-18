@@ -1117,43 +1117,41 @@ const TasksPage = () => {
 
       {/* Task Form - Slides up from bottom */}
       {isTaskFormOpen && (
-        <div className={`fixed inset-0  z-50 flex items-end transition-opacity duration-300 ${
-          isFormAnimating ? 'bg-opacity-0' : 'bg-opacity-50'
-        }`}>
+        <div 
+          className={`fixed inset-0 z-50 flex items-end transition-opacity duration-300 ${
+            isFormAnimating ? ' bg-opacity-0' : 'bg-opacity-50'
+          }`}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              handleTaskFormCancel();
+            }
+          }}
+        >
           <div 
             ref={taskFormRef}
-            className={`w-full transform transition-all duration-300 ease-out ${
+            className={`bg-white rounded-t-2xl shadow-2xl w-full transform transition-all duration-300 ease-out ${
               isFormAnimating ? 'translate-y-full' : 'translate-y-0'
             } ${isCollapsed ? 'lg:ml-16' : 'lg:ml-64'}`}
+            style={{ 
+              width: `calc(100% - ${isCollapsed ? '4rem' : '16rem'})`,
+              height: `${formHeight}vh`,
+              boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+            }}
           >
-            <div 
-              className="bg-white rounded-t-2xl shadow-2xl overflow-y-auto"
-              style={{ 
-                height: `${formHeight}vh`,
-                boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
-              }}
-            >
-              {/* Drag Handle - Sticky */}
-              <div 
-                className={`sticky top-0 z-20 w-full h-6 flex items-center justify-center cursor-row-resize hover:bg-gray-50 transition-colors ${isDragging ? 'bg-gray-100' : ''}`}
-                onMouseDown={handleMouseDown}
-              >
-                <div className="w-12 h-1 bg-gray-400 rounded-full"></div>
-              </div>
-              <div className="p-6">
-                <TaskForm
-                  task={selectedTask || undefined}
-                  onSubmit={handleTaskFormSubmit}
-                  onCancel={handleTaskFormCancel}
-                  isEditing={!!selectedTask}
-                  projects={Array.from(new Set(tasks.map(t => t.project)))}
-                  teams={allTeams.map(team => team.name)}
-                  users={allUsers}
-                  isLoadingUsers={isLoadingUsers}
-                  isLoadingTeams={isLoadingTeams}
-                />
-              </div>
-            </div>
+            <TaskForm
+              task={selectedTask || undefined}
+              onSubmit={handleTaskFormSubmit}
+              onCancel={handleTaskFormCancel}
+              isEditing={!!selectedTask}
+              projects={Array.from(new Set(tasks.map(t => t.project)))}
+              teams={allTeams.map(team => team.name)}
+              users={allUsers}
+              isLoadingUsers={isLoadingUsers}
+              isLoadingTeams={isLoadingTeams}
+              formHeight={formHeight}
+              isDragging={isDragging}
+              onMouseDown={handleMouseDown}
+            />
           </div>
         </div>
       )}

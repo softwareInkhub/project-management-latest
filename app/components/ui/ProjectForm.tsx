@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from './Button';
 import { Input } from './Input';
 import { Select } from './Select';
@@ -75,6 +75,8 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [newTeamMember, setNewTeamMember] = useState('');
+  const [formHeight, setFormHeight] = useState(80); // Default 80vh
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     if (project) {
@@ -98,7 +100,37 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
       });
     }
     setErrors({});
+    setFormHeight(80); // Reset form height when opening
   }, [project, isOpen]);
+
+  // Drag handlers for resizing
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isDragging) return;
+    const windowHeight = window.innerHeight;
+    const newHeight = ((windowHeight - e.clientY) / windowHeight) * 100;
+    const clampedHeight = Math.max(30, Math.min(90, newHeight));
+    setFormHeight(clampedHeight);
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -206,38 +238,46 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
       }}
     >
       <div 
-        className={`bg-white rounded-t-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl ${
+        className={`bg-white rounded-t-2xl w-full overflow-y-auto shadow-2xl ${
           isCollapsed ? 'lg:ml-16' : 'lg:ml-64'
         }`}
         style={{ 
           width: `calc(100% - ${isCollapsed ? '4rem' : '16rem'})`,
+          height: `${formHeight}vh`,
           boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
         }}
       >
-        {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-2xl">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">
-                {project ? 'Edit Project' : 'Create New Project'}
-              </h2>
-              <p className="text-sm text-gray-600 mt-1">
-                {project ? 'Update project details' : 'Fill in the project information'}
-              </p>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onCancel}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              <X className="w-5 h-5" />
-            </Button>
-          </div>
+        {/* Drag Handle - Sticky */}
+        <div 
+          className={`sticky top-0 z-20 w-full h-6 flex items-center justify-center cursor-row-resize hover:bg-gray-50 transition-colors ${isDragging ? 'bg-gray-100' : ''}`}
+          onMouseDown={handleMouseDown}
+        >
+          <div className="w-12 h-1 bg-gray-400 rounded-full"></div>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <div className="flex flex-col h-full">
+          <div className="p-6 flex-1 overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">
+                  {project ? 'Edit Project' : 'Create New Project'}
+                </h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  {project ? 'Update project details' : 'Fill in the project information'}
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onCancel}
+              >
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="space-y-6">
           {/* Project Name */}
           <div>
             <label className="block text-sm font-semibold text-gray-800 mb-2">
@@ -335,7 +375,7 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
               </label>
               <Select
                 value={formData.status || 'Planning'}
-                onChange={(value) => handleInputChange('status', value)}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleInputChange('status', e.target.value)}
                 options={statusOptions}
               />
             </div>
@@ -346,7 +386,7 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
               </label>
               <Select
                 value={formData.priority || 'Medium'}
-                onChange={(value) => handleInputChange('priority', value)}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleInputChange('priority', e.target.value)}
                 options={priorityOptions}
               />
             </div>
@@ -451,24 +491,31 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
             </div>
           </div>
 
-          {/* Form Actions */}
-          <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onCancel}
-              className="px-6"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              className="px-6"
-            >
-              {project ? 'Update Project' : 'Create Project'}
-            </Button>
+            </form>
           </div>
-        </form>
+
+          {/* Sticky Form Actions */}
+          <div className="sticky bottom-0 bg-white border-t border-gray-200 p-6">
+            <div className="flex justify-end space-x-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onCancel}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleSubmit(e as any);
+                }}
+              >
+                {project ? 'Update Project' : 'Create Project'}
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

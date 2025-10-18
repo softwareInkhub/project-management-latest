@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Calendar, Clock, User, Tag, FileText, Users, UserCheck } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Calendar, Clock, User, Tag, FileText, Users, UserCheck, X } from 'lucide-react';
 import { Button } from './Button';
 import { Input } from './Input';
 import { Select } from './Select';
@@ -17,6 +17,9 @@ interface TaskFormProps {
   users?: any[];
   isLoadingUsers?: boolean;
   isLoadingTeams?: boolean;
+  formHeight?: number;
+  isDragging?: boolean;
+  onMouseDown?: (e: React.MouseEvent) => void;
 }
 
 export function TaskForm({ 
@@ -28,7 +31,10 @@ export function TaskForm({
   teams = [],
   users = [],
   isLoadingUsers = false,
-  isLoadingTeams = false
+  isLoadingTeams = false,
+  formHeight = 80,
+  isDragging = false,
+  onMouseDown
 }: TaskFormProps) {
   // Debug: Log users when they change
   React.useEffect(() => {
@@ -36,6 +42,7 @@ export function TaskForm({
       console.log('👥 TaskForm received users:', users);
     }
   }, [users]);
+  
   const [formData, setFormData] = useState<Partial<Task>>({
     title: task?.title || '',
     description: task?.description || '',
@@ -133,25 +140,43 @@ export function TaskForm({
   };
 
   return (
-    <div className="w-full">
-      {/* Modern Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
-            <FileText className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">
-              {isEditing ? 'Edit Task' : 'Create New Task'}
-            </h2>
-            <p className="text-gray-500 text-sm">
-              {isEditing ? 'Update the task details below' : 'Fill in the details to create a new task'}
-            </p>
-          </div>
+    <div className="flex flex-col h-full">
+      {/* Drag Handle - Sticky */}
+      {onMouseDown && (
+        <div 
+          className={`sticky top-0 z-20 w-full h-6 flex items-center justify-center cursor-row-resize hover:bg-gray-50 transition-colors ${isDragging ? 'bg-gray-100' : ''}`}
+          onMouseDown={onMouseDown}
+        >
+          <div className="w-12 h-1 bg-gray-400 rounded-full"></div>
         </div>
-      </div>
+      )}
       
-      <form onSubmit={handleSubmit} className="space-y-8 pb-24">
+      <div className="p-6 flex-1 overflow-y-auto">
+        {/* Modern Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+              <FileText className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">
+                {isEditing ? 'Edit Task' : 'Create New Task'}
+              </h2>
+              <p className="text-sm text-gray-600 mt-1">
+                {isEditing ? 'Update the task details below' : 'Fill in the details to create a new task'}
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onCancel}
+          >
+            <X className="w-5 h-5" />
+          </Button>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="space-y-6">
           {/* Basic Information */}
           <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -414,27 +439,30 @@ export function TaskForm({
             </div>
           </div>
 
-          {/* Form Actions - Sticky at bottom */}
-          <div className="sticky bottom-0 bg-white border-t border-gray-200 pt-6 mt-8 pb-4">
-            <div className="flex justify-end space-x-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onCancel}
-                className="px-8 py-3 text-sm font-medium h-12"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                variant="primary"
-                className="px-8 py-3 text-sm font-medium h-12"
-              >
-                {isEditing ? 'Update Task' : 'Create Task'}
-              </Button>
-            </div>
-          </div>
         </form>
+      </div>
+
+      {/* Sticky Form Actions */}
+      <div className="sticky bottom-0 bg-white border-t border-gray-200 p-6">
+        <div className="flex justify-end space-x-3">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            onClick={(e) => {
+              e.preventDefault();
+              handleSubmit(e as any);
+            }}
+          >
+            {isEditing ? 'Update Task' : 'Create Task'}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

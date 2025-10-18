@@ -69,13 +69,26 @@ interface Project {
   timestamp?: string;
 }
 
+interface TeamMember {
+  id: string;
+  name: string;
+  email?: string;
+  role: 'admin' | 'member' | 'viewer';
+}
+
 interface Team {
   id: string;
   name: string;
-  description: string;
-  members: any[];
-  createdAt: string;
-  updatedAt: string;
+  description?: string;
+  members: TeamMember[] | string;
+  memberCount?: number;
+  projects?: string[];
+  budget?: string;
+  startDate?: string;
+  archived?: boolean;
+  tags?: string[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 interface User {
@@ -348,11 +361,11 @@ class ApiService {
     });
 
     // Handle the response format from your CRUD API
-    if (result.success && result.data && result.data.items) {
+    if (result.success && result.data && Array.isArray(result.data)) {
       return {
         success: true,
-        data: result.data.items,
-        error: null
+        data: result.data,
+        error: undefined
       };
     }
 
@@ -365,11 +378,11 @@ class ApiService {
     });
 
     // Handle the response format from your CRUD API
-    if (result.success && result.data && result.data.item) {
+    if (result.success && result.data) {
       return {
         success: true,
-        data: result.data.item,
-        error: null
+        data: result.data,
+        error: undefined
       };
     }
 
@@ -421,7 +434,7 @@ class ApiService {
           return {
             success: true,
             data: getResult.data,
-            error: null
+            error: undefined
           };
         }
       }
@@ -434,8 +447,8 @@ class ApiService {
       const fallbackProject = {
         name: String(project.name || ''),
         description: String(project.description || ''),
-        productOwner: String(project.productOwner || ''),
-        scrumMaster: String(project.scrumMaster || ''),
+        company: String(project.company || ''),
+        assignee: String(project.assignee || ''),
         startDate: String(project.startDate || ''),
         endDate: String(project.endDate || ''),
         status: String(project.status || 'Planning'),
@@ -463,7 +476,7 @@ class ApiService {
           return {
             success: true,
             data: getResult.data,
-            error: null
+            error: undefined
           };
         }
       }
@@ -513,12 +526,12 @@ class ApiService {
     });
 
     // Handle the response format from your CRUD API
-    if (result.success && result.data && result.data.updatedItem) {
-      // The API returns the updated item in the updatedItem field
+    if (result.success && result.data) {
+      // The API returns the updated item in the data field
       return {
         success: true,
-        data: result.data.updatedItem,
-        error: null
+        data: result.data,
+        error: undefined
       };
     }
 
@@ -533,13 +546,24 @@ class ApiService {
 
   // Team Operations
   async getTeams(): Promise<ApiResponse<Team[]>> {
-    return this.makeRequest<Team[]>('?tableName=project-management-teams', {
+    const result = await this.makeRequest<Team[]>('?tableName=project-management-teams&pagination=true', {
       method: 'GET',
     });
+
+    // Handle the response format from your CRUD API
+    if (result.success && result.data && Array.isArray(result.data)) {
+      return {
+        success: true,
+        data: result.data,
+        error: undefined
+      };
+    }
+
+    return result;
   }
 
   async getTeamById(id: string): Promise<ApiResponse<Team>> {
-    return this.makeRequest<Team>(`?tableName=teams&id=${id}`, {
+    return this.makeRequest<Team>(`?tableName=project-management-teams&id=${id}`, {
       method: 'GET',
     });
   }
@@ -561,7 +585,9 @@ class ApiService {
 
   async updateTeam(id: string, updates: Partial<Team>): Promise<ApiResponse<Team>> {
     const payload = {
-      id,
+      key: {
+        id: id
+      },
       updates: {
         ...updates,
         updatedAt: new Date().toISOString(),
@@ -575,16 +601,27 @@ class ApiService {
   }
 
   async deleteTeam(id: string): Promise<ApiResponse<void>> {
-    return this.makeRequest<void>(`?tableName=teams&id=${id}`, {
+    return this.makeRequest<void>(`?tableName=project-management-teams&id=${id}`, {
       method: 'DELETE',
     });
   }
 
   // User Operations
   async getUsers(): Promise<ApiResponse<User[]>> {
-    return this.makeRequest<User[]>('?tableName=brmh-users', {
+    const result = await this.makeRequest<User[]>('?tableName=brmh-users&pagination=true', {
       method: 'GET',
     });
+
+    // Handle the response format from your CRUD API
+    if (result.success && result.data && Array.isArray(result.data)) {
+      return {
+        success: true,
+        data: result.data,
+        error: undefined
+      };
+    }
+
+    return result;
   }
 
   async getUserById(id: string): Promise<ApiResponse<User>> {
@@ -610,7 +647,9 @@ class ApiService {
 
   async updateUser(id: string, updates: Partial<User>): Promise<ApiResponse<User>> {
     const payload = {
-      id,
+      key: {
+        id: id
+      },
       updates: {
         ...updates,
         updatedAt: new Date().toISOString(),
@@ -696,4 +735,4 @@ ${assignmentDetails.join('\n')}`;
 }
 
 export const apiService = new ApiService();
-export type { Task, Project, Team, User, ApiResponse };
+export type { Task, Project, Team, TeamMember, User, ApiResponse };

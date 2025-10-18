@@ -122,6 +122,8 @@ const TeamsPage = () => {
   const [showUsersDropdown, setShowUsersDropdown] = useState(false);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [tagInput, setTagInput] = useState('');
+  const [formHeight, setFormHeight] = useState(80); // Default 80vh
+  const [isDragging, setIsDragging] = useState(false);
   const [teamForm, setTeamForm] = useState({
     name: '',
     description: '',
@@ -215,6 +217,12 @@ const TeamsPage = () => {
     All: teams.length,
     Active: teams.filter(t => !t.archived).length,
     Archived: teams.filter(t => t.archived).length
+  };
+
+  // Handle opening create team modal
+  const handleOpenCreateTeam = () => {
+    setFormHeight(80); // Reset to default height
+    setIsCreateTeamOpen(true);
   };
 
   // Handle team creation
@@ -372,6 +380,38 @@ const TeamsPage = () => {
     }
   }, [allUsers]);
 
+  // Drag handlers for form height
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isDragging) return;
+    
+    const windowHeight = window.innerHeight;
+    const newHeight = ((windowHeight - e.clientY) / windowHeight) * 100;
+    const clampedHeight = Math.max(30, Math.min(90, newHeight));
+    setFormHeight(clampedHeight);
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  // Handle drag events
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
+
   return (
     <AppLayout>
       <div className="w-full px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8 overflow-x-hidden">
@@ -410,7 +450,7 @@ const TeamsPage = () => {
             />
             <Button 
               className="flex items-center justify-center space-x-2 w-full sm:w-auto"
-              onClick={() => setIsCreateTeamOpen(true)}
+              onClick={handleOpenCreateTeam}
             >
               <Plus size={16} className="sm:w-4 sm:h-4" />
               <span className="text-sm sm:text-base">New Team</span>
@@ -468,8 +508,8 @@ const TeamsPage = () => {
         {/* Teams Grid/List */}
         {viewMode === 'list' ? (
           <div className="space-y-3">
-            {filteredTeams.map((team) => (
-              <Card key={team.id} hover className="cursor-pointer" onClick={() => handleTeamMenu(team)}>
+            {filteredTeams.map((team, index) => (
+              <Card key={team.id || `team-${index}`} hover className="cursor-pointer" onClick={() => handleTeamMenu(team)}>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
@@ -506,8 +546,8 @@ const TeamsPage = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredTeams.map((team) => (
-              <Card key={team.id} hover className="cursor-pointer" onClick={() => handleTeamMenu(team)}>
+            {filteredTeams.map((team, index) => (
+              <Card key={team.id || `team-${index}`} hover className="cursor-pointer" onClick={() => handleTeamMenu(team)}>
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-3">
                     <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
@@ -560,7 +600,7 @@ const TeamsPage = () => {
                 ? 'No teams available. Create your first team to get started.' 
                 : 'Try adjusting your search or filter criteria'}
             </p>
-            <Button onClick={() => setIsCreateTeamOpen(true)}>Create New Team</Button>
+            <Button onClick={handleOpenCreateTeam}>Create New Team</Button>
           </div>
         )}
       </div>
@@ -637,8 +677,8 @@ const TeamsPage = () => {
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h3 className="font-semibold text-gray-900 mb-3">Team Members</h3>
                   <div className="space-y-3">
-                    {parseMembers(selectedTeam.members).map((member) => (
-                      <div key={member.id} className="flex items-center space-x-3">
+                    {parseMembers(selectedTeam.members).map((member, index) => (
+                      <div key={member.id || member.name || `member-${index}`} className="flex items-center space-x-3">
                         <Avatar name={member.name} size="sm" />
                         <div className="flex-1">
                           <p className="font-medium text-gray-900">{member.name}</p>
@@ -651,8 +691,8 @@ const TeamsPage = () => {
                           </Badge>
                       </div>
                     ))}
+                    </div>
                   </div>
-                      </div>
 
                 {/* Tags */}
                 {(() => {
@@ -670,18 +710,18 @@ const TeamsPage = () => {
                           </span>
                         ))}
                       </div>
-                    </div>
+                      </div>
                   );
                 })()}
                       </div>
-                      </div>
-                      </div>
+                    </div>
+                  </div>
                     </div>
       )}
 
       {/* Floating Action Button for Mobile */}
       <button
-        onClick={() => setIsCreateTeamOpen(true)}
+        onClick={handleOpenCreateTeam}
         className="lg:hidden fixed bottom-20 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-700 transition-colors z-40"
         aria-label="Create Team"
       >
@@ -700,33 +740,42 @@ const TeamsPage = () => {
           }}
         >
           <div 
-            className={`bg-white rounded-t-2xl w-full max-h-[80vh] overflow-y-auto shadow-2xl ${
+            className={`bg-white rounded-t-2xl w-full overflow-y-auto shadow-2xl ${
               isCollapsed ? 'lg:ml-16' : 'lg:ml-64'
             }`}
             style={{ 
               width: `calc(100% - ${isCollapsed ? '4rem' : '16rem'})`,
+              height: `${formHeight}vh`,
               boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
             }}
           >
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">Create New Team</h2>
-                  <p className="text-sm text-gray-600 mt-1">Fill in the team information</p>
+            {/* Drag Handle - Sticky */}
+            <div 
+              className={`sticky top-0 z-20 w-full h-6 flex items-center justify-center cursor-row-resize hover:bg-gray-50 transition-colors ${isDragging ? 'bg-gray-100' : ''}`}
+              onMouseDown={handleMouseDown}
+            >
+              <div className="w-12 h-1 bg-gray-400 rounded-full"></div>
                       </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setIsCreateTeamOpen(false);
-                    resetForm();
-                  }}
-                >
-                  <X className="w-5 h-5" />
-                </Button>
-                    </div>
+            <div className="flex flex-col h-full">
+              <div className="p-6 flex-1 overflow-y-auto">
+                <div className="flex items-center justify-between mb-6">
+                      <div>
+                    <h2 className="text-xl font-bold text-gray-900">Create New Team</h2>
+                    <p className="text-sm text-gray-600 mt-1">Fill in the team information</p>
+                        </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setIsCreateTeamOpen(false);
+                      resetForm();
+                    }}
+                  >
+                    <X className="w-5 h-5" />
+                  </Button>
+                      </div>
 
-              <form onSubmit={(e) => { e.preventDefault(); handleCreateTeam(); }} className="space-y-6">
+                <form onSubmit={(e) => { e.preventDefault(); handleCreateTeam(); }} className="space-y-6">
                 {/* Team Name */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-800 mb-2">
@@ -738,7 +787,7 @@ const TeamsPage = () => {
                     placeholder="Enter team name"
                     required
                   />
-                  </div>
+                    </div>
 
                 {/* Description */}
                 <div>
@@ -752,11 +801,11 @@ const TeamsPage = () => {
                     rows={3}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                   />
-                      </div>
+                  </div>
 
-                {/* Project & Budget */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
+                {/* Project, Budget & Start Date */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
                     <label className="block text-sm font-semibold text-gray-800 mb-2">
                       Project
                     </label>
@@ -766,7 +815,7 @@ const TeamsPage = () => {
                       placeholder="Enter project name"
                     />
                       </div>
-                  <div>
+                      <div>
                     <label className="block text-sm font-semibold text-gray-800 mb-2">
                       Budget
                     </label>
@@ -776,19 +825,85 @@ const TeamsPage = () => {
                       placeholder="Enter budget"
                     />
                       </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-800 mb-2">
+                      Start Date
+                    </label>
+                    <Input
+                      type="date"
+                      value={teamForm.startDate}
+                      onChange={(e) => setTeamForm(prev => ({ ...prev, startDate: e.target.value }))}
+                    />
                     </div>
-
-                {/* Start Date */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-800 mb-2">
-                    Start Date
-                  </label>
-                  <Input
-                    type="date"
-                    value={teamForm.startDate}
-                    onChange={(e) => setTeamForm(prev => ({ ...prev, startDate: e.target.value }))}
-                  />
                   </div>
+
+                {/* Team Members */}
+                      <div>
+                  <label className="block text-sm font-semibold text-gray-800 mb-2">
+                    Team Members
+                  </label>
+                  <div className="relative">
+                    <input
+                      ref={userSearchRef}
+                      value={usersSearch}
+                      onChange={(e) => setUsersSearch(e.target.value)}
+                      onFocus={() => setShowUsersDropdown(true)}
+                      onBlur={() => setTimeout(() => setShowUsersDropdown(false), 200)}
+                      placeholder="Search users by name or email"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    {showUsersDropdown && (
+                      <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
+                        {isLoadingUsers ? (
+                          <div className="px-3 py-2 text-center text-gray-500">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                            Loading users...
+                </div>
+                        ) : filteredUsers.length === 0 ? (
+                          <div className="px-3 py-2 text-center text-gray-500">
+                            {usersSearch.trim() ? 'No users found' : 'No users available'}
+              </div>
+                        ) : (
+                          filteredUsers.map((user, index) => (
+                            <button
+                              key={user.id || user.email || user.username || `user-${index}`}
+                              type="button"
+                              className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center justify-between"
+                              onClick={() => addMember(user)}
+                            >
+                      <div>
+                                <p className="font-medium">{user.name || user.username || user.email}</p>
+                                {user.email && user.name && <p className="text-sm text-gray-600">{user.email}</p>}
+            </div>
+                              {teamForm.members.some(m => m.id === user.id) && (
+                                <Check className="w-4 h-4 text-green-500" />
+                              )}
+                            </button>
+                          ))
+                        )}
+                    </div>
+                    )}
+                  </div>
+
+                  {/* Selected Members */}
+                  <div className="mt-3 space-y-2">
+                    {teamForm.members.map((member, index) => (
+                      <div key={member.id || member.name || `selected-member-${index}`} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                        <div className="flex items-center space-x-2">
+                          <Avatar name={member.name} size="sm" />
+                          <span className="text-sm text-gray-800">{member.name}</span>
+                </div>
+                        <button
+                          type="button"
+                          onClick={() => removeMember(member.id)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+              </div>
+                    ))}
+                  </div>
+                </div>
 
                 {/* Tags */}
                       <div>
@@ -825,76 +940,12 @@ const TeamsPage = () => {
                     </div>
                   </div>
 
-                {/* Team Members */}
-                      <div>
-                  <label className="block text-sm font-semibold text-gray-800 mb-2">
-                    Team Members
-                  </label>
-                  <div className="relative">
-                    <input
-                      ref={userSearchRef}
-                      value={usersSearch}
-                      onChange={(e) => setUsersSearch(e.target.value)}
-                      onFocus={() => setShowUsersDropdown(true)}
-                      onBlur={() => setTimeout(() => setShowUsersDropdown(false), 200)}
-                      placeholder="Search users by name or email"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                    {showUsersDropdown && (
-                      <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
-                        {isLoadingUsers ? (
-                          <div className="px-3 py-2 text-center text-gray-500">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                            Loading users...
-                      </div>
-                        ) : filteredUsers.length === 0 ? (
-                          <div className="px-3 py-2 text-center text-gray-500">
-                            {usersSearch.trim() ? 'No users found' : 'No users available'}
-                          </div>
-                        ) : (
-                          filteredUsers.map((user) => (
-                            <button
-                              key={user.id}
-                              type="button"
-                              className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center justify-between"
-                              onClick={() => addMember(user)}
-                            >
-                      <div>
-                                <p className="font-medium">{user.name || user.username || user.email}</p>
-                                {user.email && user.name && <p className="text-sm text-gray-600">{user.email}</p>}
-                      </div>
-                              {teamForm.members.some(m => m.id === user.id) && (
-                                <Check className="w-4 h-4 text-green-500" />
-                              )}
-                            </button>
-                          ))
-                        )}
-                    </div>
-                    )}
-                  </div>
-
-                  {/* Selected Members */}
-                  <div className="mt-3 space-y-2">
-                    {teamForm.members.map((member) => (
-                      <div key={member.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
-                        <div className="flex items-center space-x-2">
-                          <Avatar name={member.name} size="sm" />
-                          <span className="text-sm text-gray-800">{member.name}</span>
-                </div>
-                        <button
-                          type="button"
-                          onClick={() => removeMember(member.id)}
-                          className="text-red-500 hover:text-red-700"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
+                </form>
               </div>
-                    ))}
-                  </div>
-                </div>
 
-                {/* Form Actions */}
-                <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+              {/* Sticky Form Actions */}
+              <div className="sticky bottom-0 bg-white border-t border-gray-200 p-6">
+                <div className="flex justify-end space-x-3">
                   <Button
                     type="button"
                     variant="outline"
@@ -905,11 +956,11 @@ const TeamsPage = () => {
                   >
                     Cancel
                   </Button>
-                  <Button type="submit">
+                  <Button type="submit" onClick={(e) => { e.preventDefault(); handleCreateTeam(); }}>
                     Create Team
                   </Button>
+                </div>
               </div>
-              </form>
             </div>
           </div>
         </div>
