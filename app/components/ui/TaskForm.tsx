@@ -5,27 +5,7 @@ import { Calendar, Clock, User, Tag, FileText, Users, UserCheck } from 'lucide-r
 import { Button } from './Button';
 import { Input } from './Input';
 import { Select } from './Select';
-
-// Task interface based on the provided schema
-interface Task {
-  id: string;                    // Unique identifier (UUID)
-  title: string;                 // Task title
-  description: string;           // Detailed task description
-  project: string;               // Project name this task belongs to
-  assignedToTeam?: string;       // Assigned to team
-  assignedToUser?: string;       // Assigned to user
-  status: 'To Do' | 'In Progress' | 'Completed' | 'Overdue';
-  priority: 'Low' | 'Medium' | 'High';
-  dueDate: string;              // ISO 8601 date string (YYYY-MM-DD)
-  startDate: string;            // ISO 8601 date string (YYYY-MM-DD)
-  estimatedHours: number;       // Estimated time in hours (decimal)
-  tags: string;                 // Comma-separated tags
-  subtasks: string[];           // Array of subtask IDs
-  comments: string[];           // Array of comments
-  parentId: string | null;      // Parent task ID (for subtasks)
-  createdAt: string;            // ISO 8601 timestamp
-  updatedAt: string;            // ISO 8601 timestamp
-}
+import { Task } from '../../services/api';
 
 interface TaskFormProps {
   task?: Task; // For editing existing tasks
@@ -48,15 +28,20 @@ export function TaskForm({
     title: task?.title || '',
     description: task?.description || '',
     project: task?.project || '',
-    assignedToTeam: task?.assignedToTeam || '',
-    assignedToUser: task?.assignedToUser || '',
+    assignee: task?.assignee || '',
+    assignedTeams: task?.assignedTeams || [],
+    assignedUsers: task?.assignedUsers || [],
     status: task?.status || 'To Do',
     priority: task?.priority || 'Medium',
     dueDate: task?.dueDate || '',
     startDate: task?.startDate || '',
     estimatedHours: task?.estimatedHours || 0,
     tags: task?.tags || '',
+    subtasks: task?.subtasks || '[]',
+    comments: task?.comments || '0',
     parentId: task?.parentId || null,
+    progress: task?.progress || 0,
+    timeSpent: task?.timeSpent || '0',
   });
 
   // Helper functions for hours and minutes
@@ -105,12 +90,16 @@ export function TaskForm({
     if (validateForm()) {
       const taskData: Partial<Task> = {
         ...formData,
-        id: task?.id || crypto.randomUUID(),
-        subtasks: task?.subtasks || [],
-        comments: task?.comments || [],
-        createdAt: task?.createdAt || new Date().toISOString(),
+        subtasks: formData.subtasks || '[]',
+        comments: formData.comments || '0',
         updatedAt: new Date().toISOString(),
       };
+
+      // Only include id and createdAt for new tasks, not for updates
+      if (!isEditing) {
+        taskData.id = crypto.randomUUID();
+        taskData.createdAt = new Date().toISOString();
+      }
       
       onSubmit(taskData);
     }
@@ -123,10 +112,10 @@ export function TaskForm({
     }));
     
     // Clear error when user starts typing
-    if (errors[field]) {
+    if (errors[field as string]) {
       setErrors(prev => ({
         ...prev,
-        [field]: ''
+        [field as string]: ''
       }));
     }
   };
@@ -217,6 +206,7 @@ export function TaskForm({
                 )}
               </div>
 
+
             </div>
           </div>
 
@@ -228,8 +218,8 @@ export function TaskForm({
                   Assigned To User
                 </label>
                 <Select
-                  value={formData.assignedToUser || ''}
-                  onChange={(value) => handleInputChange('assignedToUser', value)}
+                  value={formData.assignee || ''}
+                  onChange={(value) => handleInputChange('assignee', value)}
                   options={[
                     { value: '', label: 'Select User' },
                     { value: 'Sarah Johnson', label: 'Sarah Johnson' },
@@ -248,8 +238,8 @@ export function TaskForm({
                   Assigned To Team
                 </label>
                 <Select
-                  value={formData.assignedToTeam || ''}
-                  onChange={(value) => handleInputChange('assignedToTeam', value)}
+                  value={formData.assignedTeams?.[0] || ''}
+                  onChange={(value) => handleInputChange('assignedTeams', value ? [value] : [])}
                   options={[
                     { value: '', label: 'Select Team' },
                     ...teams.map(team => ({ value: team, label: team }))

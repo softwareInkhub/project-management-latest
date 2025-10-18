@@ -30,45 +30,29 @@ import { AppLayout } from '../components/AppLayout';
 import { TaskForm } from '../components/ui/TaskForm';
 import { useTabs } from '../hooks/useTabs';
 import { useSidebar } from '../components/AppLayout';
+import { apiService, Task } from '../services/api';
 
-// Task interface based on the provided schema
-interface Task {
-  id: string;                    // Unique identifier (UUID)
-  title: string;                 // Task title
-  description: string;           // Detailed task description
-  project: string;               // Project name this task belongs to
-  assignedToTeam?: string;       // Assigned to team
-  assignedToUser?: string;       // Assigned to user
-  status: 'To Do' | 'In Progress' | 'Completed' | 'Overdue';
-  priority: 'Low' | 'Medium' | 'High';
-  dueDate: string;              // ISO 8601 date string (YYYY-MM-DD)
-  startDate: string;            // ISO 8601 date string (YYYY-MM-DD)
-  estimatedHours: number;       // Estimated time in hours (decimal)
-  tags: string;                 // Comma-separated tags
-  subtasks: string[];           // Array of subtask IDs
-  comments: string[];           // Array of comments
-  parentId: string | null;      // Parent task ID (for subtasks)
-  createdAt: string;            // ISO 8601 timestamp
-  updatedAt: string;            // ISO 8601 timestamp
-}
-
-// Mock data for tasks
-const tasks: Task[] = [
+// Mock data for tasks (fallback when API fails)
+const mockTasks: Task[] = [
   {
     id: '1',
     title: 'Design new landing page',
     description: 'Create a modern, responsive landing page design for the new product launch',
     project: 'Website Redesign',
-    assignedToUser: 'Sarah Johnson',
+    assignee: 'Sarah Johnson',
+    assignedTeams: ['design-team'],
+    assignedUsers: ['user-1'],
     status: 'In Progress',
     priority: 'High',
     dueDate: new Date().toISOString().split('T')[0], // Today
     startDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 3 days ago
     estimatedHours: 8,
     tags: 'design,frontend,ui',
-    subtasks: ['1.1', '1.2'],
-    comments: ['Initial design review completed', 'Need to update color scheme', 'Client feedback received'],
+    subtasks: '["1.1", "1.2"]',
+    comments: '3',
     parentId: null,
+    progress: 45,
+    timeSpent: '3.5',
     createdAt: '2024-01-10T09:00:00Z',
     updatedAt: '2024-01-12T14:30:00Z'
   },
@@ -77,16 +61,20 @@ const tasks: Task[] = [
     title: 'Implement user authentication',
     description: 'Set up secure user authentication system with JWT tokens',
     project: 'Mobile App Development',
-    assignedToUser: 'Mike Chen',
+    assignee: 'Mike Chen',
+    assignedTeams: ['backend-team'],
+    assignedUsers: ['user-2'],
     status: 'To Do',
     priority: 'High',
     dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Tomorrow
     startDate: new Date().toISOString().split('T')[0], // Today
     estimatedHours: 12,
     tags: 'backend,security,api',
-    subtasks: [],
-    comments: ['Requirements finalized'],
+    subtasks: '[]',
+    comments: '1',
     parentId: null,
+    progress: 0,
+    timeSpent: '0',
     createdAt: '2024-01-15T10:00:00Z',
     updatedAt: '2024-01-15T10:00:00Z'
   },
@@ -95,16 +83,20 @@ const tasks: Task[] = [
     title: 'Write API documentation',
     description: 'Create comprehensive documentation for all REST API endpoints',
     project: 'API Integration',
-    assignedToUser: 'Alex Rodriguez',
+    assignee: 'Alex Rodriguez',
+    assignedTeams: ['backend-team'],
+    assignedUsers: ['user-3'],
     status: 'In Progress',
     priority: 'Medium',
     dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // This week
     startDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 2 days ago
     estimatedHours: 6,
     tags: 'documentation,api',
-    subtasks: [],
-    comments: ['Started with authentication endpoints', 'Need to document error responses', 'Review with team scheduled', 'Added examples', 'Ready for review'],
+    subtasks: '[]',
+    comments: '5',
     parentId: null,
+    progress: 60,
+    timeSpent: '3.5',
     createdAt: '2024-01-15T08:00:00Z',
     updatedAt: '2024-01-17T16:00:00Z'
   },
@@ -113,16 +105,20 @@ const tasks: Task[] = [
     title: 'Conduct user interviews',
     description: 'Interview 10 users to gather feedback on the current product',
     project: 'User Research Study',
-    assignedToUser: 'Emily Davis',
+    assignee: 'Emily Davis',
+    assignedTeams: ['research-team'],
+    assignedUsers: ['user-4'],
     status: 'Completed',
     priority: 'Medium',
     dueDate: '2024-02-28',
     startDate: '2024-02-01',
     estimatedHours: 10,
     tags: 'research,user-feedback',
-    subtasks: [],
-    comments: ['Interview schedule created', '5 interviews completed', 'Initial insights gathered', 'Need to analyze data', 'Report draft ready', 'Stakeholder review scheduled', 'Final report approved', 'Action items identified'],
+    subtasks: '[]',
+    comments: '8',
     parentId: null,
+    progress: 100,
+    timeSpent: '10',
     createdAt: '2024-02-01T09:00:00Z',
     updatedAt: '2024-02-28T17:00:00Z'
   },
@@ -131,16 +127,20 @@ const tasks: Task[] = [
     title: 'Setup CI/CD pipeline',
     description: 'Configure automated testing and deployment pipeline',
     project: 'Database Migration',
-    assignedToUser: 'David Kim',
+    assignee: 'David Kim',
+    assignedTeams: ['devops-team'],
+    assignedUsers: ['user-5'],
     status: 'To Do',
     priority: 'Low',
     dueDate: '2024-04-10',
     startDate: '2024-03-01',
     estimatedHours: 16,
     tags: 'devops,automation',
-    subtasks: [],
-    comments: [],
+    subtasks: '[]',
+    comments: '0',
     parentId: null,
+    progress: 0,
+    timeSpent: '0',
     createdAt: '2024-02-25T10:00:00Z',
     updatedAt: '2024-02-25T10:00:00Z'
   },
@@ -149,16 +149,20 @@ const tasks: Task[] = [
     title: 'Create marketing materials',
     description: 'Design banners, social media posts, and email templates for Q2 campaign',
     project: 'Marketing Campaign',
-    assignedToUser: 'Lisa Wang',
+    assignee: 'Lisa Wang',
+    assignedTeams: ['marketing-team'],
+    assignedUsers: ['user-6'],
     status: 'In Progress',
     priority: 'High',
     dueDate: '2024-03-10',
     startDate: '2024-02-22',
     estimatedHours: 14,
     tags: 'marketing,design',
-    subtasks: [],
-    comments: ['Brand guidelines reviewed', 'Initial designs created'],
+    subtasks: '[]',
+    comments: '2',
     parentId: null,
+    progress: 30,
+    timeSpent: '4.5',
     createdAt: '2024-02-22T11:00:00Z',
     updatedAt: '2024-02-25T14:30:00Z'
   }
@@ -171,10 +175,28 @@ const statusConfig = {
   'Overdue': { label: 'Overdue', color: 'danger', icon: AlertCircle }
 };
 
+// Helper function to get status config with fallback
+const getStatusConfig = (status: string) => {
+  return statusConfig[status as keyof typeof statusConfig] || {
+    label: status || 'Unknown',
+    color: 'default',
+    icon: Circle
+  };
+};
+
 const priorityConfig = {
   'Low': { label: 'Low', color: 'default', icon: ArrowDown },
   'Medium': { label: 'Medium', color: 'warning', icon: Flag },
   'High': { label: 'High', color: 'danger', icon: ArrowUp }
+};
+
+// Helper function to get priority config with fallback
+const getPriorityConfig = (priority: string) => {
+  return priorityConfig[priority as keyof typeof priorityConfig] || {
+    label: priority || 'Unknown',
+    color: 'default',
+    icon: Flag
+  };
 };
 
 const TasksPage = () => {
@@ -192,10 +214,188 @@ const TasksPage = () => {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isTaskPreviewOpen, setIsTaskPreviewOpen] = useState(false);
   const [isPreviewAnimating, setIsPreviewAnimating] = useState(false);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const taskFormRef = useRef<HTMLDivElement>(null);
   const taskPreviewRef = useRef<HTMLDivElement>(null);
   const { openTab } = useTabs();
   const { isCollapsed } = useSidebar();
+
+  // API Functions
+  const fetchTasks = async () => {
+    try {
+      console.log('🔄 Starting to fetch tasks...');
+      setIsLoading(true);
+      setError(null);
+      
+      console.log('📡 Calling apiService.getTasks()...');
+      const response = await apiService.getTasks();
+      console.log('📡 API response received:', response);
+      
+      if (response.success && response.data) {
+        console.log('✅ Tasks fetched successfully, count:', response.data.length);
+        setTasks(response.data);
+      } else {
+        console.log('❌ API returned error:', response.error);
+        setError(response.error || 'Failed to fetch tasks');
+        // Fallback to mock data if API fails
+        console.log('🔄 Falling back to mock data...');
+        setTasks(mockTasks);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching tasks:', error);
+      setError('An unexpected error occurred');
+      // Fallback to mock data if API fails
+      console.log('🔄 Falling back to mock data due to error...');
+      setTasks(mockTasks);
+    } finally {
+      setIsLoading(false);
+      console.log('🏁 fetchTasks completed');
+    }
+  };
+
+  const createTask = async (taskData: Partial<Task>) => {
+    try {
+      const response = await apiService.createTask(taskData);
+      
+      if (response.success && response.data) {
+        setTasks(prev => [...prev, response.data!]);
+        
+        // Send WhatsApp notification
+        try {
+          await apiService.sendWhatsAppNotification(response.data);
+          console.log('✅ WhatsApp notification sent successfully');
+        } catch (error) {
+          console.error('❌ Error sending notification:', error);
+        }
+        
+        return { success: true, data: response.data };
+      } else {
+        return { success: false, error: response.error || 'Failed to create task' };
+      }
+    } catch (error) {
+      console.error('Error creating task:', error);
+      return { success: false, error: 'An unexpected error occurred' };
+    }
+  };
+
+  const updateTask = async (taskId: string, updates: Partial<Task>) => {
+    try {
+      const response = await apiService.updateTask(taskId, updates);
+      
+      if (response.success && response.data) {
+        setTasks(prev => prev.map(task => 
+          task.id === taskId ? response.data! : task
+        ));
+        return { success: true, data: response.data };
+      } else {
+        return { success: false, error: response.error || 'Failed to update task' };
+      }
+    } catch (error) {
+      console.error('Error updating task:', error);
+      return { success: false, error: 'An unexpected error occurred' };
+    }
+  };
+
+  const deleteTask = async (taskId: string) => {
+    try {
+      const response = await apiService.deleteTask(taskId);
+      
+      if (response.success) {
+        setTasks(prev => prev.filter(task => task.id !== taskId));
+        return { success: true };
+      } else {
+        return { success: false, error: response.error || 'Failed to delete task' };
+      }
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      return { success: false, error: 'An unexpected error occurred' };
+    }
+  };
+
+  // Subtask Functions
+  const createSubtask = async (parentTaskId: string, subtaskData: Partial<Task>) => {
+    try {
+      // Create the subtask with parentId
+      const subtaskWithParent = {
+        ...subtaskData,
+        parentId: parentTaskId,
+        subtasks: '[]',
+        comments: '0',
+        progress: 0,
+        timeSpent: '0'
+      };
+
+      const response = await apiService.createTask(subtaskWithParent);
+      
+      if (response.success && response.data) {
+        // Add subtask to tasks list
+        setTasks(prev => [...prev, response.data!]);
+        
+        // Update parent task's subtasks array
+        const parentTask = tasks.find(t => t.id === parentTaskId);
+        if (parentTask) {
+          try {
+            const subtasksArray = JSON.parse(parentTask.subtasks || '[]');
+            subtasksArray.push(response.data.id);
+            
+            await apiService.updateTask(parentTaskId, {
+              subtasks: JSON.stringify(subtasksArray)
+            });
+            
+            // Update local state
+            setTasks(prev => prev.map(task => 
+              task.id === parentTaskId 
+                ? { ...task, subtasks: JSON.stringify(subtasksArray) }
+                : task
+            ));
+          } catch (error) {
+            console.error('Error updating parent task subtasks:', error);
+          }
+        }
+        
+        return { success: true, data: response.data };
+      } else {
+        return { success: false, error: response.error || 'Failed to create subtask' };
+      }
+    } catch (error) {
+      console.error('Error creating subtask:', error);
+      return { success: false, error: 'An unexpected error occurred' };
+    }
+  };
+
+  const getSubtasks = (parentTaskId: string): Task[] => {
+    return tasks.filter(task => task.parentId === parentTaskId);
+  };
+
+  const getSubtaskCount = (task: Task): number => {
+    try {
+      // Method 1: Count by parentId
+      const byParent = tasks.filter(t => t.parentId === task.id).length;
+      
+      // Method 2: Count by subtasks array
+      let byArray = 0;
+      try {
+        if (typeof task.subtasks === 'string' && task.subtasks.trim()) {
+          const subtasksArray = JSON.parse(task.subtasks);
+          if (Array.isArray(subtasksArray)) {
+            byArray = tasks.filter(t => subtasksArray.includes(t.id)).length;
+          }
+        }
+      } catch {}
+      
+      // Return the maximum of both methods
+      return Math.max(byParent, byArray);
+    } catch (error) {
+      return 0;
+    }
+  };
+
+  // Load tasks on component mount
+  useEffect(() => {
+    fetchTasks();
+  }, []);
 
   const isOverdue = (dueDate: string) => {
     const task = tasks.find(t => t.dueDate === dueDate);
@@ -239,13 +439,13 @@ const TasksPage = () => {
   });
 
   const getStatusIcon = (status: string) => {
-    const config = statusConfig[status as keyof typeof statusConfig];
+    const config = getStatusConfig(status);
     const Icon = config.icon;
     return <Icon className="w-4 h-4" />;
   };
 
   const getPriorityIcon = (priority: string) => {
-    const config = priorityConfig[priority as keyof typeof priorityConfig];
+    const config = getPriorityConfig(priority);
     const Icon = config.icon;
     return <Icon className="w-4 h-4" />;
   };
@@ -338,10 +538,45 @@ const TasksPage = () => {
     }, 10);
   };
 
-  const handleTaskFormSubmit = (taskData: Partial<Task>) => {
-    // Here you would typically save the task to your backend
-    console.log('New task created:', taskData);
-    closeForm();
+  const handleTaskFormSubmit = async (taskData: Partial<Task>) => {
+    try {
+      let result;
+      
+      if (selectedTask) {
+        // Update existing task
+        console.log('🔄 Updating task:', selectedTask.id, taskData);
+        result = await updateTask(selectedTask.id, taskData);
+        
+        if (result.success) {
+          console.log('✅ Task updated successfully:', result.data);
+          closeForm();
+          setSelectedTask(null);
+          // Show success message (you can add a toast notification here)
+        } else {
+          console.error('❌ Failed to update task:', result.error);
+          alert(`Failed to update task: ${result.error}`);
+        }
+      } else {
+        // Create new task
+        if (taskData.parentId) {
+          result = await createSubtask(taskData.parentId, taskData);
+        } else {
+          result = await createTask(taskData);
+        }
+        
+        if (result.success) {
+          console.log('✅ Task created successfully:', result.data);
+          closeForm();
+          // Show success message (you can add a toast notification here)
+        } else {
+          console.error('❌ Failed to create task:', result.error);
+          alert(`Failed to create task: ${result.error}`);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error with task operation:', error);
+      alert('An unexpected error occurred while processing the task');
+    }
   };
 
   const handleTaskFormCancel = () => {
@@ -355,6 +590,7 @@ const TasksPage = () => {
     setTimeout(() => {
       setIsTaskFormOpen(false);
       setIsFormAnimating(false);
+      setSelectedTask(null); // Clear selected task when closing form
     }, 300);
   };
 
@@ -539,8 +775,37 @@ const TasksPage = () => {
           ]}
         />
 
+         {/* Loading State */}
+         {isLoading && (
+           <div className="flex items-center justify-center py-12">
+             <div className="text-center">
+               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+               <p className="text-gray-600">Loading tasks...</p>
+             </div>
+           </div>
+         )}
+
+         {/* Error State */}
+         {error && !isLoading && (
+           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+             <div className="flex items-center">
+               <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
+               <div>
+                 <h3 className="text-sm font-medium text-red-800">Error loading tasks</h3>
+                 <p className="text-sm text-red-600 mt-1">{error}</p>
+                 <button 
+                   onClick={fetchTasks}
+                   className="text-sm text-red-600 hover:text-red-800 underline mt-2"
+                 >
+                   Try again
+                 </button>
+               </div>
+             </div>
+           </div>
+         )}
+
          {/* Tasks List */}
-         {viewMode === 'list' ? (
+         {!isLoading && !error && viewMode === 'list' ? (
            <div className="space-y-3">
              {filteredTasks.map((task) => (
                <div key={task.id} className="relative p-3 sm:p-4 bg-white rounded-lg border border-gray-100 hover:border-gray-200 transition-colors min-h-[120px] sm:min-h-[140px] flex flex-col sm:flex-row sm:items-center cursor-pointer" onClick={() => handleTaskClick(task)}>
@@ -574,11 +839,11 @@ const TasksPage = () => {
                    {/* Assignee and Due Date (Desktop only) */}
                    <div className="hidden sm:flex items-center space-x-2">
                      <div className="flex -space-x-2">
-                       <Avatar name={task.assignedToUser} size="sm" />
+                       <Avatar name={task.assignee} size="sm" />
                        <Avatar name="Team Member 2" size="sm" />
                        <Avatar name="Team Member 3" size="sm" />
                      </div>
-                     <span className="text-xs text-gray-500">{task.assignedToUser}</span>
+                     <span className="text-xs text-gray-500">{task.assignee}</span>
                      <div className="flex items-center space-x-1 text-xs">
                        <Calendar size={12} />
                        <span className={isOverdue(task.dueDate) ? 'text-red-600 font-medium' : 'text-gray-500'}>
@@ -611,33 +876,47 @@ const TasksPage = () => {
                        {/* Task Meta Info */}
                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-gray-500 mt-3">
                          <div className="flex items-center space-x-1">
-                           <Badge variant={statusConfig[task.status as keyof typeof statusConfig].color as any} size="sm">
+                           <Badge variant={getStatusConfig(task.status).color as any} size="sm">
                              {getStatusIcon(task.status)}
-                             <span className="ml-1 hidden sm:inline">{statusConfig[task.status as keyof typeof statusConfig].label}</span>
+                             <span className="ml-1 hidden sm:inline">{getStatusConfig(task.status).label}</span>
                            </Badge>
                          </div>
                          <div className="flex items-center space-x-1">
-                           <Badge variant={priorityConfig[task.priority as keyof typeof priorityConfig].color as any} size="sm">
+                           <Badge variant={getPriorityConfig(task.priority).color as any} size="sm">
                              {getPriorityIcon(task.priority)}
-                             <span className="ml-1 hidden sm:inline">{priorityConfig[task.priority as keyof typeof priorityConfig].label}</span>
+                             <span className="ml-1 hidden sm:inline">{getPriorityConfig(task.priority).label}</span>
                            </Badge>
                          </div>
                          <div className="flex items-center space-x-1">
                            <Clock size={10} className="sm:w-3 sm:h-3" />
                            <span className="text-xs">{task.estimatedHours}h</span>
                          </div>
-                         {task.comments.length > 0 && (
-                           <div className="flex items-center space-x-1">
-                             <MessageSquare size={10} className="sm:w-3 sm:h-3" />
-                             <span className="text-xs">{task.comments.length}</span>
-                           </div>
-                         )}
-                         {task.subtasks.length > 0 && (
-                           <div className="flex items-center space-x-1">
-                             <Paperclip size={10} className="sm:w-3 sm:h-3" />
-                             <span className="text-xs">{task.subtasks.length}</span>
-                           </div>
-                         )}
+                        {parseInt(task.comments) > 0 && (
+                          <div className="flex items-center space-x-1">
+                            <MessageSquare size={10} className="sm:w-3 sm:h-3" />
+                            <span className="text-xs">{task.comments}</span>
+                          </div>
+                        )}
+                        {(() => {
+                          try {
+                            const subtasksArray = JSON.parse(task.subtasks);
+                            return Array.isArray(subtasksArray) && subtasksArray.length > 0;
+                          } catch {
+                            return false;
+                          }
+                        })() && (
+                          <div className="flex items-center space-x-1">
+                            <Paperclip size={10} className="sm:w-3 sm:h-3" />
+                            <span className="text-xs">{(() => {
+                              try {
+                                const subtasksArray = JSON.parse(task.subtasks);
+                                return Array.isArray(subtasksArray) ? subtasksArray.length : 0;
+                              } catch {
+                                return 0;
+                              }
+                            })()}</span>
+                          </div>
+                        )}
                        </div>
                      </div>
                    </div>
@@ -677,7 +956,7 @@ const TasksPage = () => {
                    
                    {/* Assignee and Due Date */}
                    <div className="flex items-center space-x-2">
-                     <Avatar name={task.assignedToUser} size="sm" />
+                     <Avatar name={task.assignee} size="sm" />
                      <div className="flex flex-col items-end">
                        <div className="flex items-center space-x-1 text-xs">
                          <Calendar size={10} />
@@ -691,7 +970,7 @@ const TasksPage = () => {
                </div>
              ))}
            </div>
-        ) : (
+        ) : !isLoading && !error ? (
           /* Card View */
           <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
             {filteredTasks.map((task) => (
@@ -711,12 +990,12 @@ const TasksPage = () => {
                     
                     {/* Status and Priority Badges - Priority hidden on mobile */}
                     <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                      <Badge variant={statusConfig[task.status as keyof typeof statusConfig].color as any} size="sm" className="text-xs">
+                      <Badge variant={getStatusConfig(task.status).color as any} size="sm" className="text-xs">
                         {getStatusIcon(task.status)}
-                        <span className="ml-1 text-xs">{statusConfig[task.status as keyof typeof statusConfig].label}</span>
+                        <span className="ml-1 text-xs">{getStatusConfig(task.status).label}</span>
                       </Badge>
                       <div className="hidden sm:block">
-                        <Badge variant={priorityConfig[task.priority as keyof typeof priorityConfig].color as any} size="sm" className="text-xs">
+                        <Badge variant={getPriorityConfig(task.priority).color as any} size="sm" className="text-xs">
                           {getPriorityIcon(task.priority)}
                         </Badge>
                       </div>
@@ -729,10 +1008,10 @@ const TasksPage = () => {
                         <span className="text-xs">{task.estimatedHours}h</span>
                       </div>
                       <div className="flex items-center space-x-2">
-                        {task.comments.length > 0 && (
+                        {parseInt(task.comments) > 0 && (
                           <div className="flex items-center space-x-1">
                             <MessageSquare size={8} className="sm:w-3 sm:h-3" />
-                            <span className="text-xs">{task.comments.length}</span>
+                            <span className="text-xs">{task.comments}</span>
                           </div>
                         )}
                       </div>
@@ -755,8 +1034,8 @@ const TasksPage = () => {
                     {/* Assignee and Due Date - Minimal on mobile */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-1 sm:space-x-2">
-                        <Avatar name={task.assignedToUser} size="sm" />
-                        <span className="text-xs text-gray-500 hidden sm:inline">{task.assignedToUser}</span>
+                        <Avatar name={task.assignee} size="sm" />
+                        <span className="text-xs text-gray-500 hidden sm:inline">{task.assignee}</span>
                       </div>
                       <div className="flex items-center space-x-1 text-xs">
                         <Calendar size={8} className="sm:w-3 sm:h-3" />
@@ -770,10 +1049,10 @@ const TasksPage = () => {
               </Card>
             ))}
           </div>
-        )}
+        ) : null}
 
         {/* Empty State */}
-        {filteredTasks.length === 0 && (
+        {!isLoading && !error && filteredTasks.length === 0 && (
           <div className="text-center py-12">
             <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <CheckSquare className="w-12 h-12 text-gray-400" />
@@ -909,16 +1188,16 @@ const TasksPage = () => {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       <div>
                         <label className="block text-sm font-semibold text-gray-800 mb-2">Status</label>
-                        <Badge variant={statusConfig[selectedTask.status as keyof typeof statusConfig].color as any} size="md">
+                        <Badge variant={getStatusConfig(selectedTask.status).color as any} size="md">
                           {getStatusIcon(selectedTask.status)}
-                          <span className="ml-2">{statusConfig[selectedTask.status as keyof typeof statusConfig].label}</span>
+                          <span className="ml-2">{getStatusConfig(selectedTask.status).label}</span>
                         </Badge>
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-gray-800 mb-2">Priority</label>
-                        <Badge variant={priorityConfig[selectedTask.priority as keyof typeof priorityConfig].color as any} size="md">
+                        <Badge variant={getPriorityConfig(selectedTask.priority).color as any} size="md">
                           {getPriorityIcon(selectedTask.priority)}
-                          <span className="ml-2">{selectedTask.priority}</span>
+                          <span className="ml-2">{getPriorityConfig(selectedTask.priority).label}</span>
                         </Badge>
                       </div>
                     </div>
@@ -950,13 +1229,13 @@ const TasksPage = () => {
                       <div>
                         <label className="block text-sm font-semibold text-gray-800 mb-2">Assigned To</label>
                         <div className="flex items-center space-x-3">
-                          <Avatar name={selectedTask.assignedToUser} size="md" />
-                          <span className="text-gray-600">{selectedTask.assignedToUser}</span>
+                          <Avatar name={selectedTask.assignee} size="md" />
+                          <span className="text-gray-600">{selectedTask.assignee}</span>
                         </div>
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-gray-800 mb-2">Team</label>
-                        <p className="text-gray-600">{selectedTask.assignedToTeam || 'Not assigned'}</p>
+                        <p className="text-gray-600">{selectedTask.assignedTeams?.join(', ') || 'Not assigned'}</p>
                       </div>
                     </div>
                   </div>
