@@ -4,10 +4,12 @@ import { usePathname } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { Navigation } from './Navigation';
 import { TabBar } from './ui/TabBar';
+import { MobileBottomNav } from './MobileBottomNav';
 import { useTabs } from '../hooks/useTabs';
 
 interface AppLayoutProps {
   children: React.ReactNode;
+  onCreateTask?: () => void;
 }
 
 // Create context for sidebar state
@@ -21,7 +23,7 @@ const SidebarContext = createContext<{
 
 export const useSidebar = () => useContext(SidebarContext);
 
-export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
+export const AppLayout: React.FC<AppLayoutProps> = ({ children, onCreateTask }) => {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(() => {
@@ -84,10 +86,13 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           />
           
           {/* Page Content */}
-          <main className="flex-1 overflow-x-hidden">
+          <main className="flex-1 overflow-x-hidden pb-24 lg:pb-0">
             {children}
           </main>
         </div>
+        
+        {/* Mobile Bottom Navigation */}
+        <MobileBottomNav onCreateTask={onCreateTask} />
       </div>
     </SidebarContext.Provider>
   );

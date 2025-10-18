@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Plus, 
   Search, 
@@ -32,6 +32,7 @@ import { SearchFilterSection } from '../components/ui/SearchFilterSection';
 import { ViewToggle } from '../components/ui/ViewToggle';
 import { AppLayout } from '../components/AppLayout';
 import { useTabs } from '../hooks/useTabs';
+import { useSidebar } from '../components/AppLayout';
 
 // Mock data for team members
 const teamMembers = [
@@ -223,7 +224,12 @@ const TeamPage = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [roleFilter, setRoleFilter] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [selectedMember, setSelectedMember] = useState<any>(null);
+  const [isMemberPreviewOpen, setIsMemberPreviewOpen] = useState(false);
+  const [isPreviewAnimating, setIsPreviewAnimating] = useState(false);
+  const memberPreviewRef = useRef<HTMLDivElement>(null);
   const { openTab } = useTabs();
+  const { isCollapsed } = useSidebar();
 
   const filteredMembers = teamMembers.filter(member => {
     const matchesSearch = member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -264,6 +270,45 @@ const TeamPage = () => {
     return null;
   };
 
+  // Member preview and edit handlers
+  const handleMemberClick = (member: any) => {
+    setSelectedMember(member);
+    setIsMemberPreviewOpen(true);
+    setIsPreviewAnimating(false);
+  };
+
+  const handleEditMember = (member: any) => {
+    setSelectedMember(member);
+    setIsMemberPreviewOpen(false);
+    // TODO: Open edit form
+  };
+
+  const closeMemberPreview = () => {
+    setIsPreviewAnimating(true);
+    setTimeout(() => {
+      setIsMemberPreviewOpen(false);
+      setIsPreviewAnimating(false);
+      setSelectedMember(null);
+    }, 300);
+  };
+
+  // Close member preview when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (memberPreviewRef.current && !memberPreviewRef.current.contains(event.target as Node)) {
+        closeMemberPreview();
+      }
+    };
+
+    if (isMemberPreviewOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isMemberPreviewOpen]);
+
   return (
     <AppLayout>
       <div className="w-full px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8 overflow-x-hidden">
@@ -285,37 +330,6 @@ const TeamPage = () => {
           </div>
         </div>
 
-        {/* Team Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
-          <StatsCard
-            title="Total Members"
-            value={teamMembers.length}
-            subtitle="+2 this month"
-            icon={Users}
-            iconColor="blue"
-          />
-          <StatsCard
-            title="Active Members"
-            value={teamMembers.filter(m => m.status === 'active').length}
-            subtitle={`${Math.round((teamMembers.filter(m => m.status === 'active').length / teamMembers.length) * 100)}% online`}
-            icon={CheckCircle}
-            iconColor="green"
-          />
-          <StatsCard
-            title="Managers"
-            value={teamMembers.filter(m => m.isManager).length}
-            subtitle="Leadership team"
-            icon={Crown}
-            iconColor="purple"
-          />
-          <StatsCard
-            title="Avg. Performance"
-            value={`${Math.round(teamMembers.reduce((acc, m) => acc + m.performance, 0) / teamMembers.length)}%`}
-            subtitle="Team excellence"
-            icon={Award}
-            iconColor="orange"
-          />
-        </div>
 
         {/* Filters and Search */}
         <SearchFilterSection
@@ -398,52 +412,54 @@ const TeamPage = () => {
         {viewMode === 'grid' ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
             {filteredMembers.map((member) => (
-              <Card key={member.id} hover className="relative">
-                <CardContent className="p-4">
+              <Card key={member.id} hover className="relative cursor-pointer" onClick={() => handleMemberClick(member)}>
+                <CardContent className="p-2 sm:p-4">
                   <div className="text-center">
                     {/* Avatar and Status */}
-                    <div className="relative inline-block mb-3">
-                      <Avatar name={member.name} size="lg" />
-                      <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
+                    <div className="relative inline-block mb-2 sm:mb-3">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12">
+                        <Avatar name={member.name} size="md" />
+                      </div>
+                      <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border-2 border-white ${
                         member.status === 'active' ? 'bg-green-500' :
                         member.status === 'away' ? 'bg-yellow-500' : 'bg-gray-400'
                       }`}></div>
                     </div>
 
                     {/* Name and Role */}
-                    <h3 className="text-sm font-semibold text-gray-900 mb-1 truncate">{member.name}</h3>
-                    <p className="text-xs text-gray-600 mb-1 truncate">{member.role}</p>
-                    <p className="text-xs text-gray-500 mb-2 truncate">{member.department}</p>
+                    <h3 className="text-xs sm:text-sm font-semibold text-gray-900 mb-0.5 sm:mb-1 truncate">{member.name}</h3>
+                    <p className="text-xs text-gray-600 mb-0.5 sm:mb-1 truncate">{member.role}</p>
+                    <p className="text-xs text-gray-500 mb-1 sm:mb-2 truncate hidden sm:block">{member.department}</p>
 
-                    {/* Role Badge */}
+                    {/* Role Badge - Hidden on mobile */}
                     {getRoleBadge(member) && (
-                      <div className="mb-2">
+                      <div className="mb-1 sm:mb-2 hidden sm:block">
                         {getRoleBadge(member)}
                       </div>
                     )}
 
-                    {/* Status */}
-                    <Badge variant={statusConfig[member.status as keyof typeof statusConfig].color as any} size="sm" className="mb-3 text-xs">
+                    {/* Status - Smaller on mobile */}
+                    <Badge variant={statusConfig[member.status as keyof typeof statusConfig].color as any} size="sm" className="mb-2 sm:mb-3 text-xs">
                       <div className="flex items-center space-x-1">
                         {getStatusIcon(member.status)}
                         <span className="hidden sm:inline">{statusConfig[member.status as keyof typeof statusConfig].label}</span>
                       </div>
                     </Badge>
 
-                    {/* Stats */}
-                    <div className="grid grid-cols-2 gap-2 mb-3 text-center">
+                    {/* Stats - Compact on mobile */}
+                    <div className="grid grid-cols-2 gap-1 sm:gap-2 mb-2 sm:mb-3 text-center">
                       <div>
-                        <div className="text-sm font-semibold text-gray-900">{member.projects}</div>
-                        <div className="text-xs text-gray-500">Projects</div>
+                        <div className="text-xs sm:text-sm font-semibold text-gray-900">{member.projects}</div>
+                        <div className="text-xs text-gray-500">Proj.</div>
                       </div>
                       <div>
-                        <div className="text-sm font-semibold text-gray-900">{member.tasksCompleted}</div>
+                        <div className="text-xs sm:text-sm font-semibold text-gray-900">{member.tasksCompleted}</div>
                         <div className="text-xs text-gray-500">Tasks</div>
                       </div>
                     </div>
 
-                    {/* Performance */}
-                    <div className="mb-3">
+                    {/* Performance - Hidden on mobile */}
+                    <div className="mb-2 sm:mb-3 hidden sm:block">
                       <div className="flex justify-between text-xs text-gray-600 mb-1">
                         <span>Perf.</span>
                         <span>{member.performance}%</span>
@@ -459,8 +475,8 @@ const TeamPage = () => {
                       </div>
                     </div>
 
-                    {/* Skills - Simplified */}
-                    <div className="mb-3">
+                    {/* Skills - Hidden on mobile */}
+                    <div className="mb-2 sm:mb-3 hidden sm:block">
                       <div className="flex flex-wrap gap-1 justify-center">
                         {member.skills.slice(0, 2).map((skill, index) => (
                           <span key={index} className="px-1.5 py-0.5 bg-gray-100 text-gray-700 text-xs rounded-full truncate max-w-[60px]">
@@ -475,16 +491,16 @@ const TeamPage = () => {
                       </div>
                     </div>
 
-                    {/* Actions - Simplified */}
+                    {/* Actions - Smaller on mobile */}
                     <div className="flex justify-center space-x-1">
-                      <Button variant="outline" size="sm" className="p-1.5">
-                        <MessageSquare size={12} />
+                      <Button variant="outline" size="sm" className="p-1 sm:p-1.5">
+                        <MessageSquare size={10} className="sm:w-3 sm:h-3" />
                       </Button>
-                      <Button variant="outline" size="sm" className="p-1.5">
-                        <Mail size={12} />
+                      <Button variant="outline" size="sm" className="p-1 sm:p-1.5">
+                        <Mail size={10} className="sm:w-3 sm:h-3" />
                       </Button>
-                      <Button variant="outline" size="sm" className="p-1.5">
-                        <MoreVertical size={12} />
+                      <Button variant="outline" size="sm" className="p-1 sm:p-1.5">
+                        <MoreVertical size={10} className="sm:w-3 sm:h-3" />
                       </Button>
                     </div>
                   </div>
@@ -496,7 +512,7 @@ const TeamPage = () => {
           /* List View */
           <div className="space-y-4">
             {filteredMembers.map((member) => (
-              <Card key={member.id} hover>
+              <Card key={member.id} hover className="cursor-pointer" onClick={() => handleMemberClick(member)}>
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
@@ -543,13 +559,34 @@ const TeamPage = () => {
                         </Badge>
                         
                         <div className="flex items-center space-x-1">
-                          <Button variant="outline" size="sm">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // TODO: Open message
+                            }}
+                          >
                             <MessageSquare size={14} />
                           </Button>
-                          <Button variant="outline" size="sm">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // TODO: Open email
+                            }}
+                          >
                             <Mail size={14} />
                           </Button>
-                          <Button variant="outline" size="sm">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditMember(member);
+                            }}
+                          >
                             <MoreVertical size={14} />
                           </Button>
                         </div>
@@ -574,6 +611,166 @@ const TeamPage = () => {
           </div>
         )}
       </div>
+
+      {/* Member Preview - Slides up from bottom */}
+      {isMemberPreviewOpen && selectedMember && (
+        <div className={`fixed inset-0 z-50 flex items-end transition-opacity duration-300 ${
+          isPreviewAnimating ? 'bg-opacity-0' : 'bg-opacity-30'
+        }`}>
+          <div 
+            ref={memberPreviewRef}
+            className={`transform transition-all duration-300 ease-out ${
+              isPreviewAnimating ? 'translate-y-full' : 'translate-y-0'
+            } ${isCollapsed ? 'lg:ml-16' : 'lg:ml-64'}`}
+            style={{ 
+              width: `calc(100% - ${isCollapsed ? '4rem' : '16rem'})`,
+              height: '80vh',
+              boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+            }}
+          >
+            <div 
+              className="bg-white rounded-t-2xl shadow-2xl overflow-y-auto"
+              style={{ 
+                height: '80vh',
+                boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                backgroundColor: 'white'
+              }}
+            >
+              <div className="p-6">
+                {/* Member Preview Header */}
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                      <Users className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-bold text-gray-900">{selectedMember.name}</h2>
+                      <p className="text-gray-500 text-sm">Team Member Details</p>
+                    </div>
+                  </div>
+                  <div className="flex space-x-2">
+                    <Button
+                      variant="outline"
+                      onClick={closeMemberPreview}
+                      className="px-4 py-2"
+                    >
+                      Close
+                    </Button>
+                    <Button
+                      variant="primary"
+                      onClick={() => handleEditMember(selectedMember)}
+                      className="px-4 py-2"
+                    >
+                      Edit Member
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Member Details */}
+                <div className="space-y-6">
+                  {/* Basic Info */}
+                  <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                    <div className="flex items-center space-x-6 mb-6">
+                      <div className="relative">
+                        <Avatar name={selectedMember.name} size="lg" />
+                        <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${
+                          selectedMember.status === 'active' ? 'bg-green-500' :
+                          selectedMember.status === 'away' ? 'bg-yellow-500' : 'bg-gray-400'
+                        }`}></div>
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-gray-900">{selectedMember.name}</h3>
+                        <p className="text-gray-600">{selectedMember.role} • {selectedMember.department}</p>
+                        <p className="text-sm text-gray-500">{selectedMember.email}</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-800 mb-2">Bio</label>
+                        <p className="text-gray-600">{selectedMember.bio}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-800 mb-2">Location</label>
+                        <p className="text-gray-600">{selectedMember.location}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Status and Role */}
+                  <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-800 mb-2">Status</label>
+                        <Badge variant={statusConfig[selectedMember.status as keyof typeof statusConfig].color as any} size="md">
+                          {getStatusIcon(selectedMember.status)}
+                          <span className="ml-2">{statusConfig[selectedMember.status as keyof typeof statusConfig].label}</span>
+                        </Badge>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-800 mb-2">Role</label>
+                        {getRoleBadge(selectedMember) || (
+                          <Badge variant="default" size="md">
+                            <Users className="w-4 h-4 mr-2" />
+                            Member
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Performance Stats */}
+                  <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-gray-900">{selectedMember.projects}</div>
+                        <div className="text-sm text-gray-600">Projects</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-gray-900">{selectedMember.tasksCompleted}</div>
+                        <div className="text-sm text-gray-600">Tasks Completed</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-gray-900">{selectedMember.performance}%</div>
+                        <div className="text-sm text-gray-600">Performance</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Skills */}
+                  <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-800 mb-2">Skills</label>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedMember.skills.map((skill: string, index: number) => (
+                            <span key={index} className="px-3 py-1 bg-gray-100 text-gray-600 text-sm rounded-full">
+                              {skill}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Contact Info */}
+                  <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-800 mb-2">Phone</label>
+                        <p className="text-gray-600">{selectedMember.phone}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-800 mb-2">Join Date</label>
+                        <p className="text-gray-600">{new Date(selectedMember.joinDate).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </AppLayout>
   );
 };

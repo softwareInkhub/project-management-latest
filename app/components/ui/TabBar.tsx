@@ -28,7 +28,7 @@ export const TabBar: React.FC<TabBarProps> = ({
   className = ''
 }) => {
   return (
-    <div className={`bg-gray-100 border-b border-gray-200 ${className}`}>
+    <div className={`bg-gray-100 border-b border-gray-200 hidden lg:block ${className}`}>
       <div className="flex items-center">
         {/* Tabs */}
         <div className="flex items-center overflow-x-auto scrollbar-hide">

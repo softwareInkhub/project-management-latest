@@ -92,19 +92,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onMobile
         )}
       </div>
 
-      {/* Search */}
-      {!isCollapsed && (
-        <div className="p-4 border-b border-gray-200">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Search..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-            />
-          </div>
-        </div>
-      )}
+     
+      
 
       {/* Main Navigation */}
       <nav className={`flex-1 space-y-2 transition-all duration-300 ${
@@ -201,7 +190,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onMobile
         </div>
         
         {!isCollapsed && (
-          <div className="mt-3 flex space-x-2">
+          <div className="mt-3 flex space-x-2 border-t border-gray-200 pt-3">
             <Button
               variant="ghost"
               size="sm"
@@ -215,7 +204,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onMobile
         )}
         
         {isCollapsed && (
-          <div className="mt-2 flex justify-center">
+          <div className="mt-2 flex justify-center ">
             <Button
               variant="ghost"
               size="sm"
@@ -236,7 +225,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onMobile
       {/* Mobile Overlay */}
       {isMobileOpen && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black/50 bg-opacity-50 z-40 lg:hidden"
           onClick={toggleMobileSidebar}
         />
       )}
@@ -245,20 +234,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onMobile
       <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:hidden ${
         isMobileOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">PM</span>
-            </div>
-            <span className="text-xl font-bold text-gray-900">ProjectFlow</span>
-          </div>
-          <button
-            onClick={toggleMobileSidebar}
-            className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
-          >
-            <X className="w-5 h-5 text-gray-600" />
-          </button>
-        </div>
+     
         <div className="h-full overflow-y-auto overflow-x-hidden">
           <SidebarContent />
         </div>
