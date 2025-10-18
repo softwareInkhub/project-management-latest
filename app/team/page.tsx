@@ -82,18 +82,60 @@ const parseMembers = (members: TeamMember[] | string | undefined): TeamMember[] 
   return [];
 };
 
-const parseTags = (tags: string[] | string | undefined): string[] => {
-  if (!tags) return [];
-  if (Array.isArray(tags)) return tags;
-  if (typeof tags === 'string' && tags.trim()) {
-    try {
-      return JSON.parse(tags);
-    } catch {
-      return [];
+  const parseTags = (tags: string[] | string | undefined): string[] => {
+    if (!tags) return [];
+    if (Array.isArray(tags)) return tags;
+    if (typeof tags === 'string' && tags.trim()) {
+      try {
+        return JSON.parse(tags);
+      } catch {
+        return [];
+      }
     }
-  }
-  return [];
-};
+    return [];
+  };
+
+  // Helper function to generate avatar colors
+  const getAvatarColor = (index: number) => {
+    const colors = [
+      'from-purple-500 to-purple-600',
+      'from-blue-500 to-blue-600', 
+      'from-green-500 to-green-600',
+      'from-pink-500 to-pink-600',
+      'from-orange-500 to-orange-600',
+      'from-indigo-500 to-indigo-600',
+      'from-teal-500 to-teal-600',
+      'from-red-500 to-red-600'
+    ];
+    return colors[index % colors.length];
+  };
+
+  // Component for overlapping member avatars
+  const MemberAvatars = ({ members, maxVisible = 2 }: { members: any[], maxVisible?: number }) => {
+    const visibleMembers = members.slice(0, maxVisible);
+    const remainingCount = Math.max(0, members.length - maxVisible);
+    
+    return (
+      <div className="flex items-center">
+        <div className="flex -space-x-2">
+          {visibleMembers.map((member, index) => (
+            <div
+              key={member.id || member.name || index}
+              className={`w-8 h-8 rounded-full bg-gradient-to-br ${getAvatarColor(index)} flex items-center justify-center text-white text-xs font-semibold border-2 border-white shadow-sm`}
+              title={member.name}
+            >
+              {member.name ? member.name.charAt(0).toUpperCase() : '?'}
+            </div>
+          ))}
+          {remainingCount > 0 && (
+            <div className="w-8 h-8 rounded-full bg-gray-100 border-2 border-white shadow-sm flex items-center justify-center text-gray-600 text-xs font-semibold">
+              +{remainingCount}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
 const getRoleColor = (role: string) => {
   switch (role) {
@@ -516,7 +558,7 @@ const TeamsPage = () => {
                       <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
                         <Users className="w-6 h-6 text-white" />
                       </div>
-                      <div>
+                      <div className="flex-1">
                         <h3 className="font-semibold text-gray-900">{team.name}</h3>
                         <p className="text-sm text-gray-600">{team.memberCount} members</p>
                         {team.description && (
@@ -524,19 +566,23 @@ const TeamsPage = () => {
                         )}
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                      <Badge variant={getStatusColor(team.archived || false)} size="sm">
-                        {team.archived ? 'Archived' : 'Active'}
+                      <div className="flex items-center space-x-3">
+                        {/* Member Avatars - Right Side */}
+                        {team.members && Array.isArray(team.members) && team.members.length > 0 && (
+                          <MemberAvatars members={team.members} maxVisible={2} />
+                        )}
+                        <Badge variant={getStatusColor(team.archived || false)} size="sm">
+                          {team.archived ? 'Archived' : 'Active'}
                         </Badge>
                           <Button 
-                        variant="ghost"
+                          variant="ghost"
                             size="sm"
                             onClick={(e) => {
                               e.stopPropagation();
-                          handleTeamMenu(team);
+                            handleTeamMenu(team);
                             }}
                           >
-                        <MoreVertical className="w-4 h-4" />
+                          <MoreVertical className="w-4 h-4" />
                           </Button>
                     </div>
                   </div>
@@ -553,19 +599,26 @@ const TeamsPage = () => {
                     <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
                       <Users className="w-5 h-5 text-white" />
                     </div>
+                    <div className="flex items-center space-x-2">
+                      {/* Member Avatars - Right Side */}
+                      {team.members && Array.isArray(team.members) && team.members.length > 0 && (
+                        <MemberAvatars members={team.members} maxVisible={2} />
+                      )}
                           <Button 
-                      variant="ghost"
+                        variant="ghost"
                             size="sm"
                             onClick={(e) => {
                               e.stopPropagation();
-                        handleTeamMenu(team);
-                      }}
-                    >
-                      <MoreVertical className="w-4 h-4" />
+                          handleTeamMenu(team);
+                        }}
+                      >
+                        <MoreVertical className="w-4 h-4" />
                           </Button>
                         </div>
+                      </div>
                   <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">{team.name}</h3>
-                  <p className="text-sm text-gray-600 mb-3">{team.memberCount} members</p>
+                  <p className="text-sm text-gray-600 mb-2">{team.memberCount} members</p>
+                  
                   <div className="flex items-center justify-between">
                     <Badge variant={getStatusColor(team.archived || false)} size="sm">
                       {team.archived ? 'Archived' : 'Active'}
