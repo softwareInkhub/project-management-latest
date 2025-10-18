@@ -145,6 +145,14 @@ class ApiService {
         // The API returns items in "items" array, not "data"
         data.data = data.items.map((item: any) => this.convertDynamoDBItem(item));
         console.log('Converted Data:', data);
+      } else if (data.success && data.updatedItem) {
+        // Handle PUT/UPDATE response which returns "updatedItem"
+        data.data = this.convertDynamoDBItem(data.updatedItem);
+        console.log('Converted updatedItem to data:', data);
+      } else if (data.success && data.createdItem) {
+        // Handle POST/CREATE response which returns "createdItem"
+        data.data = this.convertDynamoDBItem(data.createdItem);
+        console.log('Converted createdItem to data:', data);
       } else if (data.success && data.data) {
         // Fallback for other endpoints that might use "data"
         if (Array.isArray(data.data)) {
