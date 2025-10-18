@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Calendar, Clock, User, Tag, FileText, Users, UserCheck } from 'lucide-react';
 import { Button } from './Button';
 import { Input } from './Input';
@@ -14,6 +14,9 @@ interface TaskFormProps {
   isEditing?: boolean;
   projects?: string[];
   teams?: string[];
+  users?: any[];
+  isLoadingUsers?: boolean;
+  isLoadingTeams?: boolean;
 }
 
 export function TaskForm({ 
@@ -22,8 +25,17 @@ export function TaskForm({
   onCancel, 
   isEditing = false,
   projects = [],
-  teams = []
+  teams = [],
+  users = [],
+  isLoadingUsers = false,
+  isLoadingTeams = false
 }: TaskFormProps) {
+  // Debug: Log users when they change
+  React.useEffect(() => {
+    if (users.length > 0) {
+      console.log('👥 TaskForm received users:', users);
+    }
+  }, [users]);
   const [formData, setFormData] = useState<Partial<Task>>({
     title: task?.title || '',
     description: task?.description || '',
@@ -221,15 +233,14 @@ export function TaskForm({
                   value={formData.assignee || ''}
                   onChange={(value) => handleInputChange('assignee', value)}
                   options={[
-                    { value: '', label: 'Select User' },
-                    { value: 'Sarah Johnson', label: 'Sarah Johnson' },
-                    { value: 'Mike Chen', label: 'Mike Chen' },
-                    { value: 'Alex Rodriguez', label: 'Alex Rodriguez' },
-                    { value: 'Emily Davis', label: 'Emily Davis' },
-                    { value: 'David Kim', label: 'David Kim' },
-                    { value: 'Lisa Wang', label: 'Lisa Wang' }
+                    { value: '', label: isLoadingUsers ? 'Loading users...' : 'Select User' },
+                    ...users.map(user => ({ 
+                      value: user.name || user.username || user.email, 
+                      label: user.name || user.username || user.email 
+                    }))
                   ]}
                   className="h-12 text-base focus:ring-blue-500 focus:border-blue-500"
+                  disabled={isLoadingUsers}
                 />
               </div>
 
@@ -241,10 +252,11 @@ export function TaskForm({
                   value={formData.assignedTeams?.[0] || ''}
                   onChange={(value) => handleInputChange('assignedTeams', value ? [value] : [])}
                   options={[
-                    { value: '', label: 'Select Team' },
+                    { value: '', label: isLoadingTeams ? 'Loading teams...' : 'Select Team' },
                     ...teams.map(team => ({ value: team, label: team }))
                   ]}
                   className="h-12 text-base focus:ring-blue-500 focus:border-blue-500"
+                  disabled={isLoadingTeams}
                 />
               </div>
             </div>

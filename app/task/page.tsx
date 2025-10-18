@@ -213,6 +213,10 @@ const TasksPage = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isTaskPreviewOpen, setIsTaskPreviewOpen] = useState(false);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [allTeams, setAllTeams] = useState<any[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [isLoadingTeams, setIsLoadingTeams] = useState(false);
   const [isPreviewAnimating, setIsPreviewAnimating] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -397,6 +401,44 @@ const TasksPage = () => {
     fetchTasks();
   }, []);
 
+  // Fetch users for task assignment
+  const fetchUsers = async () => {
+    setIsLoadingUsers(true);
+    try {
+      console.log('👥 Fetching users for task assignment...');
+      const res = await apiService.getUsers();
+      if (res.success && res.data) {
+        console.log('✅ Users fetched:', res.data.length);
+        setAllUsers(res.data);
+      } else {
+        console.error('❌ Failed to fetch users:', res.error);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching users:', error);
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  };
+
+  // Fetch teams for task assignment
+  const fetchTeams = async () => {
+    setIsLoadingTeams(true);
+    try {
+      console.log('👥 Fetching teams for task assignment...');
+      const res = await apiService.getTeams();
+      if (res.success && res.data) {
+        console.log('✅ Teams fetched:', res.data.length);
+        setAllTeams(res.data);
+      } else {
+        console.error('❌ Failed to fetch teams:', res.error);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching teams:', error);
+    } finally {
+      setIsLoadingTeams(false);
+    }
+  };
+
   const isOverdue = (dueDate: string) => {
     const task = tasks.find(t => t.dueDate === dueDate);
     return new Date(dueDate) < new Date() && task?.status !== 'Completed';
@@ -532,6 +574,10 @@ const TasksPage = () => {
     setIsTaskFormOpen(true);
     setIsFormAnimating(true); // Start with form off-screen (translate-y-full)
     
+    // Fetch users and teams when opening form
+    fetchUsers();
+    fetchTeams();
+    
     // Trigger slide-up animation after a brief delay
     setTimeout(() => {
       setIsFormAnimating(false); // Animate to visible (translate-y-0)
@@ -627,6 +673,10 @@ const TasksPage = () => {
     setIsTaskPreviewOpen(false);
     setIsTaskFormOpen(true);
     setIsFormAnimating(false);
+    
+    // Fetch users and teams when editing
+    fetchUsers();
+    fetchTeams();
   };
 
   const closeTaskPreview = () => {
@@ -1097,7 +1147,10 @@ const TasksPage = () => {
                   onCancel={handleTaskFormCancel}
                   isEditing={!!selectedTask}
                   projects={Array.from(new Set(tasks.map(t => t.project)))}
-                  teams={['Frontend Team', 'Backend Team', 'Design Team', 'QA Team']}
+                  teams={allTeams.map(team => team.name)}
+                  users={allUsers}
+                  isLoadingUsers={isLoadingUsers}
+                  isLoadingTeams={isLoadingTeams}
                 />
               </div>
             </div>

@@ -533,7 +533,7 @@ class ApiService {
 
   // Team Operations
   async getTeams(): Promise<ApiResponse<Team[]>> {
-    return this.makeRequest<Team[]>('?tableName=teams', {
+    return this.makeRequest<Team[]>('?tableName=project-management-teams', {
       method: 'GET',
     });
   }
@@ -553,7 +553,7 @@ class ApiService {
       }
     };
 
-    return this.makeRequest<Team>('?tableName=teams', {
+    return this.makeRequest<Team>('?tableName=project-management-teams', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
@@ -568,7 +568,7 @@ class ApiService {
       }
     };
 
-    return this.makeRequest<Team>('?tableName=teams', {
+    return this.makeRequest<Team>('?tableName=project-management-teams', {
       method: 'PUT',
       body: JSON.stringify(payload),
     });

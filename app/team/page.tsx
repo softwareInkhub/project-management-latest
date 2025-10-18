@@ -1,385 +1,398 @@
 'use client';
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { apiService } from '../services/api';
 import { 
   Plus, 
+  MoreVertical, 
   Search, 
   Filter, 
-  MoreVertical, 
-  Mail, 
-  Phone, 
-  MapPin,
-  Calendar,
-  Clock,
-  Award,
-  TrendingUp,
   Users,
-  UserPlus,
-  Settings,
-  MessageSquare,
-  Star,
-  CheckCircle,
-  AlertCircle,
-  Crown,
-  Shield,
-  Zap
+  User,
+  Calendar,
+  DollarSign,
+  Tag,
+  Edit,
+  Trash2,
+  Eye,
+  X,
+  Check,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
+import { Input } from '../components/ui/Input';
+import { Select } from '../components/ui/Select';
 import { Avatar } from '../components/ui/Avatar';
-import { StatsCard } from '../components/ui/StatsCard';
 import { SearchFilterSection } from '../components/ui/SearchFilterSection';
 import { ViewToggle } from '../components/ui/ViewToggle';
 import { AppLayout } from '../components/AppLayout';
 import { useTabs } from '../hooks/useTabs';
 import { useSidebar } from '../components/AppLayout';
+import { useAuth } from '../hooks/useAuth';
 
-// Mock data for team members
-const teamMembers = [
-  {
-    id: 1,
-    name: 'Sarah Johnson',
-    email: 'sarah.johnson@company.com',
-    role: 'Senior Designer',
-    department: 'Design',
-    status: 'active',
-    avatar: null,
-    joinDate: '2022-03-15',
-    lastActive: '2 hours ago',
-    projects: 8,
-    tasksCompleted: 156,
-    performance: 95,
-    skills: ['UI/UX Design', 'Figma', 'Prototyping', 'User Research'],
-    location: 'San Francisco, CA',
-    phone: '+1 (555) 123-4567',
-    bio: 'Passionate designer with 5+ years of experience creating beautiful and functional user interfaces.',
-    achievements: ['Employee of the Month', 'Design Excellence Award'],
-    isManager: false,
-    isAdmin: false
-  },
-  {
-    id: 2,
-    name: 'Mike Chen',
-    email: 'mike.chen@company.com',
-    role: 'Lead Developer',
-    department: 'Engineering',
-    status: 'active',
-    avatar: null,
-    joinDate: '2021-08-20',
-    lastActive: '30 minutes ago',
-    projects: 12,
-    tasksCompleted: 234,
-    performance: 98,
-    skills: ['React', 'Node.js', 'TypeScript', 'AWS', 'Docker'],
-    location: 'Seattle, WA',
-    phone: '+1 (555) 234-5678',
-    bio: 'Full-stack developer with expertise in modern web technologies and cloud architecture.',
-    achievements: ['Technical Excellence Award', 'Innovation Award'],
-    isManager: true,
-    isAdmin: false
-  },
-  {
-    id: 3,
-    name: 'Emily Davis',
-    email: 'emily.davis@company.com',
-    role: 'Product Manager',
-    department: 'Product',
-    status: 'active',
-    avatar: null,
-    joinDate: '2022-01-10',
-    lastActive: '1 hour ago',
-    projects: 6,
-    tasksCompleted: 89,
-    performance: 92,
-    skills: ['Product Strategy', 'Agile', 'User Research', 'Analytics'],
-    location: 'New York, NY',
-    phone: '+1 (555) 345-6789',
-    bio: 'Strategic product manager focused on delivering user-centered solutions.',
-    achievements: ['Product Excellence Award'],
-    isManager: true,
-    isAdmin: false
-  },
-  {
-    id: 4,
-    name: 'Alex Rodriguez',
-    email: 'alex.rodriguez@company.com',
-    role: 'Mobile Developer',
-    department: 'Engineering',
-    status: 'active',
-    avatar: null,
-    joinDate: '2023-02-14',
-    lastActive: '3 hours ago',
-    projects: 4,
-    tasksCompleted: 67,
-    performance: 88,
-    skills: ['React Native', 'iOS', 'Android', 'Swift', 'Kotlin'],
-    location: 'Austin, TX',
-    phone: '+1 (555) 456-7890',
-    bio: 'Mobile development specialist with experience in cross-platform solutions.',
-    achievements: ['Rising Star Award'],
-    isManager: false,
-    isAdmin: false
-  },
-  {
-    id: 5,
-    name: 'Lisa Wang',
-    email: 'lisa.wang@company.com',
-    role: 'UX Researcher',
-    department: 'Design',
-    status: 'active',
-    avatar: null,
-    joinDate: '2022-09-05',
-    lastActive: '4 hours ago',
-    projects: 7,
-    tasksCompleted: 123,
-    performance: 90,
-    skills: ['User Research', 'Usability Testing', 'Data Analysis', 'Figma'],
-    location: 'Los Angeles, CA',
-    phone: '+1 (555) 567-8901',
-    bio: 'User experience researcher passionate about understanding user needs and behaviors.',
-    achievements: ['Research Excellence Award'],
-    isManager: false,
-    isAdmin: false
-  },
-  {
-    id: 6,
-    name: 'David Kim',
-    email: 'david.kim@company.com',
-    role: 'DevOps Engineer',
-    department: 'Engineering',
-    status: 'away',
-    avatar: null,
-    joinDate: '2021-11-30',
-    lastActive: '1 day ago',
-    projects: 10,
-    tasksCompleted: 178,
-    performance: 94,
-    skills: ['AWS', 'Docker', 'Kubernetes', 'CI/CD', 'Monitoring'],
-    location: 'Denver, CO',
-    phone: '+1 (555) 678-9012',
-    bio: 'DevOps engineer focused on building scalable and reliable infrastructure.',
-    achievements: ['Infrastructure Excellence Award'],
-    isManager: false,
-    isAdmin: true
-  },
-  {
-    id: 7,
-    name: 'Rachel Green',
-    email: 'rachel.green@company.com',
-    role: 'Marketing Manager',
-    department: 'Marketing',
-    status: 'active',
-    avatar: null,
-    joinDate: '2022-06-18',
-    lastActive: '2 hours ago',
-    projects: 5,
-    tasksCompleted: 98,
-    performance: 87,
-    skills: ['Digital Marketing', 'Content Strategy', 'Analytics', 'Social Media'],
-    location: 'Chicago, IL',
-    phone: '+1 (555) 789-0123',
-    bio: 'Marketing professional with expertise in digital campaigns and brand strategy.',
-    achievements: ['Marketing Excellence Award'],
-    isManager: true,
-    isAdmin: false
-  },
-  {
-    id: 8,
-    name: 'Tom Wilson',
-    email: 'tom.wilson@company.com',
-    role: 'Backend Developer',
-    department: 'Engineering',
-    status: 'offline',
-    avatar: null,
-    joinDate: '2023-04-12',
-    lastActive: '2 days ago',
-    projects: 3,
-    tasksCompleted: 45,
-    performance: 85,
-    skills: ['Python', 'Django', 'PostgreSQL', 'Redis', 'API Design'],
-    location: 'Portland, OR',
-    phone: '+1 (555) 890-1234',
-    bio: 'Backend developer specializing in scalable API development and database design.',
-    achievements: [],
-    isManager: false,
-    isAdmin: false
+// Team interfaces
+interface TeamMember {
+  id: string;
+  name: string;
+  email?: string;
+  role: 'admin' | 'member' | 'viewer';
+}
+
+interface Team {
+  id: string;
+  name: string;
+  description?: string;
+  members: TeamMember[] | string;
+  memberCount?: number;
+  projects?: string[];
+  budget?: string;
+  startDate?: string;
+  archived?: boolean;
+  tags?: string[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// Helper functions
+const getTeamCount = (members: TeamMember[] | string | undefined): number => {
+  if (!members) return 0;
+  if (Array.isArray(members)) return members.length;
+  if (typeof members === 'string' && members.trim()) {
+    try {
+      return JSON.parse(members).length;
+    } catch {
+      return 0;
+    }
   }
-];
-
-const statusConfig = {
-  active: { label: 'Active', color: 'success', icon: CheckCircle },
-  away: { label: 'Away', color: 'warning', icon: Clock },
-  offline: { label: 'Offline', color: 'default', icon: AlertCircle }
+  return 0;
 };
 
-const roleConfig = {
-  manager: { label: 'Manager', color: 'info', icon: Crown },
-  admin: { label: 'Admin', color: 'danger', icon: Shield },
-  member: { label: 'Member', color: 'default', icon: Users }
+const parseMembers = (members: TeamMember[] | string | undefined): TeamMember[] => {
+  if (!members) return [];
+  if (Array.isArray(members)) return members;
+  if (typeof members === 'string' && members.trim()) {
+    try {
+      return JSON.parse(members);
+    } catch {
+      return [];
+    }
+  }
+  return [];
 };
 
-const TeamPage = () => {
+const parseTags = (tags: string[] | string | undefined): string[] => {
+  if (!tags) return [];
+  if (Array.isArray(tags)) return tags;
+  if (typeof tags === 'string' && tags.trim()) {
+    try {
+      return JSON.parse(tags);
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
+
+const getRoleColor = (role: string) => {
+  switch (role) {
+    case 'admin': return 'danger';
+    case 'member': return 'info';
+    case 'viewer': return 'default';
+    default: return 'default';
+  }
+};
+
+const getStatusColor = (archived: boolean) => {
+  return archived ? 'default' : 'success';
+};
+
+const TeamsPage = () => {
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [departmentFilter, setDepartmentFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [roleFilter, setRoleFilter] = useState('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [selectedMember, setSelectedMember] = useState<any>(null);
-  const [isMemberPreviewOpen, setIsMemberPreviewOpen] = useState(false);
-  const [isPreviewAnimating, setIsPreviewAnimating] = useState(false);
-  const memberPreviewRef = useRef<HTMLDivElement>(null);
-  const { openTab } = useTabs();
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
+  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+  const [isTeamDetailsOpen, setIsTeamDetailsOpen] = useState(false);
+  const [isCreateTeamOpen, setIsCreateTeamOpen] = useState(false);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [usersSearch, setUsersSearch] = useState('');
+  const [showUsersDropdown, setShowUsersDropdown] = useState(false);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [tagInput, setTagInput] = useState('');
+  const [teamForm, setTeamForm] = useState({
+    name: '',
+    description: '',
+    project: '',
+    budget: '',
+    startDate: new Date().toISOString().slice(0, 10),
+    tags: [] as string[],
+    members: [] as TeamMember[]
+  });
+  
+  const { hasPermission } = useAuth();
   const { isCollapsed } = useSidebar();
+  const userSearchRef = useRef<HTMLInputElement>(null);
 
-  const filteredMembers = teamMembers.filter(member => {
-    const matchesSearch = member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         member.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         member.role.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesDepartment = departmentFilter === 'all' || member.department === departmentFilter;
-    const matchesStatus = statusFilter === 'all' || member.status === statusFilter;
-    const matchesRole = roleFilter === 'all' || 
-                       (roleFilter === 'manager' && member.isManager) ||
-                       (roleFilter === 'admin' && member.isAdmin) ||
-                       (roleFilter === 'member' && !member.isManager && !member.isAdmin);
+  // Fetch teams from API
+  const fetchTeams = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      console.log('📋 Fetching teams...');
+      const res = await apiService.getTeams();
+      
+      if (res.success && res.data) {
+        console.log('✅ Teams fetched:', res.data.length);
+        // Normalize teams data
+        const normalized = res.data.map((t: any) => {
+          const members = parseMembers(t.members);
+          return {
+            ...t,
+            members,
+            memberCount: members.length
+          };
+        });
+        setTeams(normalized);
+      } else {
+        console.error('❌ Failed to fetch teams:', res.error);
+        alert(`Failed to fetch teams: ${res.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching teams:', error);
+      alert('An unexpected error occurred while fetching teams');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Load teams on mount
+  useEffect(() => {
+    fetchTeams();
+  }, [fetchTeams]);
+
+  // Fetch users for team creation
+  const fetchUsers = useCallback(async () => {
+    setIsLoadingUsers(true);
+    try {
+      console.log('👥 Fetching users...');
+      const res = await apiService.getUsers();
+      if (res.success && res.data) {
+        console.log('✅ Users fetched:', res.data.length);
+        setAllUsers(res.data);
+      } else {
+        console.error('❌ Failed to fetch users:', res.error);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching users:', error);
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  }, []);
+
+  // Load users when create modal opens
+  useEffect(() => {
+    if (isCreateTeamOpen) {
+      fetchUsers();
+    }
+  }, [isCreateTeamOpen, fetchUsers]);
+
+  // Filter teams
+  const filteredTeams = teams.filter(team => {
+    const matchesSearch = !searchTerm.trim() || 
+      (team.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (team.description || '').toLowerCase().includes(searchTerm.toLowerCase());
     
-    return matchesSearch && matchesDepartment && matchesStatus && matchesRole;
+    const matchesStatus = statusFilter === 'All' || 
+      (team.archived ? 'Archived' : 'Active') === statusFilter;
+    
+    return matchesSearch && matchesStatus;
   });
 
-  const getStatusIcon = (status: string) => {
-    const config = statusConfig[status as keyof typeof statusConfig];
-    const Icon = config.icon;
-    return <Icon className="w-4 h-4" />;
+  // Status counts
+  const statusCounts = {
+    All: teams.length,
+    Active: teams.filter(t => !t.archived).length,
+    Archived: teams.filter(t => t.archived).length
   };
 
-  const getRoleBadge = (member: any) => {
-    if (member.isAdmin) {
-      return (
-        <Badge variant="danger" size="sm">
-          <Shield className="w-3 h-3 mr-1" />
-          Admin
-        </Badge>
-      );
-    } else if (member.isManager) {
-      return (
-        <Badge variant="info" size="sm">
-          <Crown className="w-3 h-3 mr-1" />
-          Manager
-        </Badge>
-      );
+  // Handle team creation
+  const handleCreateTeam = async () => {
+    if (!teamForm.name.trim()) {
+      alert('Please enter team name');
+      return;
     }
-    return null;
-  };
 
-  // Member preview and edit handlers
-  const handleMemberClick = (member: any) => {
-    setSelectedMember(member);
-    setIsMemberPreviewOpen(true);
-    setIsPreviewAnimating(false);
-  };
+    try {
+      const payload = {
+        name: teamForm.name.trim(),
+        description: teamForm.description.trim(),
+        members: teamForm.members,
+        project: teamForm.project.trim(),
+        budget: teamForm.budget.trim(),
+        startDate: teamForm.startDate,
+        tags: teamForm.tags
+      };
 
-  const handleEditMember = (member: any) => {
-    setSelectedMember(member);
-    setIsMemberPreviewOpen(false);
-    // TODO: Open edit form
-  };
-
-  const closeMemberPreview = () => {
-    setIsPreviewAnimating(true);
-    setTimeout(() => {
-      setIsMemberPreviewOpen(false);
-      setIsPreviewAnimating(false);
-      setSelectedMember(null);
-    }, 300);
-  };
-
-  // Close member preview when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (memberPreviewRef.current && !memberPreviewRef.current.contains(event.target as Node)) {
-        closeMemberPreview();
+      console.log('🆕 Creating team:', payload);
+      const res = await apiService.createTeam(payload);
+      
+      if (res.success) {
+        console.log('✅ Team created successfully:', res.data);
+        setIsCreateTeamOpen(false);
+        resetForm();
+        fetchTeams(); // Refresh teams list
+        alert('Team created successfully');
+      } else {
+        console.error('❌ Failed to create team:', res.error);
+        alert(`Failed to create team: ${res.error}`);
       }
-    };
+    } catch (error) {
+      console.error('❌ Error creating team:', error);
+      alert('An unexpected error occurred while creating team');
+    }
+  };
 
-    if (isMemberPreviewOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
+  // Handle team deletion
+  const handleDeleteTeam = async (team: Team) => {
+    if (!window.confirm(`Are you sure you want to delete "${team.name}"? This action cannot be undone.`)) {
+      return;
     }
 
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+    try {
+      const res = await apiService.deleteTeam(team.id);
+      if (res.success) {
+        setTeams(prev => prev.filter(t => t.id !== team.id));
+        alert('Team deleted successfully');
+      } else {
+        alert(`Failed to delete team: ${res.error}`);
+      }
+    } catch (error) {
+      console.error('❌ Error deleting team:', error);
+      alert('An unexpected error occurred while deleting team');
+    }
+  };
+
+  // Handle team menu
+  const handleTeamMenu = (team: Team) => {
+    if (!hasPermission('crud:projectmanagement')) {
+      setSelectedTeam(team);
+      setIsTeamDetailsOpen(true);
+      return;
+    }
+
+    const options = [
+      { text: 'View Details', onPress: () => { setSelectedTeam(team); setIsTeamDetailsOpen(true); } },
+      { text: 'Edit', onPress: () => { /* TODO: Implement edit */ } },
+      { text: 'Delete', style: 'destructive' as const, onPress: () => handleDeleteTeam(team) }
+    ];
+
+    // For now, just show details
+    setSelectedTeam(team);
+    setIsTeamDetailsOpen(true);
+  };
+
+  // Reset form
+  const resetForm = () => {
+    setTeamForm({
+      name: '',
+      description: '',
+      project: '',
+      budget: '',
+      startDate: new Date().toISOString().slice(0, 10),
+      tags: [],
+      members: []
+    });
+    setTagInput('');
+    setUsersSearch('');
+    setShowUsersDropdown(false);
+  };
+
+  // Add tag
+  const addTag = () => {
+    const value = tagInput.trim();
+    if (!value) return;
+    
+    setTeamForm(prev => ({
+      ...prev,
+      tags: Array.from(new Set([...prev.tags, value]))
+    }));
+    setTagInput('');
+  };
+
+  // Remove tag
+  const removeTag = (index: number) => {
+    setTeamForm(prev => ({
+      ...prev,
+      tags: prev.tags.filter((_, i) => i !== index)
+    }));
+  };
+
+  // Add member
+  const addMember = (user: any) => {
+    const alreadyAdded = teamForm.members.some(m => m.id === user.id);
+    if (alreadyAdded) return;
+
+    const member: TeamMember = {
+      id: user.id,
+      name: user.name || user.username || user.email,
+      email: user.email,
+      role: 'member'
     };
-  }, [isMemberPreviewOpen]);
+
+    setTeamForm(prev => ({
+      ...prev,
+      members: [...prev.members, member]
+    }));
+    setShowUsersDropdown(false);
+    setUsersSearch('');
+  };
+
+  // Remove member
+  const removeMember = (memberId: string) => {
+    setTeamForm(prev => ({
+      ...prev,
+      members: prev.members.filter(m => m.id !== memberId)
+    }));
+  };
+
+  // Filter users for dropdown
+  const filteredUsers = allUsers.filter(user => {
+    const query = usersSearch.trim().toLowerCase();
+    if (!query) return true;
+    const searchString = `${user.name || ''} ${user.username || ''} ${user.email || ''}`.toLowerCase();
+    return searchString.includes(query);
+  });
+
+  // Debug: Log users when they change
+  useEffect(() => {
+    if (allUsers.length > 0) {
+      console.log('👥 Available users:', allUsers);
+    }
+  }, [allUsers]);
 
   return (
     <AppLayout>
       <div className="w-full px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8 overflow-x-hidden">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8 space-y-4 sm:space-y-0">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Team</h1>
-            <p className="text-sm sm:text-base text-gray-600 mt-1">Manage your team members and their roles</p>
+        <div className="flex items-center justify-between mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Teams</h1>
+          <div className="flex items-center space-x-4">
+            <ViewToggle
+              currentView={viewMode}
+              views={[
+                {
+                  value: 'list',
+                  label: 'List',
+                  icon: (
+                    <div className="w-3 h-3 flex flex-col space-y-0.5">
+                      <div className="w-full h-0.5 rounded-sm bg-current"></div>
+                      <div className="w-full h-0.5 rounded-sm bg-current"></div>
+                      <div className="w-full h-0.5 rounded-sm bg-current"></div>
           </div>
-          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
-            <Button variant="outline" className="flex items-center justify-center space-x-2 w-full sm:w-auto">
-              <UserPlus size={16} className="sm:w-4 sm:h-4" />
-              <span className="text-sm sm:text-base">Invite Member</span>
-            </Button>
-            <Button className="flex items-center justify-center space-x-2 w-full sm:w-auto">
-              <Plus size={16} className="sm:w-4 sm:h-4" />
-              <span className="text-sm sm:text-base">Add Member</span>
-            </Button>
-          </div>
-        </div>
-
-
-        {/* Filters and Search */}
-        <SearchFilterSection
-          searchValue={searchTerm}
-          onSearchChange={setSearchTerm}
-          searchPlaceholder="Search team members by name, role, or department..."
-          variant="modern"
-          showActiveFilters={true}
-          filters={[
-            {
-              key: 'department',
-              label: 'Department',
-              value: departmentFilter,
-              onChange: setDepartmentFilter,
-              options: [
-                { value: 'all', label: 'All Departments' },
-                ...Array.from(new Set(teamMembers.map(m => m.department))).map(dept => ({
-                  value: dept,
-                  label: dept
-                }))
-              ]
-            },
-            {
-              key: 'status',
-              label: 'Status',
-              value: statusFilter,
-              onChange: setStatusFilter,
-              options: [
-                { value: 'all', label: 'All Status' },
-                { value: 'active', label: 'Active' },
-                { value: 'away', label: 'Away' },
-                { value: 'offline', label: 'Offline' }
-              ]
-            },
-            {
-              key: 'role',
-              label: 'Role',
-              value: roleFilter,
-              onChange: setRoleFilter,
-              options: [
-                { value: 'all', label: 'All Roles' },
-                { value: 'manager', label: 'Managers' },
-                { value: 'admin', label: 'Admins' },
-                { value: 'member', label: 'Members' }
-              ]
-            }
-          ]}
-          viewToggle={{
-            currentView: viewMode,
-            views: [
+                  )
+                },
               {
                 value: 'grid',
                 label: 'Grid',
@@ -391,117 +404,100 @@ const TeamPage = () => {
                     <div className="w-1 h-1 rounded-sm bg-current"></div>
                   </div>
                 )
-              },
-              {
-                value: 'list',
-                label: 'List',
-                icon: (
-                  <div className="w-3 h-3 flex flex-col space-y-0.5">
-                    <div className="w-full h-0.5 rounded-sm bg-current"></div>
-                    <div className="w-full h-0.5 rounded-sm bg-current"></div>
-                    <div className="w-full h-0.5 rounded-sm bg-current"></div>
-                  </div>
-                )
-              }
-            ],
-            onChange: (view: 'grid' | 'list') => setViewMode(view)
-          }}
-        />
-
-        {/* Team Members */}
-        {viewMode === 'grid' ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
-            {filteredMembers.map((member) => (
-              <Card key={member.id} hover className="relative cursor-pointer" onClick={() => handleMemberClick(member)}>
-                <CardContent className="p-2 sm:p-4">
-                  <div className="text-center">
-                    {/* Avatar and Status */}
-                    <div className="relative inline-block mb-2 sm:mb-3">
-                      <div className="w-10 h-10 sm:w-12 sm:h-12">
-                        <Avatar name={member.name} size="md" />
+                }
+              ]}
+              onChange={(view: 'list' | 'grid') => setViewMode(view)}
+            />
+            <Button 
+              className="flex items-center justify-center space-x-2 w-full sm:w-auto"
+              onClick={() => setIsCreateTeamOpen(true)}
+            >
+              <Plus size={16} className="sm:w-4 sm:h-4" />
+              <span className="text-sm sm:text-base">New Team</span>
+            </Button>
                       </div>
-                      <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border-2 border-white ${
-                        member.status === 'active' ? 'bg-green-500' :
-                        member.status === 'away' ? 'bg-yellow-500' : 'bg-gray-400'
-                      }`}></div>
                     </div>
 
-                    {/* Name and Role */}
-                    <h3 className="text-xs sm:text-sm font-semibold text-gray-900 mb-0.5 sm:mb-1 truncate">{member.name}</h3>
-                    <p className="text-xs text-gray-600 mb-0.5 sm:mb-1 truncate">{member.role}</p>
-                    <p className="text-xs text-gray-500 mb-1 sm:mb-2 truncate hidden sm:block">{member.department}</p>
-
-                    {/* Role Badge - Hidden on mobile */}
-                    {getRoleBadge(member) && (
-                      <div className="mb-1 sm:mb-2 hidden sm:block">
-                        {getRoleBadge(member)}
+        {/* Search and Filter */}
+        <div className="mb-6">
+          <div className="flex flex-col sm:flex-row gap-4 mb-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Input
+                  type="text"
+                  placeholder="Search teams..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
                       </div>
-                    )}
-
-                    {/* Status - Smaller on mobile */}
-                    <Badge variant={statusConfig[member.status as keyof typeof statusConfig].color as any} size="sm" className="mb-2 sm:mb-3 text-xs">
-                      <div className="flex items-center space-x-1">
-                        {getStatusIcon(member.status)}
-                        <span className="hidden sm:inline">{statusConfig[member.status as keyof typeof statusConfig].label}</span>
                       </div>
-                    </Badge>
+            <div className="flex gap-2">
+              <Select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                options={[
+                  { value: 'All', label: 'All Teams' },
+                  { value: 'Active', label: 'Active' },
+                  { value: 'Archived', label: 'Archived' }
+                ]}
+                className="min-w-[120px]"
+              />
+                      </div>
+                    </div>
 
-                    {/* Stats - Compact on mobile */}
-                    <div className="grid grid-cols-2 gap-1 sm:gap-2 mb-2 sm:mb-3 text-center">
+          {/* Status Pills */}
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(statusCounts).map(([status, count]) => (
+              <button
+                key={status}
+                onClick={() => setStatusFilter(status)}
+                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  statusFilter === status
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {status} ({count})
+              </button>
+            ))}
+                      </div>
+                    </div>
+
+        {/* Teams Grid/List */}
+        {viewMode === 'list' ? (
+          <div className="space-y-3">
+            {filteredTeams.map((team) => (
+              <Card key={team.id} hover className="cursor-pointer" onClick={() => handleTeamMenu(team)}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                        <Users className="w-6 h-6 text-white" />
+                      </div>
                       <div>
-                        <div className="text-xs sm:text-sm font-semibold text-gray-900">{member.projects}</div>
-                        <div className="text-xs text-gray-500">Proj.</div>
-                      </div>
-                      <div>
-                        <div className="text-xs sm:text-sm font-semibold text-gray-900">{member.tasksCompleted}</div>
-                        <div className="text-xs text-gray-500">Tasks</div>
-                      </div>
-                    </div>
-
-                    {/* Performance - Hidden on mobile */}
-                    <div className="mb-2 sm:mb-3 hidden sm:block">
-                      <div className="flex justify-between text-xs text-gray-600 mb-1">
-                        <span>Perf.</span>
-                        <span>{member.performance}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-1.5">
-                        <div 
-                          className={`h-1.5 rounded-full ${
-                            member.performance >= 90 ? 'bg-green-500' :
-                            member.performance >= 80 ? 'bg-yellow-500' : 'bg-red-500'
-                          }`}
-                          style={{ width: `${member.performance}%` }}
-                        ></div>
-                      </div>
-                    </div>
-
-                    {/* Skills - Hidden on mobile */}
-                    <div className="mb-2 sm:mb-3 hidden sm:block">
-                      <div className="flex flex-wrap gap-1 justify-center">
-                        {member.skills.slice(0, 2).map((skill, index) => (
-                          <span key={index} className="px-1.5 py-0.5 bg-gray-100 text-gray-700 text-xs rounded-full truncate max-w-[60px]">
-                            {skill}
-                          </span>
-                        ))}
-                        {member.skills.length > 2 && (
-                          <span className="px-1.5 py-0.5 bg-gray-100 text-gray-700 text-xs rounded-full">
-                            +{member.skills.length - 2}
-                          </span>
+                        <h3 className="font-semibold text-gray-900">{team.name}</h3>
+                        <p className="text-sm text-gray-600">{team.memberCount} members</p>
+                        {team.description && (
+                          <p className="text-sm text-gray-500 mt-1">{team.description}</p>
                         )}
+                        </div>
                       </div>
-                    </div>
-
-                    {/* Actions - Smaller on mobile */}
-                    <div className="flex justify-center space-x-1">
-                      <Button variant="outline" size="sm" className="p-1 sm:p-1.5">
-                        <MessageSquare size={10} className="sm:w-3 sm:h-3" />
-                      </Button>
-                      <Button variant="outline" size="sm" className="p-1 sm:p-1.5">
-                        <Mail size={10} className="sm:w-3 sm:h-3" />
-                      </Button>
-                      <Button variant="outline" size="sm" className="p-1 sm:p-1.5">
-                        <MoreVertical size={10} className="sm:w-3 sm:h-3" />
-                      </Button>
+                      <div className="flex items-center space-x-2">
+                      <Badge variant={getStatusColor(team.archived || false)} size="sm">
+                        {team.archived ? 'Archived' : 'Active'}
+                        </Badge>
+                          <Button 
+                        variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                          handleTeamMenu(team);
+                            }}
+                          >
+                        <MoreVertical className="w-4 h-4" />
+                          </Button>
                     </div>
                   </div>
                 </CardContent>
@@ -509,89 +505,34 @@ const TeamPage = () => {
             ))}
           </div>
         ) : (
-          /* List View */
-          <div className="space-y-4">
-            {filteredMembers.map((member) => (
-              <Card key={member.id} hover className="cursor-pointer" onClick={() => handleMemberClick(member)}>
-                <CardContent className="p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredTeams.map((team) => (
+              <Card key={team.id} hover className="cursor-pointer" onClick={() => handleTeamMenu(team)}>
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                      <Users className="w-5 h-5 text-white" />
+                    </div>
+                          <Button 
+                      variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                        handleTeamMenu(team);
+                      }}
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </div>
+                  <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">{team.name}</h3>
+                  <p className="text-sm text-gray-600 mb-3">{team.memberCount} members</p>
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <div className="relative">
-                        <Avatar name={member.name} size="lg" />
-                        <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${
-                          member.status === 'active' ? 'bg-green-500' :
-                          member.status === 'away' ? 'bg-yellow-500' : 'bg-gray-400'
-                        }`}></div>
-                      </div>
-                      
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <h3 className="text-lg font-semibold text-gray-900">{member.name}</h3>
-                          {getRoleBadge(member)}
-                        </div>
-                        <p className="text-sm text-gray-600">{member.role} • {member.department}</p>
-                        <p className="text-xs text-gray-500">{member.email}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center space-x-6">
-                      <div className="text-center">
-                        <div className="text-lg font-semibold text-gray-900">{member.projects}</div>
-                        <div className="text-xs text-gray-500">Projects</div>
-                      </div>
-                      
-                      <div className="text-center">
-                        <div className="text-lg font-semibold text-gray-900">{member.tasksCompleted}</div>
-                        <div className="text-xs text-gray-500">Tasks</div>
-                      </div>
-                      
-                      <div className="text-center">
-                        <div className="text-lg font-semibold text-gray-900">{member.performance}%</div>
-                        <div className="text-xs text-gray-500">Performance</div>
-                      </div>
-
-                      <div className="flex items-center space-x-2">
-                        <Badge variant={statusConfig[member.status as keyof typeof statusConfig].color as any} size="sm">
-                          <div className="flex items-center space-x-1">
-                            {getStatusIcon(member.status)}
-                            <span>{statusConfig[member.status as keyof typeof statusConfig].label}</span>
-                          </div>
-                        </Badge>
-                        
-                        <div className="flex items-center space-x-1">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              // TODO: Open message
-                            }}
-                          >
-                            <MessageSquare size={14} />
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              // TODO: Open email
-                            }}
-                          >
-                            <Mail size={14} />
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEditMember(member);
-                            }}
-                          >
-                            <MoreVertical size={14} />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
+                    <Badge variant={getStatusColor(team.archived || false)} size="sm">
+                      {team.archived ? 'Archived' : 'Active'}
+                    </Badge>
+                    {team.budget && (
+                      <span className="text-xs text-gray-500">{team.budget}</span>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -599,174 +540,376 @@ const TeamPage = () => {
           </div>
         )}
 
+        {/* Loading State */}
+        {isLoading && (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading teams...</p>
+          </div>
+        )}
+
         {/* Empty State */}
-        {filteredMembers.length === 0 && (
+        {!isLoading && filteredTeams.length === 0 && (
           <div className="text-center py-12">
             <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Users className="w-12 h-12 text-gray-400" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No team members found</h3>
-            <p className="text-gray-600 mb-6">Try adjusting your search or filter criteria</p>
-            <Button>Add Team Member</Button>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No teams found</h3>
+            <p className="text-gray-600 mb-6">
+              {teams.length === 0 
+                ? 'No teams available. Create your first team to get started.' 
+                : 'Try adjusting your search or filter criteria'}
+            </p>
+            <Button onClick={() => setIsCreateTeamOpen(true)}>Create New Team</Button>
           </div>
         )}
       </div>
 
-      {/* Member Preview - Slides up from bottom */}
-      {isMemberPreviewOpen && selectedMember && (
-        <div className={`fixed inset-0 z-50 flex items-end transition-opacity duration-300 ${
-          isPreviewAnimating ? 'bg-opacity-0' : 'bg-opacity-30'
-        }`}>
-          <div 
-            ref={memberPreviewRef}
-            className={`transform transition-all duration-300 ease-out ${
-              isPreviewAnimating ? 'translate-y-full' : 'translate-y-0'
-            } ${isCollapsed ? 'lg:ml-16' : 'lg:ml-64'}`}
-            style={{ 
-              width: `calc(100% - ${isCollapsed ? '4rem' : '16rem'})`,
-              height: '80vh',
-              boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+      {/* Team Details Modal */}
+      {isTeamDetailsOpen && selectedTeam && (
+        <div 
+          className="fixed inset-0 z-50 flex items-end"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setIsTeamDetailsOpen(false);
+              setSelectedTeam(null);
+            }
             }}
           >
             <div 
-              className="bg-white rounded-t-2xl shadow-2xl overflow-y-auto"
+            className={`bg-white rounded-t-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl ${
+              isCollapsed ? 'lg:ml-16' : 'lg:ml-64'
+            }`}
               style={{ 
-                height: '80vh',
-                boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-                backgroundColor: 'white'
+              width: `calc(100% - ${isCollapsed ? '4rem' : '16rem'})`,
+              boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
               }}
             >
               <div className="p-6">
-                {/* Member Preview Header */}
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
                       <Users className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <h2 className="text-2xl font-bold text-gray-900">{selectedMember.name}</h2>
-                      <p className="text-gray-500 text-sm">Team Member Details</p>
+                    <h2 className="text-2xl font-bold text-gray-900">{selectedTeam.name}</h2>
+                    <p className="text-gray-500 text-sm">Team Details</p>
                     </div>
                   </div>
-                  <div className="flex space-x-2">
                     <Button
                       variant="outline"
-                      onClick={closeMemberPreview}
-                      className="px-4 py-2"
+                  onClick={() => {
+                    setIsTeamDetailsOpen(false);
+                    setSelectedTeam(null);
+                  }}
                     >
                       Close
                     </Button>
-                    <Button
-                      variant="primary"
-                      onClick={() => handleEditMember(selectedMember)}
-                      className="px-4 py-2"
-                    >
-                      Edit Member
-                    </Button>
-                  </div>
                 </div>
 
-                {/* Member Details */}
                 <div className="space-y-6">
                   {/* Basic Info */}
-                  <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                    <div className="flex items-center space-x-6 mb-6">
-                      <div className="relative">
-                        <Avatar name={selectedMember.name} size="lg" />
-                        <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${
-                          selectedMember.status === 'active' ? 'bg-green-500' :
-                          selectedMember.status === 'away' ? 'bg-yellow-500' : 'bg-gray-400'
-                        }`}></div>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="font-semibold text-gray-900 mb-3">Team Information</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                      <p className="text-gray-600">{selectedTeam.description || 'No description'}</p>
                       </div>
                       <div>
-                        <h3 className="text-xl font-bold text-gray-900">{selectedMember.name}</h3>
-                        <p className="text-gray-600">{selectedMember.role} • {selectedMember.department}</p>
-                        <p className="text-sm text-gray-500">{selectedMember.email}</p>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-800 mb-2">Bio</label>
-                        <p className="text-gray-600">{selectedMember.bio}</p>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                      <Badge variant={getStatusColor(selectedTeam.archived || false)} size="sm">
+                        {selectedTeam.archived ? 'Archived' : 'Active'}
+                      </Badge>
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-gray-800 mb-2">Location</label>
-                        <p className="text-gray-600">{selectedMember.location}</p>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Member Count</label>
+                      <p className="text-gray-600">{selectedTeam.memberCount} members</p>
+                      </div>
+                      <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Budget</label>
+                      <p className="text-gray-600">{selectedTeam.budget || 'Not specified'}</p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Status and Role */}
-                  <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-800 mb-2">Status</label>
-                        <Badge variant={statusConfig[selectedMember.status as keyof typeof statusConfig].color as any} size="md">
-                          {getStatusIcon(selectedMember.status)}
-                          <span className="ml-2">{statusConfig[selectedMember.status as keyof typeof statusConfig].label}</span>
-                        </Badge>
+                {/* Team Members */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="font-semibold text-gray-900 mb-3">Team Members</h3>
+                  <div className="space-y-3">
+                    {parseMembers(selectedTeam.members).map((member) => (
+                      <div key={member.id} className="flex items-center space-x-3">
+                        <Avatar name={member.name} size="sm" />
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">{member.name}</p>
+                          {member.email && (
+                            <p className="text-sm text-gray-600">{member.email}</p>
+                          )}
                       </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-800 mb-2">Role</label>
-                        {getRoleBadge(selectedMember) || (
-                          <Badge variant="default" size="md">
-                            <Users className="w-4 h-4 mr-2" />
-                            Member
+                        <Badge variant={getRoleColor(member.role)} size="sm">
+                          {member.role}
                           </Badge>
-                        )}
+                      </div>
+                    ))}
+                  </div>
+                      </div>
+
+                {/* Tags */}
+                {(() => {
+                  const tags = parseTags(selectedTeam.tags);
+                  return tags.length > 0 && (
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h3 className="font-semibold text-gray-900 mb-3">Tags</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {tags.map((tag, index) => (
+                          <span
+                            key={index}
+                            className="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full"
+                          >
+                            #{tag}
+                          </span>
+                        ))}
                       </div>
                     </div>
-                  </div>
-
-                  {/* Performance Stats */}
-                  <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-gray-900">{selectedMember.projects}</div>
-                        <div className="text-sm text-gray-600">Projects</div>
+                  );
+                })()}
                       </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-gray-900">{selectedMember.tasksCompleted}</div>
-                        <div className="text-sm text-gray-600">Tasks Completed</div>
                       </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-gray-900">{selectedMember.performance}%</div>
-                        <div className="text-sm text-gray-600">Performance</div>
                       </div>
                     </div>
+      )}
+
+      {/* Floating Action Button for Mobile */}
+      <button
+        onClick={() => setIsCreateTeamOpen(true)}
+        className="lg:hidden fixed bottom-20 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-700 transition-colors z-40"
+        aria-label="Create Team"
+      >
+        <Plus className="w-6 h-6" />
+      </button>
+
+      {/* Create Team Modal */}
+      {isCreateTeamOpen && (
+        <div 
+          className="fixed inset-0 z-50 flex items-end"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setIsCreateTeamOpen(false);
+              resetForm();
+            }
+          }}
+        >
+          <div 
+            className={`bg-white rounded-t-2xl w-full max-h-[80vh] overflow-y-auto shadow-2xl ${
+              isCollapsed ? 'lg:ml-16' : 'lg:ml-64'
+            }`}
+            style={{ 
+              width: `calc(100% - ${isCollapsed ? '4rem' : '16rem'})`,
+              boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+            }}
+          >
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Create New Team</h2>
+                  <p className="text-sm text-gray-600 mt-1">Fill in the team information</p>
+                      </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setIsCreateTeamOpen(false);
+                    resetForm();
+                  }}
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+                    </div>
+
+              <form onSubmit={(e) => { e.preventDefault(); handleCreateTeam(); }} className="space-y-6">
+                {/* Team Name */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-800 mb-2">
+                    Team Name *
+                  </label>
+                  <Input
+                    value={teamForm.name}
+                    onChange={(e) => setTeamForm(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="Enter team name"
+                    required
+                  />
                   </div>
 
-                  {/* Skills */}
-                  <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                    <div className="space-y-4">
+                {/* Description */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-800 mb-2">
+                    Description
+                  </label>
+                  <textarea
+                    value={teamForm.description}
+                    onChange={(e) => setTeamForm(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Enter team description"
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  />
+                      </div>
+
+                {/* Project & Budget */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-800 mb-2">
+                      Project
+                    </label>
+                    <Input
+                      value={teamForm.project}
+                      onChange={(e) => setTeamForm(prev => ({ ...prev, project: e.target.value }))}
+                      placeholder="Enter project name"
+                    />
+                      </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-800 mb-2">
+                      Budget
+                    </label>
+                    <Input
+                      value={teamForm.budget}
+                      onChange={(e) => setTeamForm(prev => ({ ...prev, budget: e.target.value }))}
+                      placeholder="Enter budget"
+                    />
+                      </div>
+                    </div>
+
+                {/* Start Date */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-800 mb-2">
+                    Start Date
+                  </label>
+                  <Input
+                    type="date"
+                    value={teamForm.startDate}
+                    onChange={(e) => setTeamForm(prev => ({ ...prev, startDate: e.target.value }))}
+                  />
+                  </div>
+
+                {/* Tags */}
                       <div>
-                        <label className="block text-sm font-semibold text-gray-800 mb-2">Skills</label>
+                  <label className="block text-sm font-semibold text-gray-800 mb-2">
+                    Tags
+                  </label>
+                  <div className="flex gap-2 mb-2">
+                    <Input
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      placeholder="Add a tag"
+                      className="flex-1"
+                    />
+                    <Button type="button" onClick={addTag} variant="outline">
+                      Add
+                    </Button>
+                  </div>
                         <div className="flex flex-wrap gap-2">
-                          {selectedMember.skills.map((skill: string, index: number) => (
-                            <span key={index} className="px-3 py-1 bg-gray-100 text-gray-600 text-sm rounded-full">
-                              {skill}
+                    {teamForm.tags.map((tag, index) => (
+                      <span
+                        key={index}
+                        className="px-3 py-1 bg-gray-100 text-gray-600 text-sm rounded-full flex items-center gap-2"
+                      >
+                        #{tag}
+                        <button
+                          type="button"
+                          onClick={() => removeTag(index)}
+                          className="text-gray-400 hover:text-gray-600"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
                             </span>
                           ))}
-                        </div>
-                      </div>
                     </div>
                   </div>
 
-                  {/* Contact Info */}
-                  <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Team Members */}
                       <div>
-                        <label className="block text-sm font-semibold text-gray-800 mb-2">Phone</label>
-                        <p className="text-gray-600">{selectedMember.phone}</p>
+                  <label className="block text-sm font-semibold text-gray-800 mb-2">
+                    Team Members
+                  </label>
+                  <div className="relative">
+                    <input
+                      ref={userSearchRef}
+                      value={usersSearch}
+                      onChange={(e) => setUsersSearch(e.target.value)}
+                      onFocus={() => setShowUsersDropdown(true)}
+                      onBlur={() => setTimeout(() => setShowUsersDropdown(false), 200)}
+                      placeholder="Search users by name or email"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    {showUsersDropdown && (
+                      <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
+                        {isLoadingUsers ? (
+                          <div className="px-3 py-2 text-center text-gray-500">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                            Loading users...
                       </div>
+                        ) : filteredUsers.length === 0 ? (
+                          <div className="px-3 py-2 text-center text-gray-500">
+                            {usersSearch.trim() ? 'No users found' : 'No users available'}
+                          </div>
+                        ) : (
+                          filteredUsers.map((user) => (
+                            <button
+                              key={user.id}
+                              type="button"
+                              className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center justify-between"
+                              onClick={() => addMember(user)}
+                            >
                       <div>
-                        <label className="block text-sm font-semibold text-gray-800 mb-2">Join Date</label>
-                        <p className="text-gray-600">{new Date(selectedMember.joinDate).toLocaleDateString()}</p>
+                                <p className="font-medium">{user.name || user.username || user.email}</p>
+                                {user.email && user.name && <p className="text-sm text-gray-600">{user.email}</p>}
                       </div>
+                              {teamForm.members.some(m => m.id === user.id) && (
+                                <Check className="w-4 h-4 text-green-500" />
+                              )}
+                            </button>
+                          ))
+                        )}
                     </div>
+                    )}
+                  </div>
+
+                  {/* Selected Members */}
+                  <div className="mt-3 space-y-2">
+                    {teamForm.members.map((member) => (
+                      <div key={member.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                        <div className="flex items-center space-x-2">
+                          <Avatar name={member.name} size="sm" />
+                          <span className="text-sm text-gray-800">{member.name}</span>
+                </div>
+                        <button
+                          type="button"
+                          onClick={() => removeMember(member.id)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+              </div>
+                    ))}
                   </div>
                 </div>
+
+                {/* Form Actions */}
+                <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setIsCreateTeamOpen(false);
+                      resetForm();
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit">
+                    Create Team
+                  </Button>
               </div>
+              </form>
             </div>
           </div>
         </div>
@@ -775,4 +918,4 @@ const TeamPage = () => {
   );
 };
 
-export default TeamPage;
+export default TeamsPage;
