@@ -67,7 +67,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, onCreateTask }) 
 
   return (
     <SidebarContext.Provider value={{ isCollapsed, toggleSidebar }}>
-      <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 overflow-x-hidden">
         {/* Sidebar */}
         <Sidebar isMobileOpen={isMobileMenuOpen} onMobileClose={closeMobileMenu} />
         

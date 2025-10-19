@@ -31,9 +31,11 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { AppLayout } from '../components/AppLayout';
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function SettingsPage() {
   const { user } = useAuth();
+  const { theme, setTheme } = useTheme();
   const [activeTab, setActiveTab] = useState('profile');
   const [isEditing, setIsEditing] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -53,7 +55,7 @@ export default function SettingsPage() {
 
   // Settings state
   const [settings, setSettings] = useState({
-    theme: 'light',
+    theme: theme,
     language: 'en',
     timezone: 'UTC',
     notifications: {
@@ -92,6 +94,11 @@ export default function SettingsPage() {
     console.log('Saving settings:', settings);
   };
 
+  const handleThemeChange = (newTheme: 'light' | 'dark') => {
+    setTheme(newTheme);
+    setSettings(prev => ({ ...prev, theme: newTheme }));
+  };
+
   const handleInputChange = (field: string, value: any) => {
     setProfileData(prev => ({ ...prev, [field]: value }));
   };
@@ -108,27 +115,15 @@ export default function SettingsPage() {
 
   return (
     <AppLayout>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+        <div className="w-full mx-auto px-4    h-full ">
           {/* Header */}
-          <div className="mb-8">
-            <div className="flex items-center space-x-4 mb-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                <SettingsIcon className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-                  Settings
-                </h1>
-                <p className="text-gray-600 mt-1">Manage your account settings and preferences</p>
-              </div>
-            </div>
-          </div>
+         
 
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-4 h-full ">
             {/* Sidebar Navigation */}
-            <div className="lg:col-span-1">
-              <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
+            <div className="lg:col-span-1 ">
+              <Card className="shadow-xl border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm h-full">
                 <CardContent className="p-0">
                   <nav className="space-y-1 p-2">
                     {tabs.map((tab) => {
@@ -140,7 +135,7 @@ export default function SettingsPage() {
                           className={`w-full flex items-center px-4 py-3 text-left text-sm font-medium rounded-xl transition-all duration-200 group ${
                             activeTab === tab.id
                               ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg transform scale-105'
-                              : 'text-gray-600 hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 hover:text-gray-900 hover:shadow-md hover:scale-102'
+                              : 'text-gray-600 dark:text-gray-300 hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 dark:hover:from-gray-700 dark:hover:to-gray-600 hover:text-gray-900 dark:hover:text-white hover:shadow-md hover:scale-102'
                           }`}
                         >
                           <Icon className={`w-5 h-5 mr-3 transition-transform duration-200 ${
@@ -160,14 +155,14 @@ export default function SettingsPage() {
               {/* Profile Tab */}
               {activeTab === 'profile' && (
                 <div className="space-y-6">
-                  <Card className="shadow-xl border-0 bg-white/90 backdrop-blur-sm overflow-hidden">
-                    <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-6 text-white">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
+                  <Card className="shadow-xl border-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm overflow-hidden">
+                    <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-6 text-white w-full rounded-t-xl">
+                      <div className="flex items-center justify-between ">
+                        <div className="flex items-center space-x-3 ">
                           <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
                             <User className="w-5 h-5" />
                           </div>
-                          <div>
+                          <div >
                             <h2 className="text-xl font-semibold">Profile Information</h2>
                             <p className="text-blue-100 text-sm">Manage your personal details</p>
                           </div>
@@ -200,7 +195,7 @@ export default function SettingsPage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Avatar Section */}
                         <div className="md:col-span-2">
-                          <div className="flex items-center space-x-6 p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl border border-gray-100">
+                          <div className="flex items-center space-x-6 p-4 bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-700 dark:to-gray-600 rounded-xl border border-gray-100 dark:border-gray-600">
                             <div className="relative">
                               <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold shadow-lg">
                                 {profileData.name.charAt(0).toUpperCase()}
@@ -212,8 +207,8 @@ export default function SettingsPage() {
                               )}
                             </div>
                             <div>
-                              <h3 className="text-lg font-semibold text-gray-900">{profileData.name}</h3>
-                              <p className="text-gray-600">{profileData.email}</p>
+                              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{profileData.name}</h3>
+                              <p className="text-gray-600 dark:text-gray-300">{profileData.email}</p>
                               <Badge variant="info" className="mt-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white border-0">
                                 {profileData.role}
                               </Badge>
@@ -223,7 +218,7 @@ export default function SettingsPage() {
 
                         {/* Form Fields */}
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center">
                             <User className="w-4 h-4 mr-2 text-blue-600" />
                             Full Name
                           </label>
@@ -342,7 +337,7 @@ export default function SettingsPage() {
               {activeTab === 'account' && (
                 <div className="space-y-6">
                   <Card className="shadow-xl border-0 bg-white/90 backdrop-blur-sm overflow-hidden">
-                    <div className="bg-gradient-to-r from-red-500 to-pink-600 p-6 text-white">
+                    <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-6 text-white rounded-t-xl">
                       <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
                           <Shield className="w-5 h-5" />
@@ -423,9 +418,9 @@ export default function SettingsPage() {
 
               {/* Notifications Tab */}
               {activeTab === 'notifications' && (
-                <div className="space-y-6">
-                  <Card className="shadow-xl border-0 bg-white/90 backdrop-blur-sm overflow-hidden">
-                    <div className="bg-gradient-to-r from-green-500 to-teal-600 p-6 text-white">
+                <div className="space-y-6 h-full">
+                  <Card className="shadow-xl border-0 bg-white/90 backdrop-blur-sm overflow-hidden h-full">
+                    <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-6 text-white rounded-t-xl">
                       <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
                           <Bell className="w-5 h-5" />
@@ -540,12 +535,11 @@ export default function SettingsPage() {
                             Theme
                           </label>
                           <Select
-                            value={settings.theme}
-                            onChange={(e) => setSettings(prev => ({ ...prev, theme: e.target.value }))}
+                            value={theme}
+                            onChange={(e) => handleThemeChange(e.target.value as 'light' | 'dark')}
                             options={[
                               { value: 'light', label: 'Light' },
-                              { value: 'dark', label: 'Dark' },
-                              { value: 'auto', label: 'Auto' }
+                              { value: 'dark', label: 'Dark' }
                             ]}
                           />
                         </div>

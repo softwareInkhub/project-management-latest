@@ -70,7 +70,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ onCreateTask }
       </div>
       
       {/* Main navigation bar */}
-      <div className="bg-white rounded-t-3xl shadow-lg border-t border-gray-100 h-20 pt-2">
+      <div className="bg-white dark:bg-gray-800 rounded-t-3xl shadow-lg border-t border-gray-100 dark:border-gray-700 h-20 pt-2">
         <div className="grid grid-cols-5 h-16 px-2">
           {navigation.map((item) => {
             const Icon = item.icon;
@@ -82,13 +82,13 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ onCreateTask }
                 onClick={() => handleNavigation(item.href, item.name)}
                 className={`flex flex-col items-center justify-end space-y-1 transition-colors pb-2 ${
                   isActive
-                    ? 'text-blue-600'
-                    : 'text-gray-500 hover:text-gray-700'
+                    ? 'text-blue-600 dark:text-blue-400'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                 }`}
               >
                 <Icon 
                   size={22} 
-                  className={isActive ? 'text-blue-600' : 'text-gray-500'} 
+                  className={isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'} 
                 />
                 <span className="text-xs font-medium truncate px-1">{item.name}</span>
               </button>
@@ -98,7 +98,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ onCreateTask }
         
         {/* Home indicator */}
         <div className="flex justify-center pb-2">
-          <div className="w-8 h-1 bg-gray-300 rounded-full"></div>
+          <div className="w-8 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
         </div>
       </div>
     </div>

@@ -28,7 +28,7 @@ export const TabBar: React.FC<TabBarProps> = ({
   className = ''
 }) => {
   return (
-    <div className={`bg-gray-100 border-b border-gray-200 hidden lg:block ${className}`}>
+    <div className={`bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 hidden lg:block ${className}`}>
       <div className="flex items-center">
         {/* Tabs */}
         <div className="flex items-center overflow-x-auto scrollbar-hide">
@@ -46,7 +46,7 @@ export const TabBar: React.FC<TabBarProps> = ({
         </div>
         
         {/* New Tab Button */}
-        <div className="px-2 py-2 border-l border-gray-200">
+        <div className="px-2 py-2 border-l border-gray-200 dark:border-gray-700">
           <Button
             variant="ghost"
             size="sm"

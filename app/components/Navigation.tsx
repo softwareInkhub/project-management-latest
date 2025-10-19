@@ -17,15 +17,15 @@ export const Navigation: React.FC<NavigationProps> = ({ onMobileMenuClick }) => 
   const { user } = useAuth();
 
   return (
-    <nav className="bg-white border-b border-gray-200 px-3 sm:px-4 lg:px-6 py-3 sm:py-4 w-full sticky top-0 z-30">
+    <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-3 sm:px-4 lg:px-6 py-3 sm:py-4 w-full sticky top-0 z-30">
       <div className="flex items-center justify-between w-full">
         {/* Mobile Menu Button */}
         <div className="flex items-center min-w-0">
           <button
             onClick={onMobileMenuClick}
-            className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0"
+            className="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
           >
-            <Menu className="w-5 h-5 text-gray-600" />
+            <Menu className="w-5 h-5 text-gray-600 dark:text-gray-300" />
           </button>
         </div>
 

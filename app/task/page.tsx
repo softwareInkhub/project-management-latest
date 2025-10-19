@@ -17,7 +17,10 @@ import {
   Edit,
   Trash2,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  X,
+  Search,
+  Link
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -30,6 +33,7 @@ import { AppLayout } from '../components/AppLayout';
 import { TaskForm } from '../components/ui/TaskForm';
 import { useTabs } from '../hooks/useTabs';
 import { useSidebar } from '../components/AppLayout';
+import { useAuth } from '../hooks/useAuth';
 import { apiService, Task } from '../services/api';
 
 // Mock data for tasks (fallback when API fails)
@@ -200,6 +204,7 @@ const getPriorityConfig = (priority: string) => {
 };
 
 const TasksPage = () => {
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
@@ -217,7 +222,15 @@ const TasksPage = () => {
   const [allTeams, setAllTeams] = useState<any[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isLoadingTeams, setIsLoadingTeams] = useState(false);
+  
+  // Subtask management
+  const [isAddingSubtask, setIsAddingSubtask] = useState(false);
+  const [subtaskSearch, setSubtaskSearch] = useState('');
   const [isPreviewAnimating, setIsPreviewAnimating] = useState(false);
+  
+  // Comment management
+  const [newComment, setNewComment] = useState('');
+  const [isPostingComment, setIsPostingComment] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -629,6 +642,210 @@ const TasksPage = () => {
     closeForm();
   };
 
+  // Subtask management functions
+  const handleAddSubtask = async (subtaskId: string) => {
+    if (!selectedTask) return;
+    
+    try {
+      // Parse existing subtasks
+      let currentSubtasks: string[] = [];
+      if (typeof selectedTask.subtasks === 'string') {
+        try {
+          currentSubtasks = JSON.parse(selectedTask.subtasks);
+        } catch {
+          currentSubtasks = [];
+        }
+      } else if (Array.isArray(selectedTask.subtasks)) {
+        currentSubtasks = selectedTask.subtasks;
+      }
+      
+      // Check if subtask is already added
+      if (currentSubtasks.includes(subtaskId)) {
+        alert('This task is already a subtask');
+        return;
+      }
+      
+      // Add new subtask
+      const updatedSubtasks = [...currentSubtasks, subtaskId];
+      
+      // Update parent task
+      const parentResult = await apiService.updateTask(selectedTask.id, {
+        subtasks: JSON.stringify(updatedSubtasks)
+      });
+      
+      if (!parentResult.success) {
+        alert('Failed to add subtask to parent task');
+        return;
+      }
+      
+      // Get the subtask
+      const subtask = tasks.find(t => t.id === subtaskId);
+      if (!subtask) return;
+      
+      // Parse existing parent IDs in subtask
+      let currentParentIds: string[] = [];
+      if (typeof subtask.parentId === 'string' && subtask.parentId) {
+        try {
+          currentParentIds = JSON.parse(subtask.parentId);
+        } catch {
+          currentParentIds = subtask.parentId ? [subtask.parentId] : [];
+        }
+      } else if (Array.isArray(subtask.parentId)) {
+        currentParentIds = subtask.parentId;
+      }
+      
+      // Add parent ID if not already present
+      if (!currentParentIds.includes(selectedTask.id)) {
+        currentParentIds.push(selectedTask.id);
+        
+        // Update subtask with parent ID
+        await apiService.updateTask(subtaskId, {
+          parentId: JSON.stringify(currentParentIds)
+        });
+      }
+      
+      // Refresh tasks
+      await fetchTasks();
+      
+      // Update selected task to reflect changes
+      const updatedTask = tasks.find(t => t.id === selectedTask.id);
+      if (updatedTask) {
+        setSelectedTask(updatedTask);
+      }
+      
+      setIsAddingSubtask(false);
+      setSubtaskSearch('');
+      
+    } catch (error) {
+      console.error('Error adding subtask:', error);
+      alert('Failed to add subtask');
+    }
+  };
+
+  const handleRemoveSubtask = async (subtaskId: string) => {
+    if (!selectedTask) return;
+    
+    try {
+      // Parse existing subtasks
+      let currentSubtasks: string[] = [];
+      if (typeof selectedTask.subtasks === 'string') {
+        try {
+          currentSubtasks = JSON.parse(selectedTask.subtasks);
+        } catch {
+          currentSubtasks = [];
+        }
+      } else if (Array.isArray(selectedTask.subtasks)) {
+        currentSubtasks = selectedTask.subtasks;
+      }
+      
+      // Remove subtask
+      const updatedSubtasks = currentSubtasks.filter(id => id !== subtaskId);
+      
+      // Update parent task
+      const parentResult = await apiService.updateTask(selectedTask.id, {
+        subtasks: JSON.stringify(updatedSubtasks)
+      });
+      
+      if (!parentResult.success) {
+        alert('Failed to remove subtask from parent task');
+        return;
+      }
+      
+      // Get the subtask
+      const subtask = tasks.find(t => t.id === subtaskId);
+      if (!subtask) return;
+      
+      // Parse existing parent IDs in subtask
+      let currentParentIds: string[] = [];
+      if (typeof subtask.parentId === 'string' && subtask.parentId) {
+        try {
+          currentParentIds = JSON.parse(subtask.parentId);
+        } catch {
+          currentParentIds = subtask.parentId ? [subtask.parentId] : [];
+        }
+      } else if (Array.isArray(subtask.parentId)) {
+        currentParentIds = subtask.parentId;
+      }
+      
+      // Remove parent ID
+      const updatedParentIds = currentParentIds.filter(id => id !== selectedTask.id);
+      
+      // Update subtask
+      await apiService.updateTask(subtaskId, {
+        parentId: JSON.stringify(updatedParentIds)
+      });
+      
+      // Refresh tasks
+      await fetchTasks();
+      
+      // Update selected task to reflect changes
+      const updatedTask = tasks.find(t => t.id === selectedTask.id);
+      if (updatedTask) {
+        setSelectedTask(updatedTask);
+      }
+      
+    } catch (error) {
+      console.error('Error removing subtask:', error);
+      alert('Failed to remove subtask');
+    }
+  };
+
+  // Get available tasks that can be added as subtasks
+  const getAvailableSubtasks = () => {
+    if (!selectedTask) return [];
+    
+    // Parse current subtasks
+    let currentSubtasks: string[] = [];
+    if (typeof selectedTask.subtasks === 'string') {
+      try {
+        currentSubtasks = JSON.parse(selectedTask.subtasks);
+      } catch {
+        currentSubtasks = [];
+      }
+    } else if (Array.isArray(selectedTask.subtasks)) {
+      currentSubtasks = selectedTask.subtasks;
+    }
+    
+    // Filter tasks: exclude self, already added subtasks, and apply search
+    return tasks.filter(task => {
+      if (task.id === selectedTask.id) return false;
+      if (currentSubtasks.includes(task.id)) return false;
+      
+      if (subtaskSearch.trim()) {
+        const searchLower = subtaskSearch.toLowerCase();
+        return (
+          task.title.toLowerCase().includes(searchLower) ||
+          task.description.toLowerCase().includes(searchLower) ||
+          task.project.toLowerCase().includes(searchLower)
+        );
+      }
+      
+      return true;
+    });
+  };
+
+  // Get current subtasks with full task details
+  const getCurrentSubtasks = () => {
+    if (!selectedTask) return [];
+    
+    // Parse current subtasks
+    let currentSubtasks: string[] = [];
+    if (typeof selectedTask.subtasks === 'string') {
+      try {
+        currentSubtasks = JSON.parse(selectedTask.subtasks);
+      } catch {
+        currentSubtasks = [];
+      }
+    } else if (Array.isArray(selectedTask.subtasks)) {
+      currentSubtasks = selectedTask.subtasks;
+    }
+    
+    // Map to full task objects
+    return currentSubtasks
+      .map(id => tasks.find(t => t.id === id))
+      .filter((task): task is Task => task !== undefined);
+  };
+
   const closeForm = () => {
     setIsFormAnimating(true); // Start slide-down animation (translate-y-full)
     
@@ -666,6 +883,13 @@ const TasksPage = () => {
     setSelectedTask(task);
     setIsTaskPreviewOpen(true);
     setIsPreviewAnimating(false);
+    // Scroll to top when opening task preview
+    setTimeout(() => {
+      const modal = document.querySelector('[data-task-preview-content]');
+      if (modal) {
+        modal.scrollTop = 0;
+      }
+    }, 100);
   };
 
   const handleEditTask = (task: Task) => {
@@ -679,8 +903,75 @@ const TasksPage = () => {
     fetchTeams();
   };
 
+  // Comment management functions
+  const handleAddComment = async () => {
+    if (!newComment.trim() || !selectedTask || isPostingComment) return;
+    
+    setIsPostingComment(true);
+    try {
+      // Get current comments array - ensure it's always an array
+      let currentComments = [];
+      try {
+        const parsedComments = JSON.parse(selectedTask.comments || '[]');
+        currentComments = Array.isArray(parsedComments) ? parsedComments : [];
+      } catch (e) {
+        console.log('Failed to parse comments, using empty array:', e);
+        currentComments = [];
+      }
+      
+      // Add new comment
+      const newCommentObj = {
+        id: `comment-${Date.now()}`,
+        message: newComment.trim(),
+        userName: user?.name || 'Current User',
+        userEmail: user?.email || 'user@example.com',
+        timestamp: new Date().toISOString(),
+        userId: (user as any)?.id || 'current-user'
+      };
+      
+      const updatedComments = [...currentComments, newCommentObj];
+      
+      // Update task with new comments
+      const updatedTask = {
+        ...selectedTask,
+        comments: JSON.stringify(updatedComments)
+      };
+      
+      // Update the task in the API
+      const result = await apiService.updateTask(selectedTask.id, {
+        comments: JSON.stringify(updatedComments)
+      });
+      
+      if (result.success) {
+        // Update local state
+        setTasks(prev => prev.map(task => 
+          task.id === selectedTask.id 
+            ? { ...task, comments: JSON.stringify(updatedComments) }
+            : task
+        ));
+        
+        // Update selected task
+        setSelectedTask(updatedTask);
+        
+        // Clear comment input
+        setNewComment('');
+        
+        console.log('✅ Comment added successfully');
+      } else {
+        console.error('❌ Failed to add comment:', result.error);
+        alert('Failed to add comment. Please try again.');
+      }
+    } catch (error) {
+      console.error('❌ Error adding comment:', error);
+      alert('Error adding comment. Please try again.');
+    } finally {
+      setIsPostingComment(false);
+    }
+  };
+
   const closeTaskPreview = () => {
     setIsPreviewAnimating(true);
+    setNewComment(''); // Clear comment input
     setTimeout(() => {
       setIsTaskPreviewOpen(false);
       setIsPreviewAnimating(false);
@@ -941,32 +1232,28 @@ const TasksPage = () => {
                            <Clock size={10} className="sm:w-3 sm:h-3" />
                            <span className="text-xs">{task.estimatedHours}h</span>
                          </div>
-                        {parseInt(task.comments) > 0 && (
-                          <div className="flex items-center space-x-1">
-                            <MessageSquare size={10} className="sm:w-3 sm:h-3" />
-                            <span className="text-xs">{task.comments}</span>
-                          </div>
-                        )}
-                        {(() => {
-                          try {
-                            const subtasksArray = JSON.parse(task.subtasks);
-                            return Array.isArray(subtasksArray) && subtasksArray.length > 0;
-                          } catch {
-                            return false;
-                          }
-                        })() && (
-                          <div className="flex items-center space-x-1">
-                            <Paperclip size={10} className="sm:w-3 sm:h-3" />
-                            <span className="text-xs">{(() => {
-                              try {
-                                const subtasksArray = JSON.parse(task.subtasks);
-                                return Array.isArray(subtasksArray) ? subtasksArray.length : 0;
-                              } catch {
-                                return 0;
-                              }
-                            })()}</span>
-                          </div>
-                        )}
+                         <div className="flex items-center space-x-1">
+                           <MessageSquare size={10} className="sm:w-3 sm:h-3" />
+                           <span className="text-xs">{(() => {
+                             try {
+                               const commentsArray = JSON.parse(task.comments);
+                               return Array.isArray(commentsArray) ? commentsArray.length : parseInt(task.comments) || 0;
+                             } catch (e) {
+                               return parseInt(task.comments) || 0;
+                             }
+                           })()}</span>
+                         </div>
+                       <div className="flex items-center space-x-1">
+                         <CheckSquare size={10} className="sm:w-3 sm:h-3" />
+                         <span className="text-xs">{(() => {
+                           try {
+                             const subtasksArray = JSON.parse(task.subtasks);
+                             return Array.isArray(subtasksArray) ? subtasksArray.length : 0;
+                           } catch (e) {
+                             return 0;
+                           }
+                         })()}</span>
+                       </div>
                        </div>
                      </div>
                    </div>
@@ -1058,12 +1345,28 @@ const TasksPage = () => {
                         <span className="text-xs">{task.estimatedHours}h</span>
                       </div>
                       <div className="flex items-center space-x-2">
-                        {parseInt(task.comments) > 0 && (
-                          <div className="flex items-center space-x-1">
-                            <MessageSquare size={8} className="sm:w-3 sm:h-3" />
-                            <span className="text-xs">{task.comments}</span>
-                          </div>
-                        )}
+                        <div className="flex items-center space-x-1">
+                          <MessageSquare size={8} className="sm:w-3 sm:h-3" />
+                          <span className="text-xs">{(() => {
+                            try {
+                              const commentsArray = JSON.parse(task.comments);
+                              return Array.isArray(commentsArray) ? commentsArray.length : parseInt(task.comments) || 0;
+                            } catch (e) {
+                              return parseInt(task.comments) || 0;
+                            }
+                          })()}</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <CheckSquare size={8} className="sm:w-3 sm:h-3" />
+                          <span className="text-xs">{(() => {
+                            try {
+                              const subtasksArray = JSON.parse(task.subtasks);
+                              return Array.isArray(subtasksArray) ? subtasksArray.length : 0;
+                            } catch (e) {
+                              return 0;
+                            }
+                          })()}</span>
+                        </div>
                       </div>
                     </div>
                       
@@ -1163,6 +1466,7 @@ const TasksPage = () => {
         }`}>
           <div 
             ref={taskPreviewRef}
+            data-task-preview
             className={`transform transition-all duration-300 ease-out ${
               isPreviewAnimating ? 'translate-y-full' : 'translate-y-0'
             } ${isCollapsed ? 'lg:ml-16' : 'lg:ml-64'}`}
@@ -1173,19 +1477,19 @@ const TasksPage = () => {
             }}
           >
             <div 
-              className="bg-white rounded-t-2xl shadow-2xl overflow-y-auto"
+              data-task-preview-content
+              className="bg-white dark:bg-gray-800 rounded-t-2xl shadow-2xl overflow-y-auto"
               style={{ 
                 height: `${formHeight}vh`,
-                boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-                backgroundColor: 'white'
+                boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
               }}
             >
               {/* Drag Handle - Sticky */}
               <div 
-                className={`sticky top-0 z-20 w-full h-6 flex items-center justify-center cursor-row-resize hover:bg-gray-50 transition-colors ${isDragging ? 'bg-gray-100' : ''}`}
+                className={`sticky top-0 z-20 w-full h-6 flex items-center justify-center cursor-row-resize hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${isDragging ? 'bg-gray-100 dark:bg-gray-700' : ''}`}
                 onMouseDown={handleMouseDown}
               >
-                <div className="w-12 h-1 bg-gray-400 rounded-full"></div>
+                <div className="w-12 h-1 bg-gray-400 dark:bg-gray-500 rounded-full"></div>
               </div>
               
               <div className="p-6">
@@ -1196,8 +1500,8 @@ const TasksPage = () => {
                       <CheckSquare className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <h2 className="text-2xl font-bold text-gray-900">{selectedTask.title}</h2>
-                      <p className="text-gray-500 text-sm">Task Details</p>
+                      <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{selectedTask.title}</h2>
+                      <p className="text-gray-500 dark:text-gray-400 text-sm">Task Details</p>
                     </div>
                   </div>
                   <div className="flex space-x-2">
@@ -1221,31 +1525,31 @@ const TasksPage = () => {
                 {/* Task Details */}
                 <div className="space-y-6">
                   {/* Basic Info */}
-                  <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 shadow-sm">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       <div>
-                        <label className="block text-sm font-semibold text-gray-800 mb-2">Description</label>
-                        <p className="text-gray-600">{selectedTask.description}</p>
+                        <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Description</label>
+                        <p className="text-gray-600 dark:text-gray-300">{selectedTask.description}</p>
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-gray-800 mb-2">Project</label>
-                        <p className="text-gray-600">{selectedTask.project}</p>
+                        <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Project</label>
+                        <p className="text-gray-600 dark:text-gray-300">{selectedTask.project}</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Status and Priority */}
-                  <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 shadow-sm">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       <div>
-                        <label className="block text-sm font-semibold text-gray-800 mb-2">Status</label>
+                        <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Status</label>
                         <Badge variant={getStatusConfig(selectedTask.status).color as any} size="md">
                           {getStatusIcon(selectedTask.status)}
                           <span className="ml-2">{getStatusConfig(selectedTask.status).label}</span>
                         </Badge>
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-gray-800 mb-2">Priority</label>
+                        <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Priority</label>
                         <Badge variant={getPriorityConfig(selectedTask.priority).color as any} size="md">
                           {getPriorityIcon(selectedTask.priority)}
                           <span className="ml-2">{getPriorityConfig(selectedTask.priority).label}</span>
@@ -1255,65 +1559,278 @@ const TasksPage = () => {
                   </div>
 
                   {/* Dates and Time */}
-                  <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 shadow-sm">
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                       <div>
-                        <label className="block text-sm font-semibold text-gray-800 mb-2">Start Date</label>
-                        <p className="text-gray-600">{new Date(selectedTask.startDate).toLocaleDateString()}</p>
+                        <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Start Date</label>
+                        <p className="text-gray-600 dark:text-gray-300">{new Date(selectedTask.startDate).toLocaleDateString()}</p>
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-gray-800 mb-2">Due Date</label>
-                        <p className={`${isOverdue(selectedTask.dueDate) ? 'text-red-600 font-medium' : 'text-gray-600'}`}>
+                        <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Due Date</label>
+                        <p className={`${isOverdue(selectedTask.dueDate) ? 'text-red-600 dark:text-red-400 font-medium' : 'text-gray-600 dark:text-gray-300'}`}>
                           {new Date(selectedTask.dueDate).toLocaleDateString()}
                         </p>
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-gray-800 mb-2">Estimated Time</label>
-                        <p className="text-gray-600">{selectedTask.estimatedHours} hours</p>
+                        <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Estimated Time</label>
+                        <p className="text-gray-600 dark:text-gray-300">{selectedTask.estimatedHours} hours</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Assignment */}
-                  <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 shadow-sm">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       <div>
-                        <label className="block text-sm font-semibold text-gray-800 mb-2">Assigned To</label>
+                        <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Assigned To</label>
                         <div className="flex items-center space-x-3">
                           <Avatar name={selectedTask.assignee} size="md" />
-                          <span className="text-gray-600">{selectedTask.assignee}</span>
+                          <span className="text-gray-600 dark:text-gray-300">{selectedTask.assignee}</span>
                         </div>
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-gray-800 mb-2">Team</label>
-                        <p className="text-gray-600">{selectedTask.assignedTeams?.join(', ') || 'Not assigned'}</p>
+                        <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Team</label>
+                        <p className="text-gray-600 dark:text-gray-300">{selectedTask.assignedTeams?.join(', ') || 'Not assigned'}</p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Tags and Additional Info */}
-                  <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-800 mb-2">Tags</label>
-                        <div className="flex flex-wrap gap-2">
-                          {selectedTask.tags.split(',').map((tag, index) => (
-                            <span key={index} className="px-3 py-1 bg-gray-100 text-gray-600 text-sm rounded-full">
-                              {tag.trim()}
-                            </span>
-                          ))}
+                  {/* Tags */}
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 shadow-sm">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Tags</label>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedTask.tags.split(',').map((tag, index) => (
+                          <span key={index} className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm rounded-full">
+                            {tag.trim()}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Subtasks Management */}
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                      <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200">
+                        Subtasks ({getCurrentSubtasks().length})
+                      </label>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsAddingSubtask(!isAddingSubtask)}
+                        className="flex items-center space-x-1"
+                      >
+                        {isAddingSubtask ? (
+                          <>
+                            <X className="w-4 h-4" />
+                            <span>Cancel</span>
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-4 h-4" />
+                            <span>Add Subtask</span>
+                          </>
+                        )}
+                      </Button>
+                    </div>
+
+                    {/* Add Subtask Section */}
+                    {isAddingSubtask && (
+                      <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                        <div className="flex items-center space-x-2 mb-3">
+                          <Search className="w-4 h-4 text-gray-400" />
+                          <input
+                            type="text"
+                            value={subtaskSearch}
+                            onChange={(e) => setSubtaskSearch(e.target.value)}
+                            placeholder="Search tasks to add as subtasks..."
+                            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                          />
+                        </div>
+                        
+                        <div className="max-h-60 overflow-y-auto space-y-2">
+                          {getAvailableSubtasks().length === 0 ? (
+                            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+                              {subtaskSearch ? 'No tasks found' : 'No available tasks to add'}
+                            </p>
+                          ) : (
+                            getAvailableSubtasks().slice(0, 10).map((task) => (
+                              <div
+                                key={task.id}
+                                onClick={() => handleAddSubtask(task.id)}
+                                className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 cursor-pointer transition-all hover:shadow-md"
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                    {task.title}
+                                  </h4>
+                                  <div className="flex items-center space-x-2 mt-1">
+                                    <Badge variant={getStatusConfig(task.status).color as any} size="sm">
+                                      {task.status}
+                                    </Badge>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">{task.project}</span>
+                                  </div>
+                                </div>
+                                <Plus className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 ml-2" />
+                              </div>
+                            ))
+                          )}
                         </div>
                       </div>
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div>
-                          <label className="block text-sm font-semibold text-gray-800 mb-2">Comments</label>
-                          <p className="text-gray-600">{selectedTask.comments.length} comments</p>
+                    )}
+
+                    {/* Current Subtasks */}
+                    <div className="space-y-2">
+                      {getCurrentSubtasks().length === 0 ? (
+                        <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+                          No subtasks added yet
+                        </p>
+                      ) : (
+                        getCurrentSubtasks().map((subtask) => (
+                          <div
+                            key={subtask.id}
+                            className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 transition-all cursor-pointer"
+                            onClick={() => handleTaskClick(subtask)}
+                          >
+                            <div className="flex items-center space-x-3 flex-1 min-w-0">
+                              <Link className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                  {subtask.title}
+                                </h4>
+                                <div className="flex items-center space-x-2 mt-1">
+                                  <Badge variant={getStatusConfig(subtask.status).color as any} size="sm">
+                                    {subtask.status}
+                                  </Badge>
+                                  <span className="text-xs text-gray-500 dark:text-gray-400">{subtask.project}</span>
+                                  <span className="text-xs text-gray-400 dark:text-gray-500">
+                                    {subtask.assignee}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveSubtask(subtask.id);
+                              }}
+                              className="ml-2 p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors flex-shrink-0"
+                              title="Remove subtask"
+                            >
+                              <X className="w-4 h-4 text-red-600 dark:text-red-400" />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Comments Section */}
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                      <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200">
+                        Comments ({(() => {
+                          try {
+                            const parsedComments = JSON.parse(selectedTask.comments || '[]');
+                            return Array.isArray(parsedComments) ? parsedComments.length : 0;
+                          } catch (e) {
+                            return 0;
+                          }
+                        })()})
+                      </label>
+                    </div>
+
+                    {/* Add Comment Input */}
+                    <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
+                          {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
                         </div>
-                        <div>
-                          <label className="block text-sm font-semibold text-gray-800 mb-2">Subtasks</label>
-                          <p className="text-gray-600">{selectedTask.subtasks.length} subtasks</p>
+                        <div className="flex-1 flex items-center space-x-2">
+                          <input
+                            type="text"
+                            placeholder="Write a comment..."
+                            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            value={newComment}
+                            onChange={(e) => setNewComment(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleAddComment();
+                              }
+                            }}
+                          />
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={handleAddComment}
+                            disabled={!newComment.trim() || isPostingComment}
+                            className="flex items-center space-x-1 px-3 py-2"
+                          >
+                            {isPostingComment ? (
+                              <>
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                <span className="hidden sm:inline">Posting...</span>
+                              </>
+                            ) : (
+                              <>
+                                <MessageSquare className="w-4 h-4" />
+                                <span className="hidden sm:inline">Post</span>
+                              </>
+                            )}
+                          </Button>
                         </div>
                       </div>
+                     
+                    </div>
+
+                    <div className="space-y-4 max-h-64 overflow-y-auto">
+                      {(() => {
+                        try {
+                          const parsedComments = JSON.parse(selectedTask.comments || '[]');
+                          const commentsArray = Array.isArray(parsedComments) ? parsedComments : [];
+                          if (commentsArray.length > 0) {
+                            return commentsArray.map((comment: any, index: number) => (
+                              <div key={index} className="flex space-x-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
+                                  {comment.userName ? comment.userName.charAt(0).toUpperCase() : 'U'}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center space-x-2 mb-1">
+                                    <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                      {comment.userName || 'Unknown User'}
+                                    </span>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                      {comment.timestamp ? new Date(comment.timestamp).toLocaleString() : 'Just now'}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                                    {comment.message || comment.text || comment.content || 'No message'}
+                                  </p>
+                                </div>
+                              </div>
+                            ));
+                          } else {
+                            return (
+                              <div className="text-center py-8">
+                                <MessageSquare className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                                <p className="text-gray-500 dark:text-gray-400 text-sm">No comments yet</p>
+                                <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">Be the first to add a comment</p>
+                              </div>
+                            );
+                          }
+                        } catch (e) {
+                          console.log('Failed to parse comments, showing empty state:', e);
+                          return (
+                            <div className="text-center py-8">
+                              <MessageSquare className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                              <p className="text-gray-500 dark:text-gray-400 text-sm">No comments yet</p>
+                              <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">Be the first to add a comment</p>
+                            </div>
+                          );
+                        }
+                      })()}
                     </div>
                   </div>
                 </div>

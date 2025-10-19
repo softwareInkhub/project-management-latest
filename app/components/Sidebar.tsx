@@ -55,7 +55,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onMobile
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className={`flex items-center justify-between border-b border-gray-200 transition-all duration-300 h-17 ${
+      <div className={`flex items-center justify-between border-b border-gray-200 dark:border-gray-700 transition-all duration-300 h-17 ${
         isCollapsed ? 'p-4' : 'p-6'
       }`}>
         {!isCollapsed && (
@@ -63,7 +63,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onMobile
             <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">PM</span>
             </div>
-            <span className="text-xl font-bold text-gray-900">ProjectFlow</span>
+            <span className="text-xl font-bold text-gray-900 dark:text-white">ProjectFlow</span>
           </div>
         )}
         {isCollapsed && (
@@ -76,17 +76,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onMobile
         {!isCollapsed && (
           <button
             onClick={toggleSidebar}
-            className="hidden lg:block p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+            className="hidden lg:block p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           >
-            <ChevronLeft className="w-4 h-4 text-gray-600" />
+            <ChevronLeft className="w-4 h-4 text-gray-600 dark:text-gray-300" />
           </button>
         )}
         {isCollapsed && (
           <button
             onClick={toggleSidebar}
-            className="hidden lg:block p-1.5 rounded-lg hover:bg-gray-100 transition-colors mx-auto"
+            className="hidden lg:block p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors mx-auto"
           >
-            <ChevronRight className="w-4 h-4 text-gray-600" />
+            <ChevronRight className="w-4 h-4 text-gray-600 dark:text-gray-300" />
           </button>
         )}
       </div>
@@ -111,8 +111,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onMobile
               }}
               className={`flex items-center rounded-lg text-sm font-medium transition-colors group w-full ${
                 isActive
-                  ? 'bg-blue-50 text-blue-700 '
-                  : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                  ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 '
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
               } ${
                 isCollapsed 
                   ? 'justify-center px-2 py-3' 
@@ -123,7 +123,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onMobile
               <Icon
                 size={20}
                 className={`flex-shrink-0 ${
-                  isActive ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700'
+                  isActive ? 'text-blue-700 dark:text-blue-300' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300'
                 }`}
               />
               {!isCollapsed && <span>{item.name}</span>}
@@ -133,7 +133,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onMobile
       </nav>
 
       {/* Secondary Navigation */}
-      <div className={`border-t border-gray-200 space-y-2 transition-all duration-300 ${
+      <div className={`border-t border-gray-200 dark:border-gray-700 space-y-2 transition-all duration-300 ${
         isCollapsed ? 'p-2' : 'p-4'
       }`}>
         {secondaryNavigation.map((item) => {
@@ -149,8 +149,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onMobile
               }}
               className={`flex items-center rounded-lg text-sm font-medium transition-colors group w-full ${
                 isActive
-                  ? 'bg-blue-50 text-blue-700'
-                  : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                  ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
               } ${
                 isCollapsed 
                   ? 'justify-center px-2 py-3' 
@@ -161,7 +161,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onMobile
               <Icon
                 size={20}
                 className={`flex-shrink-0 ${
-                  isActive ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700'
+                  isActive ? 'text-blue-700 dark:text-blue-300' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300'
                 }`}
               />
               {!isCollapsed && <span>{item.name}</span>}
@@ -171,17 +171,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onMobile
       </div>
 
       {/* User Profile */}
-      <div className={`border-t border-gray-200 transition-all duration-300 ${
+      <div className={`border-t border-gray-200 dark:border-gray-700 transition-all duration-300 ${
         isCollapsed ? 'p-2' : 'p-4'
       }`}>
         <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'space-x-3'}`}>
           <Avatar name={user?.name || 'User'} size="md" />
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">
+              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                 {user?.name || 'User'}
               </p>
-              <p className="text-xs text-gray-500 truncate">
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                 {user?.role || 'Project Manager'}
               </p>
             </div>
@@ -189,7 +189,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onMobile
         </div>
         
         {!isCollapsed && (
-          <div className="mt-3 flex space-x-2 border-t border-gray-200 pt-3">
+          <div className="mt-3 flex space-x-2 border-t border-gray-200 dark:border-gray-700 pt-3">
             <Button
               variant="ghost"
               size="sm"
@@ -230,7 +230,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onMobile
       )}
 
       {/* Mobile Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:hidden ${
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 shadow-lg transform transition-transform duration-300 ease-in-out lg:hidden ${
         isMobileOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
      
@@ -240,7 +240,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onMobile
       </div>
 
       {/* Desktop Sidebar */}
-      <div className={`hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:z-40 bg-white border-r border-gray-200 transition-all duration-300 ${
+      <div className={`hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:z-40 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 ${
         isCollapsed ? 'lg:w-16' : 'lg:w-64'
       }`}>
         <div className="h-full overflow-y-auto overflow-x-hidden">
