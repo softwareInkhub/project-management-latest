@@ -125,6 +125,7 @@ export function TaskForm({
   };
 
   const handleInputChange = (field: keyof Task, value: any) => {
+    console.log(`🔄 TaskForm: ${field} changed to:`, value);
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -228,7 +229,7 @@ export function TaskForm({
                 </label>
                 <Select
                   value={formData.project || ''}
-                  onChange={(value) => handleInputChange('project', value)}
+                  onChange={(e) => handleInputChange('project', e.target.value)}
                   options={[
                     { value: '', label: 'Select Project' },
                     ...projects.map(project => ({ value: project, label: project }))
@@ -256,7 +257,7 @@ export function TaskForm({
                 </label>
                 <Select
                   value={formData.assignee || ''}
-                  onChange={(value) => handleInputChange('assignee', value)}
+                  onChange={(e) => handleInputChange('assignee', e.target.value)}
                   options={[
                     { value: '', label: isLoadingUsers ? 'Loading users...' : 'Select User' },
                     ...users.map(user => ({ 
@@ -275,7 +276,7 @@ export function TaskForm({
                 </label>
                 <Select
                   value={formData.assignedTeams?.[0] || ''}
-                  onChange={(value) => handleInputChange('assignedTeams', value ? [value] : [])}
+                  onChange={(e) => handleInputChange('assignedTeams', e.target.value ? [e.target.value] : [])}
                   options={[
                     { value: '', label: isLoadingTeams ? 'Loading teams...' : 'Select Team' },
                     ...teams.map(team => ({ value: team, label: team }))
@@ -296,7 +297,7 @@ export function TaskForm({
                 </label>
                 <Select
                   value={formData.status || 'To Do'}
-                  onChange={(value) => handleInputChange('status', value)}
+                  onChange={(e) => handleInputChange('status', e.target.value)}
                   options={[
                     { value: 'To Do', label: 'To Do' },
                     { value: 'In Progress', label: 'In Progress' },
@@ -313,7 +314,7 @@ export function TaskForm({
                 </label>
                 <Select
                   value={formData.priority || 'Medium'}
-                  onChange={(value) => handleInputChange('priority', value)}
+                  onChange={(e) => handleInputChange('priority', e.target.value)}
                   options={[
                     { value: 'Low', label: 'Low' },
                     { value: 'Medium', label: 'Medium' },

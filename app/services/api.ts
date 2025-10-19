@@ -194,6 +194,11 @@ class ApiService {
         // Handle single item GET response
         data.data = this.convertDynamoDBItem(data.item);
         console.log('Converted item to data:', data);
+      } else if (data.success && data.id && !data.data) {
+        // Handle CREATE response that only returns success and id
+        // For now, we'll return the id as the data since we don't have the full object
+        data.data = { id: data.id } as any;
+        console.log('Handled create response with only id:', data);
       } else if (data.success && data.data) {
         // Fallback for other endpoints that might use "data"
         if (Array.isArray(data.data)) {
@@ -316,10 +321,34 @@ class ApiService {
       }
     };
 
-    return this.makeRequest<Task>('?tableName=project-management-tasks', {
+    const result = await this.makeRequest<Task>('?tableName=project-management-tasks', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
+
+    // Handle the response format from your CRUD API
+    if (result.success) {
+      // If we only got an id back, try to fetch the full task
+      if (result.data && (result.data as any).id && !(result.data as any).title) {
+        console.log('🔄 Fetching created task with id:', (result.data as any).id);
+        const fetchResult = await this.getTaskById((result.data as any).id);
+        if (fetchResult.success) {
+          return {
+            success: true,
+            data: fetchResult.data,
+            error: undefined
+          };
+        }
+      }
+      
+      return {
+        success: true,
+        data: result.data,
+        error: undefined
+      };
+    }
+
+    return result;
   }
 
   async updateTask(id: string, updates: Partial<Task>): Promise<ApiResponse<Task>> {

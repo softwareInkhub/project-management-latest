@@ -31,10 +31,7 @@ export const Navigation: React.FC<NavigationProps> = ({ onMobileMenuClick }) => 
 
         {/* Right Side */}
         <div className="flex items-center space-x-1 sm:space-x-2 lg:space-x-4 flex-shrink-0">
-          {/* Search - Hidden on very small screens */}
-          <Button variant="ghost" size="sm" className="hidden sm:flex">
-            <Search size={16} className="sm:w-4 sm:h-4" />
-          </Button>
+          
 
           {/* Notifications */}
           <Button variant="ghost" size="sm" className="relative p-2">
