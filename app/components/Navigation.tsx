@@ -34,7 +34,12 @@ export const Navigation: React.FC<NavigationProps> = ({ onMobileMenuClick }) => 
           
 
           {/* Notifications */}
-          <Button variant="ghost" size="sm" className="relative p-2">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="relative p-2"
+            onClick={() => window.location.href = '/notifications'}
+          >
             <Bell size={16} className="sm:w-4 sm:h-4" />
             <span className="absolute -top-1 -right-1 w-2 h-2 sm:w-3 sm:h-3 bg-red-500 rounded-full"></span>
           </Button>

@@ -29,6 +29,7 @@ const navigation = [
   { name: 'Projects', href: '/project', icon: FolderKanban },
   { name: 'Tasks', href: '/task', icon: CheckSquare },
   { name: 'Team', href: '/team', icon: Users },
+  { name: 'Notifications', href: '/notifications', icon: Bell },
 ];
 
 const secondaryNavigation = [

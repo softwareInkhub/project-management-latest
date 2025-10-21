@@ -1,6 +1,8 @@
 // API Service for BRMH Project Management System
 // Base URLs: CRUD API: https://brmh.in/crud, Notification API: https://brmh.in/notify
 
+import { notificationService } from './notificationService';
+
 interface ApiResponse<T> {
   success: boolean;
   data?: T;
@@ -328,22 +330,29 @@ class ApiService {
 
     // Handle the response format from your CRUD API
     if (result.success) {
+      let taskData = result.data;
+      
       // If we only got an id back, try to fetch the full task
       if (result.data && (result.data as any).id && !(result.data as any).title) {
         console.log('🔄 Fetching created task with id:', (result.data as any).id);
         const fetchResult = await this.getTaskById((result.data as any).id);
         if (fetchResult.success) {
-          return {
-            success: true,
-            data: fetchResult.data,
-            error: undefined
-          };
+          taskData = fetchResult.data;
+        }
+      }
+      
+      // Send notification for task creation
+      if (taskData) {
+        try {
+          await notificationService.notifyTaskEvent('created', taskData);
+        } catch (error) {
+          console.error('Failed to send task creation notification:', error);
         }
       }
       
       return {
         success: true,
-        data: result.data,
+        data: taskData,
         error: undefined
       };
     }
@@ -370,16 +379,49 @@ class ApiService {
 
     console.log('📦 Update payload:', payload);
 
-    return this.makeRequest<Task>('?tableName=project-management-tasks', {
+    const result = await this.makeRequest<Task>('?tableName=project-management-tasks', {
       method: 'PUT',
       body: JSON.stringify(payload),
     });
+
+    // Send notification for task update
+    if (result.success && result.data) {
+      try {
+        await notificationService.notifyTaskEvent('updated', result.data);
+      } catch (error) {
+        console.error('Failed to send task update notification:', error);
+      }
+    }
+
+    return result;
   }
 
   async deleteTask(id: string): Promise<ApiResponse<void>> {
-    return this.makeRequest<void>(`?tableName=project-management-tasks&id=${id}`, {
+    // Get task data before deletion for notification
+    let taskData: Task | undefined;
+    try {
+      const getResult = await this.getTaskById(id);
+      if (getResult.success) {
+        taskData = getResult.data;
+      }
+    } catch (error) {
+      console.error('Failed to get task data before deletion:', error);
+    }
+
+    const result = await this.makeRequest<void>(`?tableName=project-management-tasks&id=${id}`, {
       method: 'DELETE',
     });
+
+    // Send notification for task deletion
+    if (result.success && taskData) {
+      try {
+        await notificationService.notifyTaskEvent('deleted', taskData);
+      } catch (error) {
+        console.error('Failed to send task deletion notification:', error);
+      }
+    }
+
+    return result;
   }
 
   // Project Operations
@@ -460,6 +502,13 @@ class ApiService {
         // Let's fetch the created project to get the complete data
         const getResult = await this.getProjectById(projectId);
         if (getResult.success) {
+          // Send notification for project creation
+          try {
+            await notificationService.notifyProjectEvent('created', getResult.data);
+          } catch (error) {
+            console.error('Failed to send project creation notification:', error);
+          }
+          
           return {
             success: true,
             data: getResult.data,
