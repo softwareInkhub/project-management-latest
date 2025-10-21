@@ -605,9 +605,9 @@ const Dashboard = () => {
         <div className="relative mb-4 sm:mb-6 lg:mb-8">
           <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 rounded-2xl sm:rounded-3xl opacity-10"></div>
           <div className="relative bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 border border-white/20 dark:border-gray-700 shadow-xl">
-            <div className="flex flex-col space-y-4">
-              <div>
-                <div className="flex items-center space-x-2 sm:space-x-3 mb-2">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+              <div className="flex items-center justify-between lg:justify-start">
+                <div className="flex items-center space-x-2 sm:space-x-3">
                   <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
                     <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                   </div>
@@ -620,39 +620,68 @@ const Dashboard = () => {
                     </p>
                   </div>
                 </div>
-              </div>
-              <div className="flex flex-wrap gap-2 sm:gap-3">
-                {/* Filters Toggle */}
-                <Button 
-                  onClick={() => setShowFilters(!showFilters)}
-                  variant="outline"
-                  size="sm"
-                  className="border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm flex-1 sm:flex-initial"
-                >
-                  <Filter className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                  <span className="text-xs sm:text-sm">Filters {Object.values(filters).filter(f => f !== 'all').length > 0 && `(${Object.values(filters).filter(f => f !== 'all').length})`}</span>
-                </Button>
                 
-                <Button 
-                  onClick={fetchDashboardData}
-                  disabled={refreshing}
-                  size="sm"
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 flex-1 sm:flex-initial"
-                >
-                  {refreshing ? (
-                    <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 animate-spin" />
-                  ) : (
-                    <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                  )}
-                  <span className="text-xs sm:text-sm">Refresh</span>
-                </Button>
+                {/* Filter and Refresh buttons positioned opposite to title */}
+                <div className="flex items-center gap-2 lg:hidden">
+                  <Button 
+                    onClick={() => setShowFilters(!showFilters)}
+                    variant="outline"
+                    size="sm"
+                    className="border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm p-2"
+                  >
+                    <Filter className="w-4 h-4" />
+                  </Button>
+                  
+                  <Button 
+                    onClick={fetchDashboardData}
+                    disabled={refreshing}
+                    size="sm"
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 p-2"
+                  >
+                    {refreshing ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="flex flex-wrap gap-2 sm:gap-3">
+                {/* Desktop Filter and Refresh buttons */}
+                <div className="hidden lg:flex items-center gap-2">
+                  <Button 
+                    onClick={() => setShowFilters(!showFilters)}
+                    variant="outline"
+                    size="sm"
+                    className="border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm"
+                  >
+                    <Filter className="w-4 h-4 mr-2" />
+                    Filters {Object.values(filters).filter(f => f !== 'all').length > 0 && `(${Object.values(filters).filter(f => f !== 'all').length})`}
+                  </Button>
+                  
+                  <Button 
+                    onClick={fetchDashboardData}
+                    disabled={refreshing}
+                    size="sm"
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50"
+                  >
+                    {refreshing ? (
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                    )}
+                    Refresh
+                  </Button>
+                </div>
+                
                 <Button 
                   onClick={() => router.push('/project')}
                   size="sm"
                   className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 w-full sm:w-auto"
                 >
-                  <Plus size={14} className="sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                  <span className="text-xs sm:text-sm">New Project</span>
+                  <Plus size={16} className="sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline ml-2 text-sm">New Project</span>
                 </Button>
               </div>
             </div>

@@ -4,7 +4,8 @@ import {
   Plus, 
   MoreVertical, 
   Calendar, 
-  User, 
+  User,
+  Users,
   Clock,
   CheckCircle,
   CheckSquare,
@@ -18,6 +19,7 @@ import {
   Trash2,
   ArrowUp,
   ArrowDown,
+  ArrowLeft,
   X,
   Search,
   Link
@@ -226,11 +228,106 @@ const TasksPage = () => {
   // Subtask management
   const [isAddingSubtask, setIsAddingSubtask] = useState(false);
   const [subtaskSearch, setSubtaskSearch] = useState('');
+  const [isCreatingSubtask, setIsCreatingSubtask] = useState(false);
+  const [parentTaskForSubtask, setParentTaskForSubtask] = useState<Task | null>(null);
   const [isPreviewAnimating, setIsPreviewAnimating] = useState(false);
   
   // Comment management
   const [newComment, setNewComment] = useState('');
   const [isPostingComment, setIsPostingComment] = useState(false);
+
+  // Delete confirmation
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+
+  // Dropdown menu
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+
+  // User and team selection in preview
+  const [isAddingUser, setIsAddingUser] = useState(false);
+  const [isAddingTeam, setIsAddingTeam] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
+  const [teamSearch, setTeamSearch] = useState('');
+  const [pendingUsers, setPendingUsers] = useState<string[]>([]);
+  const [pendingTeams, setPendingTeams] = useState<string[]>([]);
+  const [pendingSubtasks, setPendingSubtasks] = useState<string[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Confirmation dialogs
+  const [showRemoveUserConfirm, setShowRemoveUserConfirm] = useState(false);
+  const [showRemoveSubtaskConfirm, setShowRemoveSubtaskConfirm] = useState(false);
+  const [userToRemove, setUserToRemove] = useState<string | null>(null);
+  const [subtaskToRemove, setSubtaskToRemove] = useState<string | null>(null);
+  
+  // Refs for confirmation modals
+  const removeUserConfirmRef = useRef<HTMLDivElement>(null);
+  const removeSubtaskConfirmRef = useRef<HTMLDivElement>(null);
+
+  // Debug: Log state changes
+  useEffect(() => {
+    console.log('🔍 TaskForm state changed:', {
+      isTaskFormOpen,
+      isCreatingSubtask,
+      isAddingSubtask,
+      hasSelectedTask: !!selectedTask,
+      hasParentTaskForSubtask: !!parentTaskForSubtask,
+      selectedTaskTitle: selectedTask?.title,
+      parentTaskTitle: parentTaskForSubtask?.title
+    });
+  }, [isTaskFormOpen, isCreatingSubtask, isAddingSubtask, selectedTask, parentTaskForSubtask]);
+
+
+
+  // Simple back navigation (one step back)
+  const handleBack = () => {
+    closeTaskPreview();
+  };
+
+  // Delete task functions
+  const handleDeleteTask = (task: Task) => {
+    setTaskToDelete(task);
+    setShowDeleteConfirm(true);
+    setDeleteConfirmText('');
+  };
+
+  const confirmDeleteTask = async () => {
+    if (!taskToDelete || deleteConfirmText !== 'DELETE') {
+      return;
+    }
+
+    try {
+      console.log('🗑️ Deleting task:', taskToDelete.id);
+      const result = await deleteTask(taskToDelete.id);
+      
+      if (result.success) {
+        console.log('✅ Task deleted successfully');
+        // Refresh tasks list
+        await fetchTasks();
+        // Close any open preview if it was the deleted task
+        if (selectedTask && selectedTask.id === taskToDelete.id) {
+          closeTaskPreview();
+        }
+        // Show success message (you can add a toast notification here)
+      } else {
+        console.error('❌ Failed to delete task:', result.error);
+        alert(`Failed to delete task: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('❌ Error deleting task:', error);
+      alert('An unexpected error occurred while deleting the task');
+    } finally {
+      setShowDeleteConfirm(false);
+      setTaskToDelete(null);
+      setDeleteConfirmText('');
+    }
+  };
+
+  const cancelDeleteTask = () => {
+    setShowDeleteConfirm(false);
+    setTaskToDelete(null);
+    setDeleteConfirmText('');
+  };
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -420,14 +517,17 @@ const TasksPage = () => {
     try {
       console.log('👥 Fetching users for task assignment...');
       const res = await apiService.getUsers();
+      console.log('🔍 Users API response:', res);
       if (res.success && res.data) {
-        console.log('✅ Users fetched:', res.data.length);
+        console.log('✅ Users fetched:', res.data.length, res.data);
         setAllUsers(res.data);
       } else {
         console.error('❌ Failed to fetch users:', res.error);
+        setAllUsers([]);
       }
     } catch (error) {
       console.error('❌ Error fetching users:', error);
+      setAllUsers([]);
     } finally {
       setIsLoadingUsers(false);
     }
@@ -439,14 +539,17 @@ const TasksPage = () => {
     try {
       console.log('👥 Fetching teams for task assignment...');
       const res = await apiService.getTeams();
+      console.log('🔍 Teams API response:', res);
       if (res.success && res.data) {
-        console.log('✅ Teams fetched:', res.data.length);
+        console.log('✅ Teams fetched:', res.data.length, res.data);
         setAllTeams(res.data);
       } else {
         console.error('❌ Failed to fetch teams:', res.error);
+        setAllTeams([]);
       }
     } catch (error) {
       console.error('❌ Error fetching teams:', error);
+      setAllTeams([]);
     } finally {
       setIsLoadingTeams(false);
     }
@@ -597,6 +700,43 @@ const TasksPage = () => {
     }, 10);
   };
 
+  const handleCreateSubtask = () => {
+    console.log('🔄 handleCreateSubtask: Closing preview and opening form');
+    
+    // Store the parent task before clearing selectedTask
+    const parentTask = selectedTask;
+    
+    // Close the preview modal first
+    setIsTaskPreviewOpen(false);
+    setIsPreviewAnimating(true);
+    
+    // Wait for preview to close, then open form
+    setTimeout(() => {
+      console.log('🔄 Opening subtask form for new task (parent:', parentTask?.title, ')');
+      
+      // Store the parent task for later use
+      setParentTaskForSubtask(parentTask);
+      
+      // IMPORTANT: Clear selectedTask so form shows as "create new" not "edit"
+      setSelectedTask(null);
+      
+      setFormHeight(80); // Reset to default height
+      setIsTaskFormOpen(true);
+      setIsCreatingSubtask(true);
+      setIsFormAnimating(true); // Start with form off-screen (translate-y-full)
+      
+      // Fetch users and teams when opening form
+      fetchUsers();
+      fetchTeams();
+      
+      // Trigger slide-up animation after a brief delay
+      setTimeout(() => {
+        console.log('✅ Subtask form should be visible now');
+        setIsFormAnimating(false); // Animate to visible (translate-y-0)
+      }, 10);
+    }, 300); // Wait for preview close animation
+  };
+
   const handleTaskFormSubmit = async (taskData: Partial<Task>) => {
     try {
       let result;
@@ -625,7 +765,72 @@ const TasksPage = () => {
         
         if (result.success) {
           console.log('✅ Task created successfully:', result.data);
+          
+          // If we're creating a subtask, automatically add it as a subtask
+          if (isCreatingSubtask && parentTaskForSubtask && result.data) {
+            try {
+              console.log('🔄 Adding new task as subtask to parent:', parentTaskForSubtask.title);
+              
+              // Add the new task as a subtask to the parent
+              const parentId = parentTaskForSubtask.id;
+              let currentSubtasks: string[] = [];
+              
+              if (typeof parentTaskForSubtask.subtasks === 'string') {
+                try {
+                  currentSubtasks = JSON.parse(parentTaskForSubtask.subtasks);
+                } catch {
+                  currentSubtasks = [];
+                }
+              } else if (Array.isArray(parentTaskForSubtask.subtasks)) {
+                currentSubtasks = parentTaskForSubtask.subtasks;
+              }
+              
+              // Add the new subtask ID
+              currentSubtasks.push(result.data.id);
+              
+              // Update the parent task with the new subtask
+              await updateTask(parentId, {
+                subtasks: JSON.stringify(currentSubtasks)
+              });
+              
+              // Update the new task with the parent ID
+              await updateTask(result.data.id, {
+                parentId: JSON.stringify([parentId])
+              });
+              
+              console.log('✅ Task automatically added as subtask');
+              
+              // Refresh tasks to get the updated data
+              await fetchTasks();
+              
+              // Close the form and reopen the task preview
+              setIsTaskFormOpen(false);
+              setIsCreatingSubtask(false);
+              
+              // Set the parent task as the selected task for the preview
+              setSelectedTask(parentTaskForSubtask);
+              
+              // Clear the parent task reference
+              setParentTaskForSubtask(null);
+              
+              // Reopen the task preview with the updated task
+              setTimeout(() => {
+                setIsTaskPreviewOpen(true);
+                setIsPreviewAnimating(true);
+                setTimeout(() => {
+                  setIsPreviewAnimating(false);
+                }, 10);
+              }, 100);
+              
+              return; // Don't continue with normal form close
+            } catch (error) {
+              console.error('❌ Failed to add task as subtask:', error);
+              setParentTaskForSubtask(null);
+            }
+          }
+          
           closeForm();
+          setIsCreatingSubtask(false);
           // Show success message (you can add a toast notification here)
         } else {
           console.error('❌ Failed to create task:', result.error);
@@ -640,6 +845,8 @@ const TasksPage = () => {
 
   const handleTaskFormCancel = () => {
     closeForm();
+    setIsCreatingSubtask(false);
+    setParentTaskForSubtask(null); // Clear parent task reference
   };
 
   // Subtask management functions
@@ -778,11 +985,17 @@ const TasksPage = () => {
       // Refresh tasks
       await fetchTasks();
       
-      // Update selected task to reflect changes
-      const updatedTask = tasks.find(t => t.id === selectedTask.id);
-      if (updatedTask) {
-        setSelectedTask(updatedTask);
-      }
+      // Wait a bit for the tasks to be updated, then find the updated task
+      setTimeout(async () => {
+        const updatedTasks = await apiService.getTasks();
+        if (updatedTasks.success && updatedTasks.data) {
+          const updatedTask = updatedTasks.data.find(t => t.id === selectedTask.id);
+          if (updatedTask) {
+            console.log('🔄 Updating selectedTask after subtask removal:', updatedTask);
+            setSelectedTask(updatedTask);
+          }
+        }
+      }, 500);
       
     } catch (error) {
       console.error('Error removing subtask:', error);
@@ -846,6 +1059,398 @@ const TasksPage = () => {
       .filter((task): task is Task => task !== undefined);
   };
 
+  // Helper functions for user and team management
+  const getAvailableUsers = () => {
+    console.log('🔍 getAvailableUsers called - allUsers:', allUsers);
+    console.log('🔍 getAvailableUsers called - selectedTask:', selectedTask);
+    
+    if (!selectedTask) {
+      const validUsers = allUsers.filter((user: any) => user.name);
+      console.log('🔍 Available users (no task selected):', validUsers);
+      return validUsers;
+    }
+    
+    const currentUsers = selectedTask.assignedUsers || [];
+    console.log('🔍 Current assigned users:', currentUsers);
+    const validUsers = allUsers.filter((user: any) => user.name && !currentUsers.includes(user.name));
+    console.log('🔍 Available users (task selected):', validUsers);
+    return validUsers;
+  };
+
+  const getAvailableTeams = () => {
+    if (!selectedTask) {
+      const validTeams = allTeams.filter((team: any) => team.name);
+      console.log('🔍 Available teams (no task selected):', validTeams);
+      return validTeams;
+    }
+    
+    const currentTeams = selectedTask.assignedTeams || [];
+    const validTeams = allTeams.filter((team: any) => team.name && !currentTeams.includes(team.name));
+    console.log('🔍 Available teams (task selected):', validTeams);
+    return validTeams;
+  };
+
+  const handleAddUser = async (userName: string) => {
+    if (!selectedTask) return;
+    
+    try {
+      const currentUsers = selectedTask.assignedUsers || [];
+      const updatedUsers = [...currentUsers, userName];
+      
+      const result = await updateTask(selectedTask.id, {
+        assignedUsers: updatedUsers
+      });
+      
+      if (result.success) {
+        console.log('✅ User added successfully');
+        await fetchTasks();
+        // Update selectedTask to reflect the change
+        const updatedTask = tasks.find(t => t.id === selectedTask.id);
+        if (updatedTask) {
+          setSelectedTask(updatedTask);
+        }
+      } else {
+        console.error('❌ Failed to add user:', result.error);
+        alert(`Failed to add user: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('❌ Error adding user:', error);
+      alert('An unexpected error occurred while adding the user');
+    }
+  };
+
+  const handleAddTeam = async (teamName: string) => {
+    if (!selectedTask) return;
+    
+    try {
+      const currentTeams = selectedTask.assignedTeams || [];
+      const updatedTeams = [...currentTeams, teamName];
+      
+      const result = await updateTask(selectedTask.id, {
+        assignedTeams: updatedTeams
+      });
+      
+      if (result.success) {
+        console.log('✅ Team added successfully');
+        await fetchTasks();
+        // Update selectedTask to reflect the change
+        const updatedTask = tasks.find(t => t.id === selectedTask.id);
+        if (updatedTask) {
+          setSelectedTask(updatedTask);
+        }
+      } else {
+        console.error('❌ Failed to add team:', result.error);
+        alert(`Failed to add team: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('❌ Error adding team:', error);
+      alert('An unexpected error occurred while adding the team');
+    }
+  };
+
+  const handleRemoveUser = async (userName: string) => {
+    if (!selectedTask) return;
+    
+    try {
+      const currentUsers = selectedTask.assignedUsers || [];
+      const updatedUsers = currentUsers.filter(user => user !== userName);
+      
+      const result = await updateTask(selectedTask.id, {
+        assignedUsers: updatedUsers
+      });
+      
+      if (result.success) {
+        console.log('✅ User removed successfully');
+        await fetchTasks();
+        
+        // Wait a bit for the tasks to be updated, then find the updated task
+        setTimeout(async () => {
+          const updatedTasks = await apiService.getTasks();
+          if (updatedTasks.success && updatedTasks.data) {
+            const updatedTask = updatedTasks.data.find(t => t.id === selectedTask.id);
+            if (updatedTask) {
+              console.log('🔄 Updating selectedTask after user removal:', updatedTask);
+              setSelectedTask(updatedTask);
+            }
+          }
+        }, 500);
+      } else {
+        console.error('❌ Failed to remove user:', result.error);
+        alert(`Failed to remove user: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('❌ Error removing user:', error);
+      alert('An unexpected error occurred while removing the user');
+    }
+  };
+
+  const handleRemoveTeam = async (teamName: string) => {
+    if (!selectedTask) return;
+    
+    try {
+      const currentTeams = selectedTask.assignedTeams || [];
+      const updatedTeams = currentTeams.filter(team => team !== teamName);
+      
+      const result = await updateTask(selectedTask.id, {
+        assignedTeams: updatedTeams
+      });
+      
+      if (result.success) {
+        console.log('✅ Team removed successfully');
+        await fetchTasks();
+        
+        // Wait a bit for the tasks to be updated, then find the updated task
+        setTimeout(async () => {
+          const updatedTasks = await apiService.getTasks();
+          if (updatedTasks.success && updatedTasks.data) {
+            const updatedTask = updatedTasks.data.find(t => t.id === selectedTask.id);
+            if (updatedTask) {
+              console.log('🔄 Updating selectedTask after team removal:', updatedTask);
+              setSelectedTask(updatedTask);
+            }
+          }
+        }, 500);
+      } else {
+        console.error('❌ Failed to remove team:', result.error);
+        alert(`Failed to remove team: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('❌ Error removing team:', error);
+      alert('An unexpected error occurred while removing the team');
+    }
+  };
+
+  // Handle adding users to pending list
+  const handleAddUserToPending = (userName: string) => {
+    if (!pendingUsers.includes(userName)) {
+      setPendingUsers([...pendingUsers, userName]);
+    }
+  };
+
+  // Handle removing users from pending list
+  const handleRemoveUserFromPending = (userName: string) => {
+    setPendingUsers(pendingUsers.filter(user => user !== userName));
+  };
+
+  // Handle adding teams to pending list
+  const handleAddTeamToPending = (teamName: string) => {
+    if (!pendingTeams.includes(teamName)) {
+      setPendingTeams([...pendingTeams, teamName]);
+    }
+  };
+
+  // Handle removing teams from pending list
+  const handleRemoveTeamFromPending = (teamName: string) => {
+    setPendingTeams(pendingTeams.filter(team => team !== teamName));
+  };
+
+  // Save all pending changes
+  const handleSaveChanges = async () => {
+    if (!selectedTask) return;
+    
+    setIsSaving(true);
+    try {
+      const currentUsers = selectedTask.assignedUsers || [];
+      const currentTeams = selectedTask.assignedTeams || [];
+      
+      // Get current subtasks
+      let currentSubtasks: string[] = [];
+      if (typeof selectedTask.subtasks === 'string') {
+        try {
+          currentSubtasks = JSON.parse(selectedTask.subtasks);
+        } catch {
+          currentSubtasks = [];
+        }
+      } else if (Array.isArray(selectedTask.subtasks)) {
+        currentSubtasks = selectedTask.subtasks;
+      }
+      
+      // Combine current and pending users/teams/subtasks
+      const updatedUsers = [...currentUsers, ...pendingUsers];
+      const updatedTeams = [...currentTeams, ...pendingTeams];
+      const updatedSubtasks = [...currentSubtasks, ...pendingSubtasks];
+      
+      const result = await updateTask(selectedTask.id, {
+        assignedUsers: updatedUsers,
+        assignedTeams: updatedTeams,
+        subtasks: JSON.stringify(updatedSubtasks)
+      });
+      
+      if (result.success) {
+        console.log('✅ Changes saved successfully');
+        await fetchTasks();
+        
+        // Wait a bit for the tasks to be updated, then find the updated task
+        setTimeout(async () => {
+          const updatedTasks = await apiService.getTasks();
+          if (updatedTasks.success && updatedTasks.data) {
+            const updatedTask = updatedTasks.data.find(t => t.id === selectedTask.id);
+            if (updatedTask) {
+              console.log('🔄 Updating selectedTask with latest data:', updatedTask);
+              setSelectedTask(updatedTask);
+            }
+          }
+        }, 500);
+        
+        // Clear pending changes
+        setPendingUsers([]);
+        setPendingTeams([]);
+        setPendingSubtasks([]);
+        setIsAddingUser(false);
+        setIsAddingTeam(false);
+        setIsAddingSubtask(false);
+      } else {
+        console.error('❌ Failed to save changes:', result.error);
+        alert(`Failed to save changes: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('❌ Error saving changes:', error);
+      alert('An unexpected error occurred while saving changes');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Cancel changes
+  const handleCancelChanges = () => {
+    setPendingUsers([]);
+    setPendingTeams([]);
+    setPendingSubtasks([]);
+    setIsAddingUser(false);
+    setIsAddingTeam(false);
+    setIsAddingSubtask(false);
+  };
+
+  // Handle adding subtasks to pending list
+  const handleAddSubtaskToPending = (subtaskId: string) => {
+    if (!pendingSubtasks.includes(subtaskId)) {
+      setPendingSubtasks([...pendingSubtasks, subtaskId]);
+    }
+  };
+
+  // Handle removing subtasks from pending list
+  const handleRemoveSubtaskFromPending = (subtaskId: string) => {
+    setPendingSubtasks(pendingSubtasks.filter(id => id !== subtaskId));
+  };
+
+  // Handle user removal confirmation
+  const handleRemoveUserClick = (userName: string) => {
+    setUserToRemove(userName);
+    setShowRemoveUserConfirm(true);
+  };
+
+  // Confirm user removal
+  const confirmRemoveUser = async () => {
+    if (!userToRemove || !selectedTask) return;
+    
+    try {
+      const currentUsers = selectedTask.assignedUsers || [];
+      const updatedUsers = currentUsers.filter(user => user !== userToRemove);
+      
+      const result = await updateTask(selectedTask.id, {
+        assignedUsers: updatedUsers
+      });
+      
+      if (result.success) {
+        console.log('✅ User removed successfully');
+        await fetchTasks();
+        
+        // Wait a bit for the tasks to be updated, then find the updated task
+        setTimeout(async () => {
+          const updatedTasks = await apiService.getTasks();
+          if (updatedTasks.success && updatedTasks.data) {
+            const updatedTask = updatedTasks.data.find(t => t.id === selectedTask.id);
+            if (updatedTask) {
+              console.log('🔄 Updating selectedTask after user removal:', updatedTask);
+              setSelectedTask(updatedTask);
+            }
+          }
+        }, 500);
+        
+        // Close modal only after successful removal
+        setShowRemoveUserConfirm(false);
+        setUserToRemove(null);
+      } else {
+        console.error('❌ Failed to remove user:', result.error);
+        alert(`Failed to remove user: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('❌ Error removing user:', error);
+      alert('An unexpected error occurred while removing the user');
+    }
+  };
+
+  // Cancel user removal
+  const cancelRemoveUser = () => {
+    setShowRemoveUserConfirm(false);
+    setUserToRemove(null);
+  };
+
+  // Handle subtask removal confirmation
+  const handleRemoveSubtaskClick = (subtaskId: string) => {
+    setSubtaskToRemove(subtaskId);
+    setShowRemoveSubtaskConfirm(true);
+  };
+
+  // Confirm subtask removal
+  const confirmRemoveSubtask = async () => {
+    if (!subtaskToRemove || !selectedTask) return;
+    
+    try {
+      // Get current subtasks
+      let currentSubtasks: string[] = [];
+      if (typeof selectedTask.subtasks === 'string') {
+        try {
+          currentSubtasks = JSON.parse(selectedTask.subtasks);
+        } catch {
+          currentSubtasks = [];
+        }
+      } else if (Array.isArray(selectedTask.subtasks)) {
+        currentSubtasks = selectedTask.subtasks;
+      }
+      
+      // Remove the subtask
+      const updatedSubtasks = currentSubtasks.filter(id => id !== subtaskToRemove);
+      
+      const result = await updateTask(selectedTask.id, {
+        subtasks: JSON.stringify(updatedSubtasks)
+      });
+      
+      if (result.success) {
+        console.log('✅ Subtask removed successfully');
+        await fetchTasks();
+        
+        // Wait a bit for the tasks to be updated, then find the updated task
+        setTimeout(async () => {
+          const updatedTasks = await apiService.getTasks();
+          if (updatedTasks.success && updatedTasks.data) {
+            const updatedTask = updatedTasks.data.find(t => t.id === selectedTask.id);
+            if (updatedTask) {
+              console.log('🔄 Updating selectedTask after subtask removal:', updatedTask);
+              setSelectedTask(updatedTask);
+            }
+          }
+        }, 500);
+        
+        // Close modal only after successful removal
+        setShowRemoveSubtaskConfirm(false);
+        setSubtaskToRemove(null);
+      } else {
+        console.error('❌ Failed to remove subtask:', result.error);
+        alert(`Failed to remove subtask: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('❌ Error removing subtask:', error);
+      alert('An unexpected error occurred while removing the subtask');
+    }
+  };
+
+  // Cancel subtask removal
+  const cancelRemoveSubtask = () => {
+    setShowRemoveSubtaskConfirm(false);
+    setSubtaskToRemove(null);
+  };
+
   const closeForm = () => {
     setIsFormAnimating(true); // Start slide-down animation (translate-y-full)
     
@@ -854,6 +1459,8 @@ const TasksPage = () => {
       setIsTaskFormOpen(false);
       setIsFormAnimating(false);
       setSelectedTask(null); // Clear selected task when closing form
+      setIsCreatingSubtask(false); // Reset subtask creation flag
+      setParentTaskForSubtask(null); // Clear parent task reference
     }, 300);
   };
 
@@ -883,6 +1490,11 @@ const TasksPage = () => {
     setSelectedTask(task);
     setIsTaskPreviewOpen(true);
     setIsPreviewAnimating(false);
+    
+    // Fetch users and teams when opening task preview
+    fetchUsers();
+    fetchTeams();
+    
     // Scroll to top when opening task preview
     setTimeout(() => {
       const modal = document.querySelector('[data-task-preview-content]');
@@ -982,17 +1594,43 @@ const TasksPage = () => {
   // Close task form and preview when clicking outside and handle drag events
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (taskFormRef.current && !taskFormRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      
+      // Check if click is inside confirmation modals - if so, don't close task preview
+      const isClickInsideUserConfirm = removeUserConfirmRef.current && removeUserConfirmRef.current.contains(target);
+      const isClickInsideSubtaskConfirm = removeSubtaskConfirmRef.current && removeSubtaskConfirmRef.current.contains(target);
+      
+      if (isClickInsideUserConfirm || isClickInsideSubtaskConfirm) {
+        return; // Don't close task preview if clicking inside confirmation modals
+      }
+      
+      // Check if click is inside task form
+      if (taskFormRef.current && !taskFormRef.current.contains(target)) {
         closeForm();
       }
-      if (taskPreviewRef.current && !taskPreviewRef.current.contains(event.target as Node)) {
+      
+      // Check if click is inside task preview
+      if (taskPreviewRef.current && !taskPreviewRef.current.contains(target)) {
         closeTaskPreview();
+      }
+      
+      // Close dropdown when clicking outside
+      setOpenDropdown(null);
+      
+      // Close user and team selection dropdowns only if not clicking inside them
+      const isClickInsideUserSelection = (target as Element).closest('[data-user-selection]');
+      const isClickInsideTeamSelection = (target as Element).closest('[data-team-selection]');
+      
+      if (!isClickInsideUserSelection) {
+        setIsAddingUser(false);
+      }
+      if (!isClickInsideTeamSelection) {
+        setIsAddingTeam(false);
       }
     };
 
-    if (isTaskFormOpen || isTaskPreviewOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
+    // Always listen for clicks to close dropdown, but only listen for form/preview when they're open
+    document.addEventListener('mousedown', handleClickOutside);
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
@@ -1167,14 +1805,39 @@ const TasksPage = () => {
                      >
                        <Edit size={14} className="sm:w-[18px] sm:h-[18px]" />
                      </Button>
-                     <Button 
-                       variant="ghost" 
-                       size="sm"
-                       title="More Options"
-                       className="p-1.5 h-7 w-7 sm:p-2 sm:h-9 sm:w-9"
-                     >
-                       <MoreVertical size={14} className="sm:w-[18px] sm:h-[18px]" />
-                     </Button>
+                     <div className="relative">
+                       <Button 
+                         variant="ghost" 
+                         size="sm"
+                         title="More Options"
+                         className="p-1.5 h-7 w-7 sm:p-2 sm:h-9 sm:w-9"
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           setOpenDropdown(openDropdown === task.id ? null : task.id);
+                         }}
+                       >
+                         <MoreVertical size={14} className="sm:w-[18px] sm:h-[18px]" />
+                       </Button>
+                       
+                       {/* Dropdown Menu */}
+                       {openDropdown === task.id && (
+                         <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+                           <div className="py-1">
+                             <button
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 handleDeleteTask(task);
+                                 setOpenDropdown(null);
+                               }}
+                               className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center space-x-2"
+                             >
+                               <Trash2 className="w-4 h-4" />
+                               <span>Delete Task</span>
+                             </button>
+                           </div>
+                         </div>
+                       )}
+                     </div>
                    </div>
                    
                    {/* Assignee and Due Date (Desktop only) */}
@@ -1446,6 +2109,7 @@ const TasksPage = () => {
               onSubmit={handleTaskFormSubmit}
               onCancel={handleTaskFormCancel}
               isEditing={!!selectedTask}
+              isCreatingSubtask={isCreatingSubtask}
               projects={Array.from(new Set(tasks.map(t => t.project)))}
               teams={allTeams.map(team => team.name)}
               users={allUsers}
@@ -1496,12 +2160,23 @@ const TasksPage = () => {
                 {/* Task Preview Header */}
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center space-x-3">
+                    {/* Back Button (always visible) */}
+                    <button
+                      onClick={handleBack}
+                      className="w-10 h-10 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg flex items-center justify-center transition-colors group"
+                      title="Go back"
+                    >
+                      <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-300 group-hover:text-gray-800 dark:group-hover:text-white" />
+                    </button>
+                    
                     <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
                       <CheckSquare className="w-6 h-6 text-white" />
                     </div>
                     <div>
                       <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{selectedTask.title}</h2>
-                      <p className="text-gray-500 dark:text-gray-400 text-sm">Task Details</p>
+                      <p className="text-gray-500 dark:text-gray-400 text-sm">
+                        Task Details
+                      </p>
                     </div>
                   </div>
                   <div className="flex space-x-2">
@@ -1581,16 +2256,290 @@ const TasksPage = () => {
                   {/* Assignment */}
                   <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 shadow-sm">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Assigned Users */}
                       <div>
-                        <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Assigned To</label>
-                        <div className="flex items-center space-x-3">
-                          <Avatar name={selectedTask.assignee} size="md" />
-                          <span className="text-gray-600 dark:text-gray-300">{selectedTask.assignee}</span>
+                        <div className="flex items-center justify-between mb-4">
+                          <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200">
+                            Assigned Users ({(selectedTask.assignedUsers && selectedTask.assignedUsers.length > 0) ? selectedTask.assignedUsers.length : 0})
+                            {pendingUsers.length > 0 && (
+                              <span className="text-green-600 dark:text-green-400 ml-1">+{pendingUsers.length}</span>
+                            )}
+                          </label>
+                          <div className="flex items-center space-x-2">
+                            {(pendingUsers.length > 0 || pendingTeams.length > 0) && (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={handleCancelChanges}
+                                  className="flex items-center space-x-1"
+                                >
+                                  <X className="w-4 h-4" />
+                                  <span>Cancel</span>
+                                </Button>
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  onClick={handleSaveChanges}
+                                  disabled={isSaving}
+                                  className="flex items-center space-x-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400"
+                                >
+                                  {isSaving ? (
+                                    <>
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                      <span>Saving...</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <CheckCircle className="w-4 h-4" />
+                                      <span>Save</span>
+                                    </>
+                                  )}
+                                </Button>
+                              </>
+                            )}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setIsAddingUser(!isAddingUser)}
+                              className="flex items-center space-x-1"
+                            >
+                              {isAddingUser ? (
+                                <>
+                                  <X className="w-4 h-4" />
+                                  <span>Close</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Plus className="w-4 h-4" />
+                                  <span>Add User</span>
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+
+                        {isAddingUser && (
+                          <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800" data-user-selection>
+                            <div className="mb-3">
+                              <input
+                                type="text"
+                                placeholder="Search users..."
+                                value={userSearch}
+                                onChange={(e) => setUserSearch(e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              />
+                            </div>
+                            <div className="max-h-32 overflow-y-auto space-y-1">
+                              {isLoadingUsers ? (
+                                <div className="flex items-center justify-center py-4">
+                                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                                  <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">Loading users...</span>
+                                </div>
+                              ) : (
+                                <>
+                                  {getAvailableUsers()
+                                    .filter((user: any) => user.name && user.name.toLowerCase().includes(userSearch.toLowerCase()))
+                                    .map((user: any) => (
+                                      <div key={user.id} className="flex items-center justify-between px-3 py-2 hover:bg-blue-100 dark:hover:bg-blue-800/30 rounded-lg transition-colors">
+                                        <div className="flex items-center space-x-2 flex-1">
+                                          <Avatar name={user.name} size="sm" />
+                                          <span className="text-sm text-gray-700 dark:text-gray-300">{user.name}</span>
+                                        </div>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleAddUserToPending(user.name);
+                                          }}
+                                          disabled={pendingUsers.includes(user.name)}
+                                          className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-md transition-colors"
+                                        >
+                                          {pendingUsers.includes(user.name) ? 'Added' : 'Add'}
+                                        </button>
+                                      </div>
+                                    ))}
+                                  {getAvailableUsers().filter((user: any) => user.name && user.name.toLowerCase().includes(userSearch.toLowerCase())).length === 0 && (
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-2">
+                                      {userSearch ? 'No users found' : 'No available users'}
+                                    </p>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="space-y-3">
+                          {/* Current Assigned Users */}
+                          <div className="flex flex-wrap gap-2">
+                            {(selectedTask.assignedUsers && selectedTask.assignedUsers.length > 0) ? (
+                              selectedTask.assignedUsers.map((user, index) => (
+                                <div key={`assigned-user-${index}`} className="flex items-center space-x-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 px-3 py-1.5 rounded-full text-sm">
+                                  <Avatar name={user} size="sm" />
+                                  <span>{user}</span>
+                                  <button
+                                    onClick={() => handleRemoveUserClick(user)}
+                                    className="ml-1 p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                                    title="Remove user"
+                                  >
+                                    <X className="w-3 h-3 text-red-600 dark:text-red-400" />
+                                  </button>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="flex items-center space-x-3 bg-gray-50 dark:bg-gray-700 rounded-lg px-3 py-2">
+                                <Avatar name={selectedTask.assignee} size="md" />
+                                <span className="text-gray-600 dark:text-gray-300">{selectedTask.assignee || 'Not assigned'}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Pending Users */}
+                          {pendingUsers.length > 0 && (
+                            <div>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Pending additions:</p>
+                              <div className="flex flex-wrap gap-2">
+                                {pendingUsers.map((user, index) => (
+                                  <div key={`pending-user-${index}`} className="flex items-center space-x-2 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-3 py-1.5 rounded-full text-sm">
+                                    <Avatar name={user} size="sm" />
+                                    <span>{user}</span>
+                                    <button
+                                      onClick={() => handleRemoveUserFromPending(user)}
+                                      className="ml-1 p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                                      title="Remove from pending"
+                                    >
+                                      <X className="w-3 h-3 text-red-600 dark:text-red-400" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
+
+                      {/* Assigned Teams */}
                       <div>
-                        <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Team</label>
-                        <p className="text-gray-600 dark:text-gray-300">{selectedTask.assignedTeams?.join(', ') || 'Not assigned'}</p>
+                        <div className="flex items-center justify-between mb-4">
+                          <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200">
+                            Assigned Teams ({(selectedTask.assignedTeams && selectedTask.assignedTeams.length > 0) ? selectedTask.assignedTeams.length : 0})
+                          </label>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsAddingTeam(!isAddingTeam)}
+                            className="flex items-center space-x-1"
+                          >
+                            {isAddingTeam ? (
+                              <>
+                                <X className="w-4 h-4" />
+                                <span>Cancel</span>
+                              </>
+                            ) : (
+                              <>
+                                <Plus className="w-4 h-4" />
+                                <span>Add Team</span>
+                              </>
+                            )}
+                          </Button>
+                        </div>
+
+                        {isAddingTeam && (
+                          <div className="mb-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800" data-team-selection>
+                            <div className="mb-3">
+                              <input
+                                type="text"
+                                placeholder="Search teams..."
+                                value={teamSearch}
+                                onChange={(e) => setTeamSearch(e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                              />
+                            </div>
+                            <div className="max-h-32 overflow-y-auto space-y-1">
+                              {isLoadingTeams ? (
+                                <div className="flex items-center justify-center py-4">
+                                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
+                                  <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">Loading teams...</span>
+                                </div>
+                              ) : (
+                                <>
+                                  {getAvailableTeams()
+                                    .filter((team: any) => team.name && team.name.toLowerCase().includes(teamSearch.toLowerCase()))
+                                    .map((team: any) => (
+                                      <div key={team.id} className="flex items-center justify-between px-3 py-2 hover:bg-purple-100 dark:hover:bg-purple-800/30 rounded-lg transition-colors">
+                                        <div className="flex items-center space-x-2 flex-1">
+                                          <Users className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                                          <span className="text-sm text-gray-700 dark:text-gray-300">{team.name}</span>
+                                        </div>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleAddTeamToPending(team.name);
+                                          }}
+                                          disabled={pendingTeams.includes(team.name)}
+                                          className="px-3 py-1 text-xs bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-md transition-colors"
+                                        >
+                                          {pendingTeams.includes(team.name) ? 'Added' : 'Add'}
+                                        </button>
+                                      </div>
+                                    ))}
+                                  {getAvailableTeams().filter((team: any) => team.name && team.name.toLowerCase().includes(teamSearch.toLowerCase())).length === 0 && (
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-2">
+                                      {teamSearch ? 'No teams found' : 'No available teams'}
+                                    </p>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="space-y-3">
+                          {/* Current Assigned Teams */}
+                          <div className="flex flex-wrap gap-2">
+                            {(selectedTask.assignedTeams && selectedTask.assignedTeams.length > 0) ? (
+                              selectedTask.assignedTeams.map((team, index) => (
+                                <div key={`assigned-team-${index}`} className="flex items-center space-x-2 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 px-3 py-1.5 rounded-full text-sm">
+                                  <Users className="w-3 h-3" />
+                                  <span>{team}</span>
+                                  <button
+                                    onClick={() => handleRemoveTeam(team)}
+                                    className="ml-1 p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                                    title="Remove team"
+                                  >
+                                    <X className="w-3 h-3 text-red-600 dark:text-red-400" />
+                                  </button>
+                                </div>
+                              ))
+                            ) : (
+                              <p className="text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 rounded-lg px-3 py-2">Not assigned</p>
+                            )}
+                          </div>
+
+                          {/* Pending Teams */}
+                          {pendingTeams.length > 0 && (
+                            <div>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Pending additions:</p>
+                              <div className="flex flex-wrap gap-2">
+                                {pendingTeams.map((team, index) => (
+                                  <div key={`pending-team-${index}`} className="flex items-center space-x-2 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-3 py-1.5 rounded-full text-sm">
+                                    <Users className="w-3 h-3" />
+                                    <span>{team}</span>
+                                    <button
+                                      onClick={() => handleRemoveTeamFromPending(team)}
+                                      className="ml-1 p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                                      title="Remove from pending"
+                                    >
+                                      <X className="w-3 h-3 text-red-600 dark:text-red-400" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1614,37 +2563,93 @@ const TasksPage = () => {
                     <div className="flex items-center justify-between mb-4">
                       <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200">
                         Subtasks ({getCurrentSubtasks().length})
+                        {pendingSubtasks.length > 0 && (
+                          <span className="text-green-600 dark:text-green-400 ml-1">+{pendingSubtasks.length}</span>
+                        )}
                       </label>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsAddingSubtask(!isAddingSubtask)}
-                        className="flex items-center space-x-1"
-                      >
-                        {isAddingSubtask ? (
+                      <div className="flex items-center space-x-2">
+                        {(pendingUsers.length > 0 || pendingTeams.length > 0 || pendingSubtasks.length > 0) && (
                           <>
-                            <X className="w-4 h-4" />
-                            <span>Cancel</span>
-                          </>
-                        ) : (
-                          <>
-                            <Plus className="w-4 h-4" />
-                            <span>Add Subtask</span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleCancelChanges}
+                              className="flex items-center space-x-1"
+                            >
+                              <X className="w-4 h-4" />
+                              <span>Cancel</span>
+                            </Button>
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              onClick={handleSaveChanges}
+                              disabled={isSaving}
+                              className="flex items-center space-x-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400"
+                            >
+                              {isSaving ? (
+                                <>
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                  <span>Saving...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle className="w-4 h-4" />
+                                  <span>Save</span>
+                                </>
+                              )}
+                            </Button>
                           </>
                         )}
-                      </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setIsAddingSubtask(!isAddingSubtask)}
+                          className="flex items-center space-x-1"
+                        >
+                          {isAddingSubtask ? (
+                            <>
+                              <X className="w-4 h-4" />
+                              <span>Close</span>
+                            </>
+                          ) : (
+                            <>
+                              <Plus className="w-4 h-4" />
+                              <span>Add Subtask</span>
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     </div>
 
                     {/* Add Subtask Section */}
                     {isAddingSubtask && (
                       <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                        {/* Create New Subtask Button */}
+                        <div className="mb-4">
+                          <Button
+                            onClick={() => {
+                              console.log('🔄 Creating new subtask - opening form');
+                              setIsAddingSubtask(false);
+                              handleCreateSubtask();
+                              console.log('✅ Form should be open now');
+                            }}
+                            className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300"
+                          >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Create New Subtask
+                          </Button>
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 text-center">
+                            Create a new task that will automatically be added as a subtask
+                          </p>
+                        </div>
+
                         <div className="flex items-center space-x-2 mb-3">
                           <Search className="w-4 h-4 text-gray-400" />
                           <input
                             type="text"
                             value={subtaskSearch}
                             onChange={(e) => setSubtaskSearch(e.target.value)}
-                            placeholder="Search tasks to add as subtasks..."
+                            placeholder="Search existing tasks to add as subtasks..."
                             className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                           />
                         </div>
@@ -1658,8 +2663,7 @@ const TasksPage = () => {
                             getAvailableSubtasks().slice(0, 10).map((task) => (
                               <div
                                 key={task.id}
-                                onClick={() => handleAddSubtask(task.id)}
-                                className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 cursor-pointer transition-all hover:shadow-md"
+                                className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 transition-all hover:shadow-md"
                               >
                                 <div className="flex-1 min-w-0">
                                   <h4 className="text-sm font-medium text-gray-900 dark:text-white truncate">
@@ -1672,7 +2676,16 @@ const TasksPage = () => {
                                     <span className="text-xs text-gray-500 dark:text-gray-400">{task.project}</span>
                                   </div>
                                 </div>
-                                <Plus className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 ml-2" />
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleAddSubtaskToPending(task.id);
+                                  }}
+                                  disabled={pendingSubtasks.includes(task.id)}
+                                  className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-md transition-colors"
+                                >
+                                  {pendingSubtasks.includes(task.id) ? 'Added' : 'Add'}
+                                </button>
                               </div>
                             ))
                           )}
@@ -1681,22 +2694,27 @@ const TasksPage = () => {
                     )}
 
                     {/* Current Subtasks */}
-                    <div className="space-y-2">
-                      {getCurrentSubtasks().length === 0 ? (
-                        <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-                          No subtasks added yet
-                        </p>
-                      ) : (
-                        getCurrentSubtasks().map((subtask) => (
+                    <div className="space-y-3">
+                      {/* Current Subtasks */}
+                      <div className="space-y-2">
+                        {getCurrentSubtasks().length === 0 ? (
+                          <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+                            No subtasks added yet
+                          </p>
+                        ) : (
+                          getCurrentSubtasks().map((subtask) => (
                           <div
                             key={subtask.id}
-                            className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 transition-all cursor-pointer"
+                            className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all cursor-pointer group"
                             onClick={() => handleTaskClick(subtask)}
                           >
                             <div className="flex items-center space-x-3 flex-1 min-w-0">
-                              <Link className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                              <div className="flex items-center space-x-2">
+                                <Link className="w-4 h-4 text-gray-400 group-hover:text-blue-500 flex-shrink-0" />
+                                <Eye className="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                              </div>
                               <div className="flex-1 min-w-0">
-                                <h4 className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                <h4 className="text-sm font-medium text-gray-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400">
                                   {subtask.title}
                                 </h4>
                                 <div className="flex items-center space-x-2 mt-1">
@@ -1713,7 +2731,7 @@ const TasksPage = () => {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleRemoveSubtask(subtask.id);
+                                handleRemoveSubtaskClick(subtask.id);
                               }}
                               className="ml-2 p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors flex-shrink-0"
                               title="Remove subtask"
@@ -1722,6 +2740,51 @@ const TasksPage = () => {
                             </button>
                           </div>
                         ))
+                      )}
+                      </div>
+
+                      {/* Pending Subtasks */}
+                      {pendingSubtasks.length > 0 && (
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Pending additions:</p>
+                          <div className="space-y-2">
+                            {pendingSubtasks.map((subtaskId) => {
+                              const subtask = tasks.find(t => t.id === subtaskId);
+                              if (!subtask) return null;
+                              return (
+                                <div key={`pending-subtask-${subtaskId}`} className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                                  <div className="flex items-center space-x-3 flex-1 min-w-0">
+                                    <div className="flex items-center space-x-2">
+                                      <Link className="w-4 h-4 text-green-500" />
+                                      <Eye className="w-3 h-3 text-green-400" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <h4 className="text-sm font-medium text-green-700 dark:text-green-400 truncate">
+                                        {subtask.title}
+                                      </h4>
+                                      <div className="flex items-center space-x-2 mt-1">
+                                        <Badge variant={getStatusConfig(subtask.status).color as any} size="sm">
+                                          {subtask.status}
+                                        </Badge>
+                                        <span className="text-xs text-green-600 dark:text-green-500">{subtask.project}</span>
+                                        <span className="text-xs text-green-500 dark:text-green-400">
+                                          {subtask.assignee}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <button
+                                    onClick={() => handleRemoveSubtaskFromPending(subtaskId)}
+                                    className="ml-2 p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors flex-shrink-0"
+                                    title="Remove from pending"
+                                  >
+                                    <X className="w-4 h-4 text-red-600 dark:text-red-400" />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1835,6 +2898,169 @@ const TasksPage = () => {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && taskToDelete && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 bg-opacity-50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              cancelDeleteTask();
+            }
+          }}
+        >
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-10 h-10 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Delete Task</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">This action cannot be undone</p>
+              </div>
+            </div>
+            
+            <div className="mb-4">
+              <p className="text-gray-700 dark:text-gray-300 mb-2">
+                Are you sure you want to delete <strong>"{taskToDelete.title}"</strong>?
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                Type <strong>DELETE</strong> to confirm:
+              </p>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder="Type DELETE here"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                autoFocus
+              />
+            </div>
+            
+            <div className="flex space-x-3">
+              <Button
+                variant="outline"
+                onClick={cancelDeleteTask}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={confirmDeleteTask}
+                disabled={deleteConfirmText !== 'DELETE'}
+                className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                Delete Task
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remove User Confirmation Modal */}
+      {showRemoveUserConfirm && userToRemove && (
+        <div 
+          ref={removeUserConfirmRef}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 bg-opacity-50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              cancelRemoveUser();
+            }
+          }}
+        >
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl max-w-md w-full mx-4">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="flex-shrink-0 w-10 h-10 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center">
+                <X className="w-5 h-5 text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Remove User
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Are you sure you want to remove this user from the task?
+                </p>
+              </div>
+            </div>
+            
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 mb-4">
+              <p className="text-sm text-red-700 dark:text-red-400">
+                <strong>User:</strong> {userToRemove}
+              </p>
+            </div>
+            
+            <div className="flex items-center justify-end space-x-3">
+              <Button
+                variant="outline"
+                onClick={cancelRemoveUser}
+                className="px-4 py-2"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={confirmRemoveUser}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white"
+              >
+                Remove User
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remove Subtask Confirmation Modal */}
+      {showRemoveSubtaskConfirm && subtaskToRemove && (
+        <div 
+          ref={removeSubtaskConfirmRef}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 bg-opacity-50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              cancelRemoveSubtask();
+            }
+          }}
+        >
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl max-w-md w-full mx-4">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="flex-shrink-0 w-10 h-10 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center">
+                <X className="w-5 h-5 text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Remove Subtask
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Are you sure you want to remove this subtask from the task?
+                </p>
+              </div>
+            </div>
+            
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 mb-4">
+              <p className="text-sm text-red-700 dark:text-red-400">
+                <strong>Subtask:</strong> {tasks.find(t => t.id === subtaskToRemove)?.title || 'Unknown Task'}
+              </p>
+            </div>
+            
+            <div className="flex items-center justify-end space-x-3">
+              <Button
+                variant="outline"
+                onClick={cancelRemoveSubtask}
+                className="px-4 py-2"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={confirmRemoveSubtask}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white"
+              >
+                Remove Subtask
+              </Button>
             </div>
           </div>
         </div>
