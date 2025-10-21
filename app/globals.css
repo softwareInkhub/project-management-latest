@@ -5,6 +5,11 @@
   --foreground: #171717;
 }
 
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -12,17 +17,237 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Force dark mode styles for testing */
+.dark body {
+  background: #0a0a0a !important;
+  color: #ededed !important;
+}
+
+.dark .bg-white {
+  background-color: #1f2937 !important;
+}
+
+.dark .text-gray-900 {
+  color: #f9fafb !important;
+}
+
+.dark .border-gray-200 {
+  border-color: #374151 !important;
+}
+
+.dark .bg-gray-50 {
+  background-color: #111827 !important;
+}
+
+.dark .bg-gray-800 {
+  background-color: #1f2937 !important;
+}
+
+.dark .border-gray-700 {
+  border-color: #374151 !important;
+}
+
+/* Additional dark mode overrides for dashboard */
+.dark .text-gray-600 {
+  color: #e5e7eb !important;
+}
+
+.dark .text-gray-500 {
+  color: #d1d5db !important;
+}
+
+.dark .text-gray-400 {
+  color: #e5e7eb !important;
+}
+
+.dark .text-gray-300 {
+  color: #f3f4f6 !important;
+}
+
+/* Force all white backgrounds to dark */
+.dark div[class*="bg-white"] {
+  background-color: #1f2937 !important;
+}
+
+/* Force all light gray backgrounds to dark */
+.dark div[class*="bg-gray-50"] {
+  background-color: #111827 !important;
+}
+
+/* Force all gray-100 backgrounds to dark */
+.dark div[class*="bg-gray-100"] {
+  background-color: #374151 !important;
+}
+
+/* Global dark mode override for all elements */
+.dark * {
+  border-color: #374151 !important;
+}
+
+/* Specific overrides for common dashboard elements */
+.dark .rounded-2xl,
+.dark .rounded-3xl,
+.dark .rounded-xl,
+.dark .rounded-lg {
+  background-color: #1f2937 !important;
+  border-color: #374151 !important;
+}
+
+/* Force chart containers to dark */
+.dark [class*="shadow-xl"] {
+  background-color: #1f2937 !important;
+  border-color: #374151 !important;
+}
+
+/* Force gradient backgrounds to solid dark colors */
+.dark [class*="bg-gradient-to-r"] {
+  background: #374151 !important;
+}
+
+.dark [class*="from-gray-50"] {
+  background: #374151 !important;
+}
+
+.dark [class*="to-white"] {
+  background: #374151 !important;
+}
+
+.dark [class*="from-gray-700"] {
+  background: #374151 !important;
+}
+
+.dark [class*="to-gray-600"] {
+  background: #374151 !important;
+}
+
+/* Force task item backgrounds */
+.dark .group {
+  background-color: #374151 !important;
+}
+
+/* Force hover states */
+.dark .group:hover {
+  background-color: #4b5563 !important;
+}
+
+/* Input field text visibility */
+.dark input {
+  color: #f9fafb !important;
+}
+
+.dark input::placeholder {
+  color: #9ca3af !important;
+}
+
+.dark textarea {
+  color: #f9fafb !important;
+}
+
+.dark textarea::placeholder {
+  color: #9ca3af !important;
+}
+
+/* Force all text elements to be more visible */
+.dark p {
+  color: #f3f4f6 !important;
+}
+
+.dark span {
+  color: #f3f4f6 !important;
+}
+
+/* Specific overrides for settings page */
+.dark .text-gray-600 {
+  color: #e5e7eb !important;
+}
+
+.dark .text-gray-500 {
+  color: #d1d5db !important;
+}
+
+.dark .text-gray-400 {
+  color: #e5e7eb !important;
+}
+
+/* Enhanced text visibility for settings page */
+.dark label {
+  color: #f3f4f6 !important;
+}
+
+.dark .text-gray-700 {
+  color: #f3f4f6 !important;
+}
+
+.dark .text-gray-800 {
+  color: #f9fafb !important;
+}
+
+/* Force badge text visibility */
+.dark .bg-gray-100 {
+  background-color: #374151 !important;
+}
+
+.dark .bg-gray-100 .text-gray-700 {
+  color: #f3f4f6 !important;
+}
+
+.dark .bg-gray-100 .text-gray-800 {
+  color: #f9fafb !important;
+}
+
+/* Force all icons to be visible */
+.dark svg {
+  color: #e5e7eb !important;
+}
+
+/* Force specific icon colors */
+.dark .text-blue-600 {
+  color: #60a5fa !important;
+}
+
+.dark .text-red-600 {
+  color: #f87171 !important;
+}
+
+.dark .text-orange-600 {
+  color: #fb923c !important;
+}
+
+.dark .text-green-600 {
+  color: #4ade80 !important;
+}
+
+.dark .text-purple-600 {
+  color: #a78bfa !important;
+}
+
+.dark .text-indigo-600 {
+  color: #818cf8 !important;
+}
+
+/* Force sidebar navigation text */
+.dark .text-gray-600 {
+  color: #e5e7eb !important;
+}
+
+/* Force all text in settings sections */
+.dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
+  color: #f9fafb !important;
+}
+
+.dark .font-semibold {
+  color: #f3f4f6 !important;
+}
+
+.dark .font-medium {
+  color: #f3f4f6 !important;
 }
 
 /* Custom scrollbar utilities */

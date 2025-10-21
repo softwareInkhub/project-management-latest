@@ -109,7 +109,7 @@ export function AdvancedFilterModal({
                         <div className="flex items-center space-x-2">
                           <span className="text-sm font-medium">{option.label}</span>
                           {option.count !== undefined && (
-                            <Badge variant="secondary" size="sm">
+                            <Badge variant="default" size="sm">
                               {option.count}
                             </Badge>
                           )}
@@ -130,7 +130,7 @@ export function AdvancedFilterModal({
         <div className="flex items-center justify-between p-6 border-t border-gray-100 bg-gray-50">
           <div className="flex items-center space-x-2">
             {getActiveCount() > 0 && (
-              <Badge variant="primary" size="sm">
+              <Badge variant="default" size="sm">
                 {getActiveCount()} filters active
               </Badge>
             )}

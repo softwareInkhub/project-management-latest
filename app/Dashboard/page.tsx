@@ -574,6 +574,92 @@ const Dashboard = () => {
     }
   }, [isAuthenticated, timeRange, filters, upcomingTasksFilter]);
 
+  // Force dark mode styles
+  useEffect(() => {
+    const applyDarkModeStyles = () => {
+      const root = document.documentElement;
+      if (root.classList.contains('dark')) {
+        // Force all white backgrounds to dark
+        const whiteElements = document.querySelectorAll('.bg-white');
+        whiteElements.forEach(el => {
+          (el as HTMLElement).style.setProperty('background-color', '#1f2937', 'important');
+        });
+        
+        // Force all light gray backgrounds to dark
+        const grayElements = document.querySelectorAll('.bg-gray-50');
+        grayElements.forEach(el => {
+          (el as HTMLElement).style.setProperty('background-color', '#111827', 'important');
+        });
+        
+        // Force all dark text to light
+        const textElements = document.querySelectorAll('.text-gray-900');
+        textElements.forEach(el => {
+          (el as HTMLElement).style.setProperty('color', '#f9fafb', 'important');
+        });
+        
+        // Force all light borders to dark
+        const borderElements = document.querySelectorAll('.border-gray-200');
+        borderElements.forEach(el => {
+          (el as HTMLElement).style.setProperty('border-color', '#374151', 'important');
+        });
+        
+        // Force gradient backgrounds to solid dark colors
+        const gradientElements = document.querySelectorAll('[class*="bg-gradient-to-r"]');
+        gradientElements.forEach(el => {
+          (el as HTMLElement).style.setProperty('background', '#374151', 'important');
+        });
+        
+        // Force task item backgrounds
+        const groupElements = document.querySelectorAll('.group');
+        groupElements.forEach(el => {
+          (el as HTMLElement).style.setProperty('background-color', '#374151', 'important');
+        });
+        
+        // Force text elements to be more visible
+        const textElements600 = document.querySelectorAll('.text-gray-600');
+        textElements600.forEach(el => {
+          (el as HTMLElement).style.setProperty('color', '#e5e7eb', 'important');
+        });
+        
+        const textElements500 = document.querySelectorAll('.text-gray-500');
+        textElements500.forEach(el => {
+          (el as HTMLElement).style.setProperty('color', '#d1d5db', 'important');
+        });
+        
+        const textElements400 = document.querySelectorAll('.text-gray-400');
+        textElements400.forEach(el => {
+          (el as HTMLElement).style.setProperty('color', '#e5e7eb', 'important');
+        });
+        
+        // Force input field text visibility
+        const inputElements = document.querySelectorAll('input');
+        inputElements.forEach(el => {
+          (el as HTMLElement).style.setProperty('color', '#f9fafb', 'important');
+        });
+        
+        const textareaElements = document.querySelectorAll('textarea');
+        textareaElements.forEach(el => {
+          (el as HTMLElement).style.setProperty('color', '#f9fafb', 'important');
+        });
+      }
+    };
+
+    // Apply styles immediately and on theme change
+    applyDarkModeStyles();
+    
+    // Watch for theme changes
+    const observer = new MutationObserver(() => {
+      applyDarkModeStyles();
+    });
+    
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+    
+    return () => observer.disconnect();
+  }, []);
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -600,11 +686,11 @@ const Dashboard = () => {
 
   return (
     <AppLayout>
-      <div className="w-full px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8 overflow-x-hidden bg-gradient-to-br from-gray-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 min-h-screen">
+      <div className="w-full px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8 overflow-x-hidden bg-gray-50 dark:bg-gray-900 min-h-screen">
         {/* Modern Header with Gradient */}
         <div className="relative mb-4 sm:mb-6 lg:mb-8">
           <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 rounded-2xl sm:rounded-3xl opacity-10"></div>
-          <div className="relative bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 border border-white/20 dark:border-gray-700 shadow-xl">
+          <div className="relative bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 border border-gray-200 dark:border-gray-700 shadow-xl">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
               <div className="flex items-center justify-between lg:justify-start">
                 <div className="flex items-center space-x-2 sm:space-x-3">
@@ -612,7 +698,7 @@ const Dashboard = () => {
                     <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white">
                       Dashboard
                     </h1>
                     <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 mt-1 truncate">
@@ -691,7 +777,7 @@ const Dashboard = () => {
         {/* Filter Panel */}
         {showFilters && (
           <div className="mb-4 sm:mb-6 lg:mb-8">
-            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-white/20 dark:border-gray-700">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between mb-4 sm:mb-6">
                 <div className="flex items-center space-x-2 sm:space-x-3">
                   <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg sm:rounded-xl flex items-center justify-center">
@@ -934,7 +1020,7 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 mb-4 sm:mb-6 lg:mb-8">
               {/* Project Progress Chart */}
               <div className="lg:col-span-2">
-                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-white/20 dark:border-gray-700">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-gray-200 dark:border-gray-700">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6">
                     <div className="flex items-center space-x-2 sm:space-x-3 mb-3 sm:mb-0">
                       <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg sm:rounded-xl flex items-center justify-center">
@@ -1009,7 +1095,7 @@ const Dashboard = () => {
 
               {/* Task Status Pie Chart */}
               <div className="lg:col-span-1">
-                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-white/20 dark:border-gray-700">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-gray-200 dark:border-gray-700">
                   <div className="flex items-center space-x-2 sm:space-x-3 mb-4 sm:mb-6">
                     <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg sm:rounded-xl flex items-center justify-center">
                       <PieChart className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
@@ -1064,7 +1150,7 @@ const Dashboard = () => {
             {/* Recent Activity and Upcoming Tasks Row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8 mb-4 sm:mb-6 lg:mb-8">
               {/* Recent Activity */}
-              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-white/20 dark:border-gray-700">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-gray-200 dark:border-gray-700">
                 <div className="flex items-center space-x-2 sm:space-x-3 mb-4 sm:mb-6">
                   <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg sm:rounded-xl flex items-center justify-center">
                     <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
@@ -1104,7 +1190,7 @@ const Dashboard = () => {
               </div>
 
               {/* Upcoming Tasks */}
-              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-white/20 dark:border-gray-700">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-gray-200 dark:border-gray-700">
                 <div className="flex flex-col space-y-3 mb-4 sm:mb-6">
                   <div className="flex items-center space-x-2 sm:space-x-3">
                     <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg sm:rounded-xl flex items-center justify-center">
@@ -1139,7 +1225,7 @@ const Dashboard = () => {
                 <div className="space-y-3 sm:space-y-4 max-h-64 overflow-y-auto">
                   {upcomingTasks.length > 0 ? (
                     upcomingTasks.map((task, index) => (
-                      <div key={task.id} className="group relative overflow-hidden bg-gradient-to-r from-gray-50 to-white dark:from-gray-700 dark:to-gray-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-5 border border-gray-100 dark:border-gray-600 hover:shadow-lg transition-all duration-300 hover:scale-[1.01] sm:hover:scale-[1.02]">
+                      <div key={task.id} className="group relative overflow-hidden bg-gray-50 dark:bg-gray-700 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-5 border border-gray-100 dark:border-gray-600 hover:shadow-lg transition-all duration-300 hover:scale-[1.01] sm:hover:scale-[1.02]">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
                           <div className="flex items-center space-x-2 sm:space-x-3 lg:space-x-4 flex-1 min-w-0">
                             <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full flex-shrink-0 ${

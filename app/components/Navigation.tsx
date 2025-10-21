@@ -3,11 +3,14 @@ import React from 'react';
 import { 
   Menu,
   Bell,
-  Search
+  Search,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { Avatar } from './ui/Avatar';
 import { Button } from './ui/Button';
 import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface NavigationProps {
   onMobileMenuClick: () => void;
@@ -15,6 +18,7 @@ interface NavigationProps {
 
 export const Navigation: React.FC<NavigationProps> = ({ onMobileMenuClick }) => {
   const { user } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-3 sm:px-4 lg:px-6 py-3 sm:py-4 w-full sticky top-0 z-30">
@@ -32,6 +36,20 @@ export const Navigation: React.FC<NavigationProps> = ({ onMobileMenuClick }) => 
         {/* Right Side */}
         <div className="flex items-center space-x-1 sm:space-x-2 lg:space-x-4 flex-shrink-0">
           
+          {/* Theme Toggle */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleTheme}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+          >
+            {theme === 'light' ? (
+              <Moon className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+            ) : (
+              <Sun className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+            )}
+          </Button>
 
           {/* Notifications */}
           <Button variant="ghost" size="sm" className="relative p-2">
