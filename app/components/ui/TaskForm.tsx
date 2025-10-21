@@ -12,6 +12,7 @@ interface TaskFormProps {
   onSubmit: (taskData: Partial<Task>) => void;
   onCancel: () => void;
   isEditing?: boolean;
+  isCreatingSubtask?: boolean;
   projects?: string[];
   teams?: string[];
   users?: any[];
@@ -27,6 +28,7 @@ export function TaskForm({
   onSubmit, 
   onCancel, 
   isEditing = false,
+  isCreatingSubtask = false,
   projects = [],
   teams = [],
   users = [],
@@ -161,10 +163,10 @@ export function TaskForm({
             </div>
             <div>
               <h2 className="text-xl font-bold text-gray-900">
-                {isEditing ? 'Edit Task' : 'Create New Task'}
+                {isEditing ? 'Edit Task' : isCreatingSubtask ? 'Create New Subtask' : 'Create New Task'}
               </h2>
               <p className="text-sm text-gray-600 mt-1">
-                {isEditing ? 'Update the task details below' : 'Fill in the details to create a new task'}
+                {isEditing ? 'Update the task details below' : isCreatingSubtask ? 'This task will automatically be added as a subtask' : 'Fill in the details to create a new task'}
               </p>
             </div>
           </div>
@@ -250,41 +252,114 @@ export function TaskForm({
 
           {/* Assignment Details */}
           <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-2">
-                  Assigned To User
-                </label>
-                <Select
-                  value={formData.assignee || ''}
-                  onChange={(e) => handleInputChange('assignee', e.target.value)}
-                  options={[
-                    { value: '', label: isLoadingUsers ? 'Loading users...' : 'Select User' },
-                    ...users.map(user => ({ 
-                      value: user.name || user.username || user.email, 
-                      label: user.name || user.username || user.email 
-                    }))
-                  ]}
-                  className="h-12 text-base focus:ring-blue-500 focus:border-blue-500"
+            {/* Assigned Users - Multi-select */}
+            <div className="mb-6">
+              <label className="block text-sm font-semibold text-gray-800 mb-2 flex items-center">
+                <User className="w-4 h-4 mr-2 text-blue-600" />
+                Assigned Users
+              </label>
+              <div className="relative">
+                <select
+                  className="w-full px-4 py-3 h-12 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  onChange={(e) => {
+                    const selectedUser = e.target.value;
+                    if (selectedUser && !(formData.assignedUsers || []).includes(selectedUser)) {
+                      handleInputChange('assignedUsers', [...(formData.assignedUsers || []), selectedUser]);
+                    }
+                    e.target.value = ''; // Reset dropdown
+                  }}
                   disabled={isLoadingUsers}
-                />
+                >
+                  <option value="">{isLoadingUsers ? 'Loading users...' : 'Select users to assign...'}</option>
+                  {users
+                    .filter(user => !(formData.assignedUsers || []).includes(user.name || user.username || user.email))
+                    .map((user, index) => (
+                      <option key={user.id || user.email || `user-${index}`} value={user.name || user.username || user.email}>
+                        {user.name || user.username || user.email}
+                      </option>
+                    ))
+                  }
+                </select>
               </div>
+              
+              {/* Selected Users Display */}
+              {(formData.assignedUsers || []).length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {(formData.assignedUsers || []).map((user, index) => (
+                    <div
+                      key={`selected-user-${index}`}
+                      className="flex items-center space-x-2 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-sm font-medium"
+                    >
+                      <User className="w-3 h-3" />
+                      <span>{user}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleInputChange('assignedUsers', (formData.assignedUsers || []).filter(u => u !== user));
+                        }}
+                        className="hover:bg-blue-100 rounded-full p-0.5 transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-2">
-                  Assigned To Team
-                </label>
-                <Select
-                  value={formData.assignedTeams?.[0] || ''}
-                  onChange={(e) => handleInputChange('assignedTeams', e.target.value ? [e.target.value] : [])}
-                  options={[
-                    { value: '', label: isLoadingTeams ? 'Loading teams...' : 'Select Team' },
-                    ...teams.map(team => ({ value: team, label: team }))
-                  ]}
-                  className="h-12 text-base focus:ring-blue-500 focus:border-blue-500"
+            {/* Assigned Teams - Multi-select */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-800 mb-2 flex items-center">
+                <Users className="w-4 h-4 mr-2 text-purple-600" />
+                Assigned Teams
+              </label>
+              <div className="relative">
+                <select
+                  className="w-full px-4 py-3 h-12 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  onChange={(e) => {
+                    const selectedTeam = e.target.value;
+                    if (selectedTeam && !(formData.assignedTeams || []).includes(selectedTeam)) {
+                      handleInputChange('assignedTeams', [...(formData.assignedTeams || []), selectedTeam]);
+                    }
+                    e.target.value = ''; // Reset dropdown
+                  }}
                   disabled={isLoadingTeams}
-                />
+                >
+                  <option value="">{isLoadingTeams ? 'Loading teams...' : 'Select teams to assign...'}</option>
+                  {teams
+                    .filter(team => !(formData.assignedTeams || []).includes(team))
+                    .map((team, index) => (
+                      <option key={`team-${index}`} value={team}>
+                        {team}
+                      </option>
+                    ))
+                  }
+                </select>
               </div>
+              
+              {/* Selected Teams Display */}
+              {(formData.assignedTeams || []).length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {(formData.assignedTeams || []).map((team, index) => (
+                    <div
+                      key={`selected-team-${index}`}
+                      className="flex items-center space-x-2 bg-purple-50 text-purple-700 px-3 py-1.5 rounded-full text-sm font-medium"
+                    >
+                      <Users className="w-3 h-3" />
+                      <span>{team}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleInputChange('assignedTeams', (formData.assignedTeams || []).filter(t => t !== team));
+                        }}
+                        className="hover:bg-purple-100 rounded-full p-0.5 transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -460,7 +535,7 @@ export function TaskForm({
               handleSubmit(e as any);
             }}
           >
-            {isEditing ? 'Update Task' : 'Create Task'}
+            {isEditing ? 'Update Task' : isCreatingSubtask ? 'Create Subtask' : 'Create Task'}
           </Button>
         </div>
       </div>
