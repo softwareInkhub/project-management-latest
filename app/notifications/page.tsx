@@ -1,13 +1,12 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { Bell, Settings, Zap, FileText, Send, List, Info, Users, Building2, CheckSquare, Plus, Edit, Trash2, Smartphone, MessageSquare, Globe } from 'lucide-react';
+import { Bell, Settings, Zap, Send, List, Users, Building2, CheckSquare, Plus, Edit, Trash2, Smartphone, MessageSquare, Globe, ChevronDown, ChevronRight, Target, AlertCircle, Phone, Mail } from 'lucide-react';
 import { apiService } from '../services/api';
 import NotificationConfigPanel from '../components/NotificationConfigPanel';
-import NotificationTemplates from '../components/NotificationTemplates';
 import { AppLayout } from '../components/AppLayout';
 
-type TabKey = 'config' | 'triggers' | 'templates' | 'configuration' | 'test' | 'logs'
+type TabKey = 'connections' | 'triggers' | 'configurations'
 
 interface Connection {
   id: string;
@@ -31,12 +30,6 @@ interface Trigger {
     textTemplate?: string;
     messageTemplate?: string;
   };
-  filters?: {
-    method?: string;
-    tableName?: string;
-    pathContains?: string;
-  };
-  namespaceTags?: string[];
   active: boolean;
   createdAt: string;
 }
@@ -48,59 +41,61 @@ interface Log {
   createdAt: string;
   eventType?: string;
   triggerId?: string;
-  namespaceTags?: string[];
+}
+
+interface BRMHUser {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+}
+
+interface BRMHTeam {
+  id: string;
+  name: string;
+  members: BRMHUser[];
+}
+
+interface BRMHProject {
+  id: string;
+  name: string;
+  team?: BRMHTeam;
 }
 
 const NotificationsPage = () => {
-  const [active, setActive] = useState<TabKey>('triggers')
+  const [activeTab, setActiveTab] = useState<TabKey>('connections')
   const [apiBase, setApiBase] = useState<string>(process.env.NEXT_PUBLIC_BACKEND_URL || 'https://brmh.in')
-  const [saving, setSaving] = useState(false)
+  const [loading, setLoading] = useState(false)
 
-  // Config form
+  // Connection state
+  const [connections, setConnections] = useState<Connection[]>([])
   const [connName, setConnName] = useState('default')
   const [connToken, setConnToken] = useState('')
   const [connBaseUrl, setConnBaseUrl] = useState('https://gate.whapi.cloud')
   const [connTestMode, setConnTestMode] = useState(true)
-  const [connections, setConnections] = useState<Connection[]>([])
 
-  // Trigger form
+  // Trigger state
   const [triggers, setTriggers] = useState<Trigger[]>([])
   const [trigName, setTrigName] = useState('')
   const [trigEvent, setTrigEvent] = useState('task_created')
-  const [trigTo, setTrigTo] = useState('')
-  const [countryCode, setCountryCode] = useState('91')
-  const [phoneNumber, setPhoneNumber] = useState('')
-  const [contacts, setContacts] = useState<any[]>([])
-  const [selectedContact, setSelectedContact] = useState<string>('')
-  const [contactMode, setContactMode] = useState<'manual' | 'contact'>('manual')
-  const [loadingContacts, setLoadingContacts] = useState(false)
-  const [trigTemplate, setTrigTemplate] = useState("")
   const [trigConnectionId, setTrigConnectionId] = useState<string>('')
-  const [filterMethod, setFilterMethod] = useState<string>('')
-  const [filterTableName, setFilterTableName] = useState<string>('')
-  const [filterPathContains, setFilterPathContains] = useState<string>('')
-  
-  // Namespace tags
-  const [selectedNamespaces, setSelectedNamespaces] = useState<string[]>([])
-  const [availableNamespaces, setAvailableNamespaces] = useState<any[]>([])
-  const [loadingNamespaces, setLoadingNamespaces] = useState(false)
-  const [customTag, setCustomTag] = useState<string>('')
-  
-  // New trigger types
+  const [trigTemplate, setTrigTemplate] = useState("")
   const [triggerType, setTriggerType] = useState<'users' | 'community' | 'group'>('users')
+  const [phoneNumber, setPhoneNumber] = useState('')
+  const [countryCode, setCountryCode] = useState('91')
+  const [selectedGroups, setSelectedGroups] = useState<string[]>([])
+  const [selectedCommunity, setSelectedCommunity] = useState<string>('')
   const [communities, setCommunities] = useState<any[]>([])
   const [groups, setGroups] = useState<any[]>([])
-  const [selectedCommunity, setSelectedCommunity] = useState<string>('')
-  const [selectedGroups, setSelectedGroups] = useState<string[]>([])
   const [subgroups, setSubgroups] = useState<any[]>([])
-  const [loadingCommunities, setLoadingCommunities] = useState(false)
-  const [loadingGroups, setLoadingGroups] = useState(false)
-  const [loadingSubgroups, setLoadingSubgroups] = useState(false)
+
+  // BRMH Data
+  const [brmhUsers, setBrmhUsers] = useState<BRMHUser[]>([])
+  const [brmhTeams, setBrmhTeams] = useState<BRMHTeam[]>([])
+  const [brmhProjects, setBrmhProjects] = useState<BRMHProject[]>([])
 
   // Logs
   const [logs, setLogs] = useState<Log[]>([])
-  const [loadingLogs, setLoadingLogs] = useState(false)
-  const [logNamespaceFilter, setLogNamespaceFilter] = useState<string>('')
 
   // Mobile responsive state
   const [isMobile, setIsMobile] = useState(false)
@@ -118,12 +113,13 @@ const NotificationsPage = () => {
   // Simple local persistence for selected tab
   useEffect(() => {
     const saved = typeof window !== 'undefined' ? window.localStorage.getItem('notif.activeTab') as TabKey | null : null
-    if (saved) setActive(saved)
+    if (saved) setActiveTab(saved)
   }, [])
   useEffect(() => {
-    if (typeof window !== 'undefined') window.localStorage.setItem('notif.activeTab', active)
-  }, [active])
+    if (typeof window !== 'undefined') window.localStorage.setItem('notif.activeTab', activeTab)
+  }, [activeTab])
 
+  // Fetch data functions
   async function fetchConnections() {
     try {
       const res = await fetch(`${apiBase}/notify/connections`, { cache: 'no-store' })
@@ -141,22 +137,37 @@ const NotificationsPage = () => {
     } catch {}
   }
 
-  async function fetchLogs(namespaceFilter?: string) {
-    setLoadingLogs(true)
+  async function fetchLogs() {
     try {
-      const url = namespaceFilter 
-        ? `${apiBase}/notify/logs?namespace=${encodeURIComponent(namespaceFilter)}`
-        : `${apiBase}/notify/logs`
-      const res = await fetch(url, { cache: 'no-store' })
+      const res = await fetch(`${apiBase}/notify/logs`, { cache: 'no-store' })
       const data = await res.json()
       if (data?.items) setLogs(data.items)
     } catch {}
-    setLoadingLogs(false)
+  }
+
+  async function fetchBRMHUsers() {
+    try {
+      const result = await apiService.getUsers()
+      if (result.success && Array.isArray(result.data)) setBrmhUsers(result.data as any)
+    } catch {}
+  }
+
+  async function fetchBRMHTeams() {
+    try {
+      const result = await apiService.getTeams()
+      if (result.success && Array.isArray(result.data)) setBrmhTeams(result.data as any)
+    } catch {}
+  }
+
+  async function fetchBRMHProjects() {
+    try {
+      const result = await apiService.getProjects()
+      if (result.success && Array.isArray(result.data)) setBrmhProjects(result.data as any)
+    } catch {}
   }
 
   async function fetchCommunities(connectionId: string) {
     if (!connectionId) return
-    setLoadingCommunities(true)
     try {
       const res = await fetch(`${apiBase}/notify/communities/${connectionId}`, { cache: 'no-store' })
       const data = await res.json()
@@ -185,12 +196,10 @@ const NotificationsPage = () => {
     } catch (e) {
       console.error('Failed to fetch communities:', e)
     }
-    setLoadingCommunities(false)
   }
 
   async function fetchGroups(connectionId: string) {
     if (!connectionId) return
-    setLoadingGroups(true)
     try {
       const res = await fetch(`${apiBase}/notify/groups/${connectionId}`, { cache: 'no-store' })
       const data = await res.json()
@@ -219,12 +228,10 @@ const NotificationsPage = () => {
     } catch (e) {
       console.error('Failed to fetch groups:', e)
     }
-    setLoadingGroups(false)
   }
 
   async function fetchSubgroups(connectionId: string, communityId: string) {
     if (!connectionId || !communityId) return
-    setLoadingSubgroups(true)
     try {
       const res = await fetch(`${apiBase}/notify/communities/${connectionId}/${communityId}/subgroups`, { cache: 'no-store' })
       const data = await res.json()
@@ -275,7 +282,6 @@ const NotificationsPage = () => {
     } catch (e) {
       console.error('Failed to fetch subgroups:', e)
     }
-    setLoadingSubgroups(false)
   }
 
   async function testConnection(connectionId: string) {
@@ -293,67 +299,13 @@ const NotificationsPage = () => {
     }
   }
 
-  async function fetchContacts(connectionId: string) {
-    if (!connectionId) return
-    setLoadingContacts(true)
-    try {
-      const res = await fetch(`${apiBase}/notify/contacts/${connectionId}`, { cache: 'no-store' })
-      const data = await res.json()
-      
-      let contactsList = []
-      if (data?.success && data?.testResult?.data) {
-        const responseData = data.testResult.data
-        
-        if (responseData.contacts && Array.isArray(responseData.contacts)) {
-          contactsList = responseData.contacts
-        } else if (responseData.data && Array.isArray(responseData.data)) {
-          contactsList = responseData.data
-        } else if (Array.isArray(responseData)) {
-          contactsList = responseData
-        }
-      }
-      
-      const validContacts = contactsList.filter((contact: any) => 
-        contact && 
-        contact.id && 
-        contact.id !== '0' && 
-        (contact.pushname || contact.name || contact.display_name)
-      )
-      
-      setContacts(Array.isArray(validContacts) ? validContacts : [])
-    } catch (e) {
-      console.error('Failed to fetch contacts:', e)
-    }
-    setLoadingContacts(false)
-  }
-
-  async function fetchNamespaces() {
-    setLoadingNamespaces(true)
-    try {
-      const res = await fetch(`${apiBase}/unified/namespaces`, { cache: 'no-store' })
-      const data = await res.json()
-      
-      if (Array.isArray(data)) {
-        const formattedNamespaces = data.map(ns => ({
-          id: ns['namespace-id'],
-          name: ns['namespace-name']
-        }))
-        setAvailableNamespaces(formattedNamespaces)
-      } else {
-        setAvailableNamespaces([])
-      }
-    } catch (e) {
-      console.error('Failed to fetch namespaces:', e)
-      setAvailableNamespaces([])
-    }
-    setLoadingNamespaces(false)
-  }
-
   useEffect(() => {
     fetchConnections()
     fetchTriggers()
     fetchLogs()
-    fetchNamespaces()
+    fetchBRMHUsers()
+    fetchBRMHTeams()
+    fetchBRMHProjects()
   }, [])
 
   // Fetch communities and groups when connection changes
@@ -374,29 +326,10 @@ const NotificationsPage = () => {
     }
   }, [trigConnectionId, selectedCommunity])
 
-  // Update trigTo when country code changes
-  useEffect(() => {
-    if (contactMode === 'manual') {
-      setTrigTo(countryCode + phoneNumber)
-    }
-  }, [countryCode, phoneNumber, contactMode])
-
-  // Fetch contacts when connection changes and contact mode is selected
-  useEffect(() => {
-    if (trigConnectionId && contactMode === 'contact') {
-      fetchContacts(trigConnectionId)
-    }
-  }, [trigConnectionId, contactMode])
-
-  // Update trigTo when selected contact changes
-  useEffect(() => {
-    if (contactMode === 'contact' && selectedContact) {
-      setTrigTo(selectedContact)
-    }
-  }, [selectedContact, contactMode])
+  // No derived state needed for phone; compute on demand
 
   async function saveConnection() {
-    setSaving(true)
+    setLoading(true)
     try {
       const res = await fetch(`${apiBase}/notify/connection`, {
         method: 'POST',
@@ -410,7 +343,7 @@ const NotificationsPage = () => {
     } catch (e: any) {
       alert(e.message || 'Failed to save connection')
     }
-    setSaving(false)
+    setLoading(false)
   }
 
   async function saveTrigger() {
@@ -420,10 +353,10 @@ const NotificationsPage = () => {
     
     switch (triggerType) {
       case 'users':
-        if (!trigTo) return alert('Please enter recipient for users trigger')
+        if (!phoneNumber) return alert('Please enter phone number for users trigger')
         action = { 
           type: 'whapi_message', 
-          to: trigTo, 
+          to: countryCode + phoneNumber, 
           textTemplate: trigTemplate 
         }
         break
@@ -447,7 +380,7 @@ const NotificationsPage = () => {
         break
     }
     
-    setSaving(true)
+    setLoading(true)
     try {
       const res = await fetch(`${apiBase}/notify/trigger`, {
         method: 'POST',
@@ -457,12 +390,6 @@ const NotificationsPage = () => {
           eventType: trigEvent,
           connectionId: trigConnectionId,
           action,
-          filters: {
-            method: filterMethod || undefined,
-            tableName: filterTableName || undefined,
-            pathContains: filterPathContains || undefined
-          },
-          namespaceTags: selectedNamespaces,
           active: true
         })
       })
@@ -473,7 +400,7 @@ const NotificationsPage = () => {
     } catch (e: any) {
       alert(e.message || 'Failed to save trigger')
     }
-    setSaving(false)
+    setLoading(false)
   }
 
   async function testFire(eventType: string) {
@@ -483,7 +410,7 @@ const NotificationsPage = () => {
       case 'users':
         action = { 
           type: 'whapi_message', 
-          to: trigTo, 
+          to: countryCode + phoneNumber, 
           textTemplate: trigTemplate 
         }
         break
@@ -510,12 +437,6 @@ const NotificationsPage = () => {
       eventType: eventType,
       connectionId: trigConnectionId,
       action: action,
-      filters: {
-        method: filterMethod || undefined,
-        tableName: filterTableName || undefined,
-        pathContains: filterPathContains || undefined
-      },
-      namespaceTags: selectedNamespaces,
       active: true
     }
     
@@ -569,688 +490,372 @@ const NotificationsPage = () => {
     }
   }
 
-  const NavItem = ({ id, label, icon }: { id: TabKey, label: string, icon: React.ReactNode }) => (
+  const TabButton = ({ id, label, icon }: { id: TabKey, label: string, icon: React.ReactNode }) => (
     <button
-      className={`group w-full text-left px-3 py-3 rounded-lg text-sm flex items-center gap-3 relative transition-colors ${
-        active === id 
-          ? 'text-blue-600 bg-blue-50 shadow-sm' 
-          : 'text-gray-600 hover:bg-gray-50'
+      className={`w-full flex flex-col sm:flex-row sm:items-center sm:gap-2 items-center justify-center px-3 py-3 rounded-lg text-sm font-medium transition-colors ${
+        activeTab === id 
+          ? 'bg-blue-100 text-blue-700 border border-blue-200' 
+          : 'text-gray-600 hover:bg-gray-50 border border-transparent'
       }`}
-      onClick={() => setActive(id)}
+      onClick={() => setActiveTab(id)}
+      aria-label={label}
     >
-      <span className={`${active === id ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'}`}>
-        {icon}
-      </span>
-      <span className="truncate font-medium">{label}</span>
+      <div className="flex items-center justify-center">{icon}</div>
+      <span className="mt-1 sm:mt-0 text-[11px] sm:text-sm leading-tight">{label}</span>
     </button>
   )
 
-
   return (
     <AppLayout>
-      <div className="w-full px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8 overflow-x-hidden">
+      <div className="w-full px-4 py-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4 sm:mb-6">
-          <div>
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">Notifications</h1>
-            <p className="text-sm text-gray-500 mt-1">Configure WhatsApp notifications for tasks, projects, and teams</p>
-          </div>
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Notifications</h1>
+          <p className="text-gray-600">Configure WhatsApp notifications for your project management system</p>
         </div>
 
-        {/* Desktop Sidebar Navigation */}
-        <div className="hidden lg:block mb-6">
-          <div className="bg-white rounded-lg border border-gray-200 p-2">
-            <div className="flex gap-1">
-              <button
-                onClick={() => setActive('triggers')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  active === 'triggers' 
-                    ? 'bg-blue-100 text-blue-700' 
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                <Zap size={16} className="inline mr-2" />
-                Triggers
-              </button>
-              <button
-                onClick={() => setActive('templates')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  active === 'templates' 
-                    ? 'bg-blue-100 text-blue-700' 
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                <FileText size={16} className="inline mr-2" />
-                Templates
-              </button>
-              <button
-                onClick={() => setActive('configuration')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  active === 'configuration' 
-                    ? 'bg-blue-100 text-blue-700' 
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                <Users size={16} className="inline mr-2" />
-                Configuration
-              </button>
-              <button
-                onClick={() => setActive('config')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  active === 'config' 
-                    ? 'bg-blue-100 text-blue-700' 
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                <Settings size={16} className="inline mr-2" />
-                WHAPI Config
-              </button>
-              <button
-                onClick={() => setActive('test')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  active === 'test' 
-                    ? 'bg-blue-100 text-blue-700' 
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                <Send size={16} className="inline mr-2" />
-                Test Send
-              </button>
-              <button
-                onClick={() => setActive('logs')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  active === 'logs' 
-                    ? 'bg-blue-100 text-blue-700' 
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                <List size={16} className="inline mr-2" />
-                Logs
-              </button>
+        {/* Tab Navigation */}
+        <div className="mb-6">
+          <div className="bg-white rounded-xl border border-gray-200 p-2 shadow-sm">
+            <div className="grid grid-cols-3 gap-2">
+              <TabButton id="connections" label="WHAPI" icon={<Settings size={18} />} />
+              <TabButton id="triggers" label="Triggers" icon={<Zap size={18} />} />
+              <TabButton id="configurations" label="Configs" icon={<Target size={18} />} />
             </div>
           </div>
         </div>
 
-          {/* Mobile Tab Navigation */}
-          <div className="lg:hidden">
-            <div className="bg-white rounded-lg border border-gray-200 p-2">
-              <div className="grid grid-cols-3 gap-1">
-                <button
-                  onClick={() => setActive('triggers')}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    active === 'triggers' 
-                      ? 'bg-blue-100 text-blue-700' 
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  <Zap size={16} className="mx-auto mb-1" />
-                  Triggers
-                </button>
-                <button
-                  onClick={() => setActive('templates')}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    active === 'templates' 
-                      ? 'bg-blue-100 text-blue-700' 
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  <FileText size={16} className="mx-auto mb-1" />
-                  Templates
-                </button>
-                <button
-                  onClick={() => setActive('configuration')}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    active === 'configuration' 
-                      ? 'bg-blue-100 text-blue-700' 
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  <Users size={16} className="mx-auto mb-1" />
-                  Config
-                </button>
+        {/* WHAPI Setup Tab */}
+        {activeTab === 'connections' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Settings className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">WHAPI Configuration</h2>
+                  <p className="text-sm text-gray-600">Set up your WhatsApp API connection</p>
+                </div>
               </div>
-              <div className="grid grid-cols-3 gap-1 mt-1">
-                <button
-                  onClick={() => setActive('config')}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    active === 'config' 
-                      ? 'bg-blue-100 text-blue-700' 
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  <Settings size={16} className="mx-auto mb-1" />
-                  WHAPI
-                </button>
-                <button
-                  onClick={() => setActive('test')}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    active === 'test' 
-                      ? 'bg-blue-100 text-blue-700' 
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  <Send size={16} className="mx-auto mb-1" />
-                  Test
-                </button>
-                <button
-                  onClick={() => setActive('logs')}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    active === 'logs' 
-                      ? 'bg-blue-100 text-blue-700' 
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  <List size={16} className="mx-auto mb-1" />
-                  Logs
-                </button>
-              </div>
-            </div>
-          </div>
 
-          {active === 'config' && (
-            <section className="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
-              <h2 className="text-lg font-medium text-gray-900">WHAPI Configuration</h2>
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                <div className="lg:col-span-4 flex flex-col gap-1">
-                  <label className="text-sm text-gray-600 font-medium">Connection Name</label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Connection Name</label>
                   <input 
                     value={connName} 
                     onChange={e=>setConnName(e.target.value)} 
-                    className="border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-300" 
-                    placeholder="e.g. default" 
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors" 
+                    placeholder="e.g. Production" 
                   />
                 </div>
-                <div className="lg:col-span-4 flex flex-col gap-1">
-                  <label className="text-sm text-gray-600 font-medium">WHAPI Token</label>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">WHAPI Token</label>
                   <input 
                     value={connToken} 
                     onChange={e=>setConnToken(e.target.value)} 
-                    className="border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-300" 
-                    placeholder="Enter WHAPI token" 
-                  />
-                </div>
-                <div className="lg:col-span-4 flex flex-col gap-1">
-                  <label className="text-sm text-gray-600 font-medium">Base URL</label>
-                  <input 
-                    value={connBaseUrl} 
-                    onChange={e=>setConnBaseUrl(e.target.value)} 
-                    className="border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-300" 
-                    placeholder="https://gate.whapi.cloud" 
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors" 
+                    placeholder="Enter your WHAPI token" 
+                    type="password"
                   />
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+
+              <div className="mt-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Base URL</label>
                 <input 
-                  id="tm" 
+                  value={connBaseUrl} 
+                  onChange={e=>setConnBaseUrl(e.target.value)} 
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors" 
+                  placeholder="https://gate.whapi.cloud" 
+                />
+              </div>
+
+              <div className="mt-6 flex items-center gap-3">
+                <input 
+                  id="testMode" 
                   type="checkbox" 
                   checked={connTestMode} 
                   onChange={e=>setConnTestMode(e.target.checked)} 
-                  className="accent-blue-600 h-4 w-4" 
+                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500" 
                 />
-                <label htmlFor="tm" className="text-sm text-gray-600">Test Mode (do not call WHAPI)</label>
+                <label htmlFor="testMode" className="text-sm text-gray-700">
+                  Test Mode (don't send actual messages)
+                </label>
               </div>
-              <div className="flex gap-2">
+
+              <div className="mt-6 flex gap-3">
                 <button 
-                  disabled={saving} 
+                  disabled={loading} 
                   onClick={saveConnection} 
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-60 hover:bg-blue-700 transition-colors"
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg disabled:opacity-60 hover:bg-blue-700 transition-colors font-medium"
                 >
-                  {saving ? 'Saving...' : 'Save'}
+                  {loading ? 'Saving...' : 'Save Connection'}
                 </button>
                 <button 
                   onClick={fetchConnections} 
-                  className="px-4 py-2 border rounded-lg hover:bg-gray-50 transition-colors"
+                  className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
                 >
                   Refresh
                 </button>
               </div>
-              <div className="border rounded-lg">
-                <div className="px-3 py-2 text-sm text-gray-500 font-medium">Saved Connections</div>
-                <div className="divide-y max-h-56 overflow-auto">
+            </div>
+
+            {/* Saved Connections */}
+            {connections.length > 0 && (
+              <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Saved Connections</h3>
+                <div className="space-y-3">
                   {connections.map((c) => (
-                    <div key={c.id} className="px-3 py-2 text-sm flex items-center justify-between">
-                      <div className="truncate">
-                        <div className="font-medium">{c.name}</div>
-                        <div className="text-xs text-gray-500">{c.id}</div>
+                    <div key={c.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-green-100 rounded-lg">
+                          <Smartphone className="w-4 h-4 text-green-600" />
+                        </div>
+                        <div>
+                          <div className="font-medium text-gray-900">{c.name}</div>
+                          <div className="text-sm text-gray-500">{c.id}</div>
+                        </div>
                       </div>
-                      <button 
-                        onClick={()=>setTrigConnectionId(c.id)} 
-                        className={`text-xs px-2 py-1 border rounded ${
-                          trigConnectionId===c.id ? 'bg-blue-50 border-blue-300 text-blue-700' : 'hover:bg-gray-50'
-                        }`}
-                      >
-                        Use
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={()=>testConnection(c.id)} 
+                          className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                        >
+                          Test
+                        </button>
+                        <button 
+                          onClick={()=>setTrigConnectionId(c.id)} 
+                          className={`px-3 py-1 text-sm rounded transition-colors ${
+                            trigConnectionId===c.id 
+                              ? 'bg-blue-100 text-blue-700 border border-blue-200' 
+                              : 'border border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          {trigConnectionId===c.id ? 'Selected' : 'Select'}
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
-            </section>
-          )}
+            )}
+          </div>
+        )}
 
-          {active === 'triggers' && (
-            <section className="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
-              <h2 className="text-lg font-medium text-gray-900">Notification Triggers</h2>
-              <p className="text-sm text-gray-500">Create triggers that fire on backend events and send messages via WHAPI.</p>
+        {/* Triggers Tab */}
+        {activeTab === 'triggers' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <Zap className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Create Trigger</h2>
+                  <p className="text-sm text-gray-600">Set up automated notifications for events</p>
+                </div>
+              </div>
 
-              <div className="space-y-6">
-                <div className="border rounded-lg p-4 space-y-4">
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                    <div className="lg:col-span-3 flex flex-col gap-1">
-                      <label className="text-sm text-gray-600 font-medium">Trigger Type</label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Trigger Name</label>
+                  <input 
+                    value={trigName} 
+                    onChange={e=>setTrigName(e.target.value)} 
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors" 
+                    placeholder="e.g. Task Assignment Alert" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Event Type</label>
+                  <select 
+                    value={trigEvent} 
+                    onChange={e=>setTrigEvent(e.target.value)} 
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors"
+                  >
+                    <option value="task_created">Task Created</option>
+                    <option value="task_updated">Task Updated</option>
+                    <option value="task_deleted">Task Deleted</option>
+                    <option value="project_created">Project Created</option>
+                    <option value="project_updated">Project Updated</option>
+                    <option value="project_deleted">Project Deleted</option>
+                    <option value="team_created">Team Created</option>
+                    <option value="team_updated">Team Updated</option>
+                    <option value="team_deleted">Team Deleted</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Connection</label>
+                <select 
+                  value={trigConnectionId} 
+                  onChange={e=>setTrigConnectionId(e.target.value)} 
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors"
+                >
+                  <option value="">Select connection</option>
+                  {connections.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+
+              <div className="mt-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Recipient Type</label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <button
+                    onClick={() => setTriggerType('users')}
+                    className={`p-4 border rounded-lg text-left transition-colors ${
+                      triggerType === 'users' 
+                        ? 'border-blue-300 bg-blue-50' 
+                        : 'border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <Users className="w-4 h-4" />
+                      <span className="font-medium">Users</span>
+                    </div>
+                    <p className="text-sm text-gray-600">Send to specific phone numbers</p>
+                  </button>
+                  <button
+                    onClick={() => setTriggerType('community')}
+                    className={`p-4 border rounded-lg text-left transition-colors ${
+                      triggerType === 'community' 
+                        ? 'border-blue-300 bg-blue-50' 
+                        : 'border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <Globe className="w-4 h-4" />
+                      <span className="font-medium">Community</span>
+                    </div>
+                    <p className="text-sm text-gray-600">Send to WhatsApp communities</p>
+                  </button>
+                  <button
+                    onClick={() => setTriggerType('group')}
+                    className={`p-4 border rounded-lg text-left transition-colors ${
+                      triggerType === 'group' 
+                        ? 'border-blue-300 bg-blue-50' 
+                        : 'border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <MessageSquare className="w-4 h-4" />
+                      <span className="font-medium">Groups</span>
+                    </div>
+                    <p className="text-sm text-gray-600">Send to WhatsApp groups</p>
+                  </button>
+                </div>
+              </div>
+
+              {/* Users Configuration */}
+              {triggerType === 'users' && (
+                <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                  <h3 className="font-medium text-gray-900 mb-4">Phone Number Configuration</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Country Code</label>
                       <select 
-                        value={triggerType} 
-                        onChange={e=>setTriggerType(e.target.value as 'users' | 'community' | 'group')} 
-                        className="border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-200 focus:border-blue-300"
+                        value={countryCode} 
+                        onChange={e=>setCountryCode(e.target.value)} 
+                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors"
                       >
-                        <option value="users">Users</option>
-                        <option value="community">Community</option>
-                        <option value="group">Group</option>
+                        <option value="91">+91 (India)</option>
+                        <option value="1">+1 (USA/Canada)</option>
+                        <option value="44">+44 (UK)</option>
+                        <option value="49">+49 (Germany)</option>
+                        <option value="33">+33 (France)</option>
+                        <option value="39">+39 (Italy)</option>
+                        <option value="34">+34 (Spain)</option>
+                        <option value="7">+7 (Russia)</option>
+                        <option value="86">+86 (China)</option>
+                        <option value="81">+81 (Japan)</option>
+                        <option value="82">+82 (South Korea)</option>
+                        <option value="61">+61 (Australia)</option>
+                        <option value="55">+55 (Brazil)</option>
+                        <option value="52">+52 (Mexico)</option>
+                        <option value="971">+971 (UAE)</option>
+                        <option value="966">+966 (Saudi Arabia)</option>
+                        <option value="974">+974 (Qatar)</option>
+                        <option value="965">+965 (Kuwait)</option>
+                        <option value="973">+973 (Bahrain)</option>
+                        <option value="968">+968 (Oman)</option>
                       </select>
                     </div>
-                    <div className="lg:col-span-3 flex flex-col gap-1">
-                      <label className="text-sm text-gray-600 font-medium">Event</label>
-                      <select 
-                        value={trigEvent} 
-                        onChange={e=>setTrigEvent(e.target.value)} 
-                        className="border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-200 focus:border-blue-300"
-                      >
-                        <option value="task_created">Task Created</option>
-                        <option value="task_updated">Task Updated</option>
-                        <option value="task_deleted">Task Deleted</option>
-                        <option value="project_created">Project Created</option>
-                        <option value="project_updated">Project Updated</option>
-                        <option value="project_deleted">Project Deleted</option>
-                        <option value="team_created">Team Created</option>
-                        <option value="team_updated">Team Updated</option>
-                        <option value="team_deleted">Team Deleted</option>
-                        <option value="none">None (Manual Only)</option>
-                      </select>
-                      {trigEvent === 'none' && (
-                        <div className="text-xs text-orange-600">
-                          ⚠️ This trigger will only fire when manually called via URL
-                        </div>
-                      )}
-                    </div>
-                    <div className="lg:col-span-3 flex flex-col gap-1">
-                      <label className="text-sm text-gray-600 font-medium">Connection</label>
-                      <select 
-                        value={trigConnectionId} 
-                        onChange={e=>setTrigConnectionId(e.target.value)} 
-                        className="border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-200 focus:border-blue-300"
-                      >
-                        <option value="">Select connection</option>
-                        {connections.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                      </select>
-                    </div>
-                    <div className="lg:col-span-3 flex flex-col gap-1">
-                      <label className="text-sm text-gray-600 font-medium">Test Connection</label>
-                      <button 
-                        onClick={() => testConnection(trigConnectionId)} 
-                        disabled={!trigConnectionId}
-                        className="px-3 py-2 border rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                      >
-                        Test
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Users Type Recipient */}
-                  {triggerType === 'users' && (
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-4">
-                        <label className="text-sm text-gray-600 font-medium">Recipient Type:</label>
-                        <div className="flex gap-2">
-                          <label className="flex items-center gap-2">
-                            <input 
-                              type="radio" 
-                              value="manual" 
-                              checked={contactMode === 'manual'} 
-                              onChange={e => setContactMode(e.target.value as 'manual' | 'contact')}
-                              className="accent-blue-600"
-                            />
-                            <span className="text-sm">Manual Entry</span>
-                          </label>
-                          <label className="flex items-center gap-2">
-                            <input 
-                              type="radio" 
-                              value="contact" 
-                              checked={contactMode === 'contact'} 
-                              onChange={e => setContactMode(e.target.value as 'manual' | 'contact')}
-                              className="accent-blue-600"
-                            />
-                            <span className="text-sm">From Contacts</span>
-                          </label>
-                        </div>
-                      </div>
-
-                      {contactMode === 'manual' && (
-                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                          <div className="lg:col-span-3 flex flex-col gap-1">
-                            <label className="text-sm text-gray-600 font-medium">Country Code</label>
-                            <select 
-                              value={countryCode} 
-                              onChange={e=>setCountryCode(e.target.value)} 
-                              className="border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-200 focus:border-blue-300"
-                            >
-                              <option value="91">+91 (India)</option>
-                              <option value="1">+1 (USA/Canada)</option>
-                              <option value="44">+44 (UK)</option>
-                              <option value="49">+49 (Germany)</option>
-                              <option value="33">+33 (France)</option>
-                              <option value="39">+39 (Italy)</option>
-                              <option value="34">+34 (Spain)</option>
-                              <option value="7">+7 (Russia)</option>
-                              <option value="86">+86 (China)</option>
-                              <option value="81">+81 (Japan)</option>
-                              <option value="82">+82 (South Korea)</option>
-                              <option value="61">+61 (Australia)</option>
-                              <option value="55">+55 (Brazil)</option>
-                              <option value="52">+52 (Mexico)</option>
-                              <option value="971">+971 (UAE)</option>
-                              <option value="966">+966 (Saudi Arabia)</option>
-                              <option value="974">+974 (Qatar)</option>
-                              <option value="965">+965 (Kuwait)</option>
-                              <option value="973">+973 (Bahrain)</option>
-                              <option value="968">+968 (Oman)</option>
-                            </select>
-                          </div>
-                          <div className="lg:col-span-9 flex flex-col gap-1">
-                            <label className="text-sm text-gray-600 font-medium">Phone Number</label>
-                            <input 
-                              value={phoneNumber} 
-                              onChange={e=>setPhoneNumber(e.target.value)} 
-                              className="border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-200 focus:border-blue-300" 
-                              placeholder="e.g. 1234567890" 
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      {contactMode === 'contact' && (
-                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                          <div className="lg:col-span-12 flex flex-col gap-1">
-                            <label className="text-sm text-gray-600 font-medium">
-                              Select Contact 
-                              {contacts.length > 0 && <span className="text-blue-600">({contacts.length} found)</span>}
-                            </label>
-                            <div className="flex gap-2">
-                              <select 
-                                value={selectedContact} 
-                                onChange={e=>setSelectedContact(e.target.value)} 
-                                className="border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 flex-1"
-                                disabled={loadingContacts || !trigConnectionId}
-                              >
-                                <option value="">Select a contact</option>
-                                {contacts.map(contact => (
-                                  <option key={contact.id} value={contact.id}>
-                                    {contact.pushname || contact.name || contact.display_name || contact.id}
-                                    {contact.id && ` (${contact.id})`}
-                                  </option>
-                                ))}
-                              </select>
-                              <button 
-                                onClick={() => fetchContacts(trigConnectionId)} 
-                                disabled={!trigConnectionId || loadingContacts}
-                                className="px-3 py-2 border rounded-lg text-sm disabled:opacity-50 hover:bg-gray-50"
-                              >
-                                {loadingContacts ? '...' : 'Refresh'}
-                              </button>
-                            </div>
-                            {!trigConnectionId && (
-                              <div className="text-xs text-gray-500">Please select a connection first</div>
-                            )}
-                            {trigConnectionId && contacts.length === 0 && !loadingContacts && (
-                              <div className="text-xs text-orange-600">No contacts found. Click Refresh to fetch.</div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Community Type Selection */}
-                  {triggerType === 'community' && (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                        <div className="lg:col-span-6 flex flex-col gap-1">
-                          <label className="text-sm text-gray-600 font-medium">Community</label>
-                          <div className="flex gap-2">
-                            <select 
-                              value={selectedCommunity} 
-                              onChange={e=>setSelectedCommunity(e.target.value)} 
-                              className="border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 flex-1"
-                              disabled={loadingCommunities}
-                            >
-                              <option value="">Select community</option>
-                              {communities.map(c => (
-                                <option key={c.id} value={c.id}>
-                                  {c.title || c.name || c.id}
-                                </option>
-                              ))}
-                            </select>
-                            <button 
-                              onClick={() => fetchCommunities(trigConnectionId)} 
-                              disabled={!trigConnectionId || loadingCommunities}
-                              className="px-3 py-2 border rounded-lg text-sm disabled:opacity-50 hover:bg-gray-50"
-                            >
-                              {loadingCommunities ? '...' : 'Refresh'}
-                            </button>
-                          </div>
-                        </div>
-                        <div className="lg:col-span-6 flex flex-col gap-1">
-                          <label className="text-sm text-gray-600 font-medium">
-                            Subgroups 
-                            {subgroups.length > 0 && <span className="text-blue-600">({subgroups.length} found)</span>}
-                            {selectedGroups.length > 0 && <span className="text-green-600"> • {selectedGroups.length} selected</span>}
-                          </label>
-                          <div className="flex gap-2">
-                            <select 
-                              value="" 
-                              onChange={e => {
-                                if (e.target.value && !selectedGroups.includes(e.target.value)) {
-                                  setSelectedGroups([...selectedGroups, e.target.value])
-                                }
-                              }}
-                              className="border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 flex-1"
-                              disabled={loadingSubgroups || !selectedCommunity}
-                            >
-                              <option value="">Select subgroup to add...</option>
-                              {subgroups
-                                .filter(sg => !selectedGroups.includes(sg.id))
-                                .map(sg => (
-                                  <option key={sg.id} value={sg.id}>
-                                    {sg.type === 'announcement' ? '📢 ' : '💬 '}
-                                    {sg.title || sg.name || sg.id}
-                                    {sg.type === 'announcement' ? ' (Announcement)' : ''}
-                                  </option>
-                                ))}
-                            </select>
-                            <button 
-                              onClick={() => fetchSubgroups(trigConnectionId, selectedCommunity)} 
-                              disabled={!trigConnectionId || !selectedCommunity || loadingSubgroups}
-                              className="px-3 py-2 border rounded-lg text-sm disabled:opacity-50 hover:bg-gray-50"
-                            >
-                              {loadingSubgroups ? '...' : 'Refresh'}
-                            </button>
-                          </div>
-                          
-                          {/* Selected Subgroups Display */}
-                          {selectedGroups.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              {selectedGroups.map(groupId => {
-                                const group = subgroups.find(sg => sg.id === groupId)
-                                return (
-                                  <span 
-                                    key={groupId}
-                                    className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 text-xs rounded-md"
-                                  >
-                                    {group?.type === 'announcement' ? '📢' : '💬'}
-                                    {group?.title || group?.name || groupId}
-                                    <button 
-                                      onClick={() => setSelectedGroups(selectedGroups.filter(id => id !== groupId))}
-                                      className="text-green-600 hover:text-green-800"
-                                    >
-                                      ×
-                                    </button>
-                                  </span>
-                                )
-                              })}
-                            </div>
-                          )}
-                          
-                          {!selectedCommunity && (
-                            <div className="text-xs text-gray-500">Please select a community first</div>
-                          )}
-                          {selectedCommunity && subgroups.length === 0 && !loadingSubgroups && (
-                            <div className="text-xs text-orange-600">No subgroups found. Click Refresh to fetch.</div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Group Type Selection */}
-                  {triggerType === 'group' && (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                        <div className="lg:col-span-12 flex flex-col gap-1">
-                          <label className="text-sm text-gray-600 font-medium">Groups</label>
-                          <div className="flex gap-2">
-                            <select 
-                              value={selectedGroups[0] || ''} 
-                              onChange={e=>setSelectedGroups(e.target.value ? [e.target.value] : [])} 
-                              className="border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 flex-1"
-                              disabled={loadingGroups}
-                            >
-                              <option value="">Select group</option>
-                              {groups.map(g => (
-                                <option key={g.id} value={g.id}>
-                                  {g.title || g.name || g.id}
-                                </option>
-                              ))}
-                            </select>
-                            <button 
-                              onClick={() => fetchGroups(trigConnectionId)} 
-                              disabled={!trigConnectionId || loadingGroups}
-                              className="px-3 py-2 border rounded-lg text-sm disabled:opacity-50 hover:bg-gray-50"
-                            >
-                              {loadingGroups ? '...' : 'Refresh'}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                    <div className="lg:col-span-4 flex flex-col gap-1">
-                      <label className="text-sm text-gray-600 font-medium">Filter: HTTP Method</label>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
                       <input 
-                        value={filterMethod} 
-                        onChange={e=>setFilterMethod(e.target.value)} 
-                        className="border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-200 focus:border-blue-300" 
-                        placeholder="e.g. POST, PUT" 
-                      />
-                    </div>
-                    <div className="lg:col-span-4 flex flex-col gap-1">
-                      <label className="text-sm text-gray-600 font-medium">Filter: Table Name</label>
-                      <input 
-                        value={filterTableName} 
-                        onChange={e=>setFilterTableName(e.target.value)} 
-                        className="border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-200 focus:border-blue-300" 
-                        placeholder="e.g. tasks, projects" 
-                      />
-                    </div>
-                    <div className="lg:col-span-4 flex flex-col gap-1">
-                      <label className="text-sm text-gray-600 font-medium">Filter: Path Contains</label>
-                      <input 
-                        value={filterPathContains} 
-                        onChange={e=>setFilterPathContains(e.target.value)} 
-                        className="border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-200 focus:border-blue-300" 
-                        placeholder="e.g. /tasks, /projects" 
+                        value={phoneNumber} 
+                        onChange={e=>setPhoneNumber(e.target.value)} 
+                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors" 
+                        placeholder="e.g. 1234567890" 
                       />
                     </div>
                   </div>
-                  
-                  <div className="flex flex-col gap-1">
-                    <label className="text-sm text-gray-600 font-medium">
-                      Namespace Tags 
-                      {selectedNamespaces.length > 0 && <span className="text-blue-600">({selectedNamespaces.length} selected)</span>}
-                    </label>
-                    
-                    {/* Existing Namespaces Selection */}
-                    <div className="flex gap-2">
+                </div>
+              )}
+
+              {/* Community Configuration */}
+              {triggerType === 'community' && (
+                <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                  <h3 className="font-medium text-gray-900 mb-4">Community Configuration</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Community</label>
+                      <select 
+                        value={selectedCommunity} 
+                        onChange={e=>setSelectedCommunity(e.target.value)} 
+                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors"
+                      >
+                        <option value="">Select community</option>
+                        {communities.map(c => (
+                          <option key={c.id} value={c.id}>
+                            {c.title || c.name || c.id}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Subgroups</label>
                       <select 
                         value="" 
                         onChange={e => {
-                          if (e.target.value && !selectedNamespaces.includes(e.target.value)) {
-                            setSelectedNamespaces([...selectedNamespaces, e.target.value])
+                          if (e.target.value && !selectedGroups.includes(e.target.value)) {
+                            setSelectedGroups([...selectedGroups, e.target.value])
                           }
                         }}
-                        className="border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 flex-1"
-                        disabled={loadingNamespaces}
+                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors"
                       >
-                        <option value="">Select BRMH namespace...</option>
-                        {availableNamespaces
-                          .filter(ns => !selectedNamespaces.includes(ns.id))
-                          .map(ns => (
-                            <option key={ns.id} value={ns.id}>
-                              {ns.name || ns.id}
+                        <option value="">Select subgroup to add...</option>
+                        {subgroups
+                          .filter(sg => !selectedGroups.includes(sg.id))
+                          .map(sg => (
+                            <option key={sg.id} value={sg.id}>
+                              {sg.type === 'announcement' ? '📢 ' : '💬 '}
+                              {sg.title || sg.name || sg.id}
+                              {sg.type === 'announcement' ? ' (Announcement)' : ''}
                             </option>
                           ))}
                       </select>
-                      <button 
-                        onClick={fetchNamespaces} 
-                        disabled={loadingNamespaces}
-                        className="px-3 py-2 border rounded-lg text-sm disabled:opacity-50 hover:bg-gray-50"
-                      >
-                        {loadingNamespaces ? '...' : 'Refresh'}
-                      </button>
                     </div>
-                    
-                    {/* Custom Tag Input */}
-                    <div className="flex gap-2">
-                      <input 
-                        value={customTag}
-                        onChange={e => setCustomTag(e.target.value)}
-                        placeholder="Or enter custom tag..."
-                        className="border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 flex-1"
-                        onKeyPress={e => {
-                          if (e.key === 'Enter' && customTag.trim() && !selectedNamespaces.includes(customTag.trim())) {
-                            setSelectedNamespaces([...selectedNamespaces, customTag.trim()])
-                            setCustomTag('')
-                          }
-                        }}
-                      />
-                      <button 
-                        onClick={() => {
-                          if (customTag.trim() && !selectedNamespaces.includes(customTag.trim())) {
-                            setSelectedNamespaces([...selectedNamespaces, customTag.trim()])
-                            setCustomTag('')
-                          }
-                        }}
-                        disabled={!customTag.trim() || selectedNamespaces.includes(customTag.trim())}
-                        className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700"
-                      >
-                        Add
-                      </button>
-                    </div>
-                    
-                    {/* Selected Tags Display */}
-                    {selectedNamespaces.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {selectedNamespaces.map(tag => {
-                          const ns = availableNamespaces.find(n => n.id === tag)
+                  </div>
+                  
+                  {/* Selected Subgroups Display */}
+                  {selectedGroups.length > 0 && (
+                    <div className="mt-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Selected Subgroups</label>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedGroups.map(groupId => {
+                          const group = subgroups.find(sg => sg.id === groupId)
                           return (
                             <span 
-                              key={tag}
-                              className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-md"
+                              key={groupId}
+                              className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-800 text-sm rounded-md"
                             >
-                              {ns?.name || tag}
+                              {group?.type === 'announcement' ? '📢' : '💬'}
+                              {group?.title || group?.name || groupId}
                               <button 
-                                onClick={() => setSelectedNamespaces(selectedNamespaces.filter(t => t !== tag))}
-                                className="text-blue-600 hover:text-blue-800"
+                                onClick={() => setSelectedGroups(selectedGroups.filter(id => id !== groupId))}
+                                className="text-green-600 hover:text-green-800 ml-1"
                               >
                                 ×
                               </button>
@@ -1258,248 +863,127 @@ const NotificationsPage = () => {
                           )
                         })}
                       </div>
-                    )}
-                    
-                    <div className="text-xs text-gray-500">
-                      Select BRMH namespaces or enter custom tags. Logs will be filtered by these tags.
                     </div>
-                  </div>
-                  
-                  <div className="flex flex-col gap-1">
-                    <label className="text-sm text-gray-600 font-medium">Trigger Name</label>
-                    <input 
-                      value={trigName} 
-                      onChange={e=>setTrigName(e.target.value)} 
-                      className="border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-200 focus:border-blue-300" 
-                      placeholder="My Trigger" 
-                    />
-                  </div>
-                  
-                  <div className="flex flex-col gap-1">
-                    <label className="text-sm text-gray-600 font-medium">Message Template</label>
-                    <textarea 
-                      value={trigTemplate} 
-                      onChange={e=>setTrigTemplate(e.target.value)} 
-                      className="border rounded-lg px-3 py-2 min-h-[100px] focus:ring-2 focus:ring-blue-200 focus:border-blue-300" 
-                      placeholder="Message template using {{trigger}} and {{event}} context" 
-                    />
-                  </div>
-                  
-                  <div className="flex justify-end gap-2">
-                    <button 
-                      onClick={() => {
-                        if (!trigConnectionId) {
-                          alert('Please select a connection first')
-                          return
-                        }
-                        if (triggerType === 'users' && !trigTo) {
-                          alert('Please enter a recipient for users trigger')
-                          return
-                        }
-                        if (triggerType === 'community' && (!selectedCommunity || selectedGroups.length === 0)) {
-                          alert('Please select a community and at least one subgroup')
-                          return
-                        }
-                        if (triggerType === 'group' && selectedGroups.length === 0) {
-                          alert('Please select groups')
-                          return
-                        }
-                        testFire(trigEvent)
-                      }} 
-                      className="px-4 py-2 border rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                      Test Fire
-                    </button>
-                    <button 
-                      disabled={saving} 
-                      onClick={saveTrigger} 
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-60 hover:bg-blue-700 transition-colors"
-                    >
-                      {saving ? 'Saving...' : 'Save Trigger'}
-                    </button>
-                  </div>
+                  )}
                 </div>
+              )}
 
-                {/* Existing Triggers */}
-                <div className="border rounded-lg">
-                  <div className="px-3 py-2 text-sm text-gray-500 font-medium">Existing Triggers</div>
-                  <div className="divide-y max-h-64 overflow-auto">
-                    {triggers.map(t => (
-                      <div key={t.id} className="px-3 py-2 text-sm">
-                        <div className="flex items-center justify-between">
-                          <div className="font-medium truncate">{t.name}</div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded">
-                              {t.action?.type || 'whapi'}
-                            </span>
-                            <span className="text-xs text-gray-500">{t.eventType}</span>
-                          </div>
-                        </div>
-                        <div className="text-xs text-gray-500 truncate">
-                          {t.action?.type === 'whapi_message' && `to: ${t.action?.to}`}
-                          {t.action?.type === 'whapi_community' && `community: ${t.action?.communityId} • groups: ${t.action?.groupIds?.length || 0}`}
-                          {t.action?.type === 'whapi_group' && `groups: ${t.action?.groupIds?.length || 0}`}
-                          {!t.action?.type && `to: ${t.action?.to}`}
-                          {' • '}conn: {t.connectionId}
-                        </div>
-                        {t.namespaceTags && t.namespaceTags.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {t.namespaceTags.map((tag: string) => (
-                              <span key={tag} className="text-xs px-1 py-0.5 bg-blue-100 text-blue-600 rounded">
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
+              {/* Group Configuration */}
+              {triggerType === 'group' && (
+                <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                  <h3 className="font-medium text-gray-900 mb-4">Group Configuration</h3>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Groups</label>
+                    <select 
+                      value={selectedGroups[0] || ''} 
+                      onChange={e=>setSelectedGroups(e.target.value ? [e.target.value] : [])} 
+                      className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors"
+                    >
+                      <option value="">Select group</option>
+                      {groups.map(g => (
+                        <option key={g.id} value={g.id}>
+                          {g.title || g.name || g.id}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
+              )}
+
+              <div className="mt-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Message Template</label>
+                <textarea 
+                  value={trigTemplate} 
+                  onChange={e=>setTrigTemplate(e.target.value)} 
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 min-h-[120px] focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors" 
+                  placeholder="Enter your message template here. Use variables like {{task.title}}, {{user.name}}, etc." 
+                />
+                <p className="text-sm text-gray-500 mt-2">
+                  Available variables: {`{{task.title}}, {{task.assignee}}, {{project.name}}, {{team.name}}, {{user.name}}`}
+                </p>
               </div>
-            </section>
-          )}
+              
+              <div className="mt-6 flex gap-3">
+                <button 
+                  onClick={() => testFire(trigEvent)} 
+                  className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                >
+                  Test Trigger
+                </button>
+                <button 
+                  disabled={loading} 
+                  onClick={saveTrigger} 
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg disabled:opacity-60 hover:bg-blue-700 transition-colors font-medium"
+                >
+                  {loading ? 'Saving...' : 'Save Trigger'}
+                </button>
+              </div>
+            </div>
 
-          {active === 'configuration' && (
-            <section className="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
-              <NotificationConfigPanel />
-            </section>
-          )}
-
-          {active === 'templates' && (
-            <section className="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
-              <NotificationTemplates />
-            </section>
-          )}
-
-          {active === 'test' && (
-            <section className="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
-              <h2 className="text-lg font-medium text-gray-900">Test Send</h2>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Existing Triggers */}
+            {triggers.length > 0 && (
+              <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Existing Triggers</h3>
                 <div className="space-y-3">
-                  <div className="text-sm text-gray-500 font-medium">Saved Connections</div>
-                  <div className="border rounded-lg divide-y max-h-64 overflow-auto">
-                    {connections.length === 0 && <div className="px-3 py-2 text-sm text-gray-500">No connections found.</div>}
-                    {connections.map(c => (
-                      <div key={c.id} className="px-3 py-2 text-sm">
-                        <div className="font-medium">{c.name}</div>
-                        <div className="text-xs text-gray-500 truncate">{c.id}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div className="text-sm text-gray-500 font-medium">Saved Triggers</div>
-                  <div className="border rounded-lg divide-y max-h-64 overflow-auto">
-                    {triggers.length === 0 && <div className="px-3 py-2 text-sm text-gray-500">No triggers found.</div>}
-                    {triggers.map(t => (
-                      <div key={t.id} className="px-3 py-2 text-sm flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="font-medium truncate">{t.name}</div>
-                          <div className="text-xs text-gray-500 truncate">
-                            event: {t.eventType} • type: {t.action?.type || 'whapi'}
+                  {triggers.map(t => (
+                    <div key={t.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-purple-100 rounded-lg">
+                          <Zap className="w-4 h-4 text-purple-600" />
+                        </div>
+                        <div>
+                          <div className="font-medium text-gray-900">{t.name}</div>
+                          <div className="text-sm text-gray-500">
+                            {t.eventType} • {t.action?.type || 'whapi'}
                             {t.action?.type === 'whapi_message' && ` • to: ${t.action?.to}`}
-                            {t.action?.type === 'whapi_community' && ` • community: ${t.action?.communityId} • groups: ${t.action?.groupIds?.length || 0}`}
+                            {t.action?.type === 'whapi_community' && ` • community: ${t.action?.communityId}`}
                             {t.action?.type === 'whapi_group' && ` • groups: ${t.action?.groupIds?.length || 0}`}
                           </div>
-                          <div className="text-xs text-blue-600 truncate">ID: {t.id}</div>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <button 
-                            onClick={()=>testSpecificTrigger(t.id)} 
-                            className="text-xs px-2 py-1 border rounded hover:bg-gray-50"
-                          >
-                            Test
-                          </button>
-                          <button 
-                            onClick={() => {
-                              const backendUrl = apiBase || 'https://brmh.in';
-                              const url = `${backendUrl}/notify/${t.id}`;
-                              navigator.clipboard.writeText(url);
-                              alert('Trigger URL copied to clipboard!');
-                            }} 
-                            className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200"
-                          >
-                            Copy URL
-                          </button>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                <div className="text-xs text-gray-500 space-y-1">
-                  <div>Tests send a synthetic payload to the backend `/notify/test` for the selected event type and your active triggers will execute (in test mode if your connection is test mode).</div>
-                  <div className="font-medium">Manual Trigger Firing:</div>
-                  <div>You can manually fire any trigger by making a request to: <code className="bg-gray-100 px-1 rounded">brmh.in/notify/{'{triggerId}'}</code></div>
-                  <div>Example: <code className="bg-gray-100 px-1 rounded">GET brmh.in/notify/abc123</code> or <code className="bg-gray-100 px-1 rounded">POST brmh.in/notify/abc123</code> with custom event data in body.</div>
-                  <div className="text-blue-600">Local development: <code className="bg-gray-100 px-1 rounded">localhost:5001/notify/{'{triggerId}'}</code></div>
-                  <div className="text-orange-600">⚠️ Triggers with "None (Manual Only)" event type will only fire when manually called via URL, never automatically.</div>
-                  <div className="font-medium">Custom Message Override:</div>
-                  <div>You can override the message template by including a custom message in the request body:</div>
-                  <div><code className="bg-gray-100 px-1 rounded">POST brmh.in/notify/abc123</code> with body: <code className="bg-gray-100 px-1 rounded">{"{message: \"Your custom message here\"}"}</code></div>
-                  <div className="text-green-600">✓ Custom messages will override the trigger's default message template</div>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {active === 'logs' && (
-            <section className="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
-              <h2 className="text-lg font-medium text-gray-900">Delivery Logs</h2>
-              <div className="flex items-center gap-2">
-                <select 
-                  value={logNamespaceFilter} 
-                  onChange={e => {
-                    setLogNamespaceFilter(e.target.value)
-                    fetchLogs(e.target.value || undefined)
-                  }}
-                  className="border rounded-lg px-3 py-1 text-sm focus:ring-2 focus:ring-blue-200 focus:border-blue-300"
-                >
-                  <option value="">All Namespaces</option>
-                  {availableNamespaces.map(ns => (
-                    <option key={ns.id} value={ns.id}>
-                      {ns.name || ns.id}
-                    </option>
-                  ))}
-                </select>
-                <button 
-                  onClick={() => fetchLogs(logNamespaceFilter || undefined)} 
-                  className="px-3 py-1 border rounded text-sm hover:bg-gray-50"
-                >
-                  Refresh
-                </button>
-                {loadingLogs && <span className="text-xs text-gray-500">Loading...</span>}
-              </div>
-              <div className="border rounded-lg divide-y max-h-[480px] overflow-auto">
-                {logs.length === 0 && (
-                  <div className="px-4 py-3 text-sm text-gray-500">No logs yet. Messages and response statuses will appear here.</div>
-                )}
-                {logs.map((l: Log) => (
-                  <div key={l.id} className="px-4 py-3 text-sm text-gray-700">
-                    <div className="flex items-center justify-between">
-                      <div className="font-medium">{l.kind}</div>
-                      <div className={`text-xs ${l.status === 'error' ? 'text-red-600' : 'text-green-600'}`}>
-                        {l.status || 'ok'}
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={()=>testSpecificTrigger(t.id)} 
+                          className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                        >
+                          Test
+                        </button>
+                        <button 
+                          onClick={() => {
+                            const url = `${apiBase}/notify/${t.id}`;
+                            navigator.clipboard.writeText(url);
+                            alert('Trigger URL copied to clipboard!');
+                          }} 
+                          className="px-3 py-1 text-sm bg-blue-100 text-blue-800 rounded hover:bg-blue-200 transition-colors"
+                        >
+                          Copy URL
+                        </button>
                       </div>
                     </div>
-                    <div className="text-xs text-gray-500">{l.createdAt}</div>
-                    {l.eventType && <div className="text-xs">event: {l.eventType}</div>}
-                    {l.triggerId && <div className="text-xs">trigger: {l.triggerId}</div>}
-                    {l.namespaceTags && l.namespaceTags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {l.namespaceTags.map((tag: string) => (
-                          <span key={tag} className="text-xs px-1 py-0.5 bg-gray-100 text-gray-600 rounded">
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </section>
-          )}
+            )}
+          </div>
+        )}
+
+        {/* Event Configuration Tab */}
+        {activeTab === 'configurations' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <Target className="w-5 h-5 text-green-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Event Configuration</h2>
+                  <p className="text-sm text-gray-600">Configure which notifications to send for specific events</p>
+                </div>
+              </div>
+              <NotificationConfigPanel />
+            </div>
+          </div>
+        )}
       </div>
     </AppLayout>
   )

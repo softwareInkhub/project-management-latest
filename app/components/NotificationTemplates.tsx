@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { FileText, Plus, Edit, Trash2, Copy, Check } from 'lucide-react';
+import { FileText, Plus, Edit, Trash2, Copy, Check, Sparkles } from 'lucide-react';
 
 interface Template {
   id: string;
@@ -34,31 +34,41 @@ const NotificationTemplates = () => {
   const predefinedTemplates: Template[] = [
     {
       id: 'task-created',
-      name: 'Task Created',
+      name: 'Task Assignment',
       category: 'task' as const,
       eventType: 'task_created',
-      template: '🎯 New task created!\n\n📋 **{{task.title}}**\n👤 Assigned to: {{task.assignee}}\n📅 Due: {{task.dueDate}}\n⭐ Priority: {{task.priority}}\n\nProject: {{task.project}}',
-      variables: ['task.title', 'task.assignee', 'task.dueDate', 'task.priority', 'task.project'],
+      template: '🎯 New task assigned to you!\n\n📋 **{{task.title}}**\n👤 Project: {{project.name}}\n📅 Due: {{task.dueDate}}\n⭐ Priority: {{task.priority}}\n\nGood luck! 🚀',
+      variables: ['task.title', 'task.assignee', 'task.dueDate', 'task.priority', 'project.name'],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     },
     {
       id: 'task-updated',
-      name: 'Task Updated',
+      name: 'Task Update',
       category: 'task' as const,
       eventType: 'task_updated',
-      template: '📝 Task updated!\n\n📋 **{{task.title}}**\n🔄 Status: {{task.status}}\n👤 Assigned to: {{task.assignee}}\n📅 Due: {{task.dueDate}}\n\nChanges: {{task.changes}}',
-      variables: ['task.title', 'task.status', 'task.assignee', 'task.dueDate', 'task.changes'],
+      template: '📝 Task updated!\n\n📋 **{{task.title}}**\n🔄 Status: {{task.status}}\n👤 Assigned to: {{task.assignee}}\n📅 Due: {{task.dueDate}}\n\nProject: {{project.name}}',
+      variables: ['task.title', 'task.status', 'task.assignee', 'task.dueDate', 'project.name'],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     },
     {
       id: 'project-created',
-      name: 'Project Created',
+      name: 'Project Launch',
       category: 'project' as const,
       eventType: 'project_created',
-      template: '🚀 New project launched!\n\n📁 **{{project.name}}**\n📝 Description: {{project.description}}\n👥 Team: {{project.team}}\n📅 Start: {{project.startDate}}\n📅 End: {{project.endDate}}',
-      variables: ['project.name', 'project.description', 'project.team', 'project.startDate', 'project.endDate'],
+      template: '🚀 New project launched!\n\n📁 **{{project.name}}**\n📝 {{project.description}}\n👥 Team: {{team.name}}\n📅 Start: {{project.startDate}}\n\nLet\'s make it amazing! 💪',
+      variables: ['project.name', 'project.description', 'team.name', 'project.startDate'],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    },
+    {
+      id: 'project-updated',
+      name: 'Project Update',
+      category: 'project' as const,
+      eventType: 'project_updated',
+      template: '📁 Project updated!\n\n**{{project.name}}**\n📝 {{project.description}}\n👥 Team: {{team.name}}\n📊 Progress: {{project.progress}}%',
+      variables: ['project.name', 'project.description', 'team.name', 'project.progress'],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     },
@@ -67,8 +77,18 @@ const NotificationTemplates = () => {
       name: 'Team Assignment',
       category: 'team' as const,
       eventType: 'team_created',
-      template: '👥 New team assignment!\n\n🏢 **{{team.name}}**\n📝 Description: {{team.description}}\n👤 Members: {{team.members}}\n📅 Created: {{team.createdAt}}',
-      variables: ['team.name', 'team.description', 'team.members', 'team.createdAt'],
+      template: '👥 Welcome to the team!\n\n🏢 **{{team.name}}**\n📝 {{team.description}}\n👤 Members: {{team.members}}\n\nLet\'s collaborate and achieve great things! 🤝',
+      variables: ['team.name', 'team.description', 'team.members'],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    },
+    {
+      id: 'deadline-reminder',
+      name: 'Deadline Reminder',
+      category: 'task' as const,
+      eventType: 'task_deadline',
+      template: '⏰ Deadline approaching!\n\n📋 **{{task.title}}**\n📅 Due: {{task.dueDate}}\n👤 Assigned to: {{task.assignee}}\n⭐ Priority: {{task.priority}}\n\nDon\'t forget to complete it! ⚡',
+      variables: ['task.title', 'task.dueDate', 'task.assignee', 'task.priority'],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }
@@ -215,8 +235,8 @@ const NotificationTemplates = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Message Templates</h2>
-          <p className="text-sm text-gray-500">Create and manage notification message templates</p>
+          <h3 className="text-lg font-semibold text-gray-900">Message Templates</h3>
+          <p className="text-sm text-gray-500">Pre-built templates for different notification types</p>
         </div>
         <button
           onClick={() => setIsCreating(true)}
@@ -237,7 +257,7 @@ const NotificationTemplates = () => {
               : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
           }`}
         >
-          All
+          All Templates
         </button>
         {['task', 'project', 'team', 'general'].map(category => (
           <button
@@ -257,11 +277,11 @@ const NotificationTemplates = () => {
       {/* Templates Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredTemplates.map((template) => (
-          <div key={template.id} className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+          <div key={template.id} className="bg-white border border-gray-200 rounded-lg p-4 space-y-3 hover:shadow-md transition-shadow">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-lg">{getCategoryIcon(template.category)}</span>
-                <h3 className="font-medium text-gray-900">{template.name}</h3>
+                <h4 className="font-medium text-gray-900">{template.name}</h4>
               </div>
               <div className="flex items-center gap-1">
                 <button
@@ -359,7 +379,7 @@ const NotificationTemplates = () => {
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-200 focus:border-blue-300"
-                    placeholder="e.g., Task Created Notification"
+                    placeholder="e.g., Task Assignment Notification"
                     required
                   />
                 </div>

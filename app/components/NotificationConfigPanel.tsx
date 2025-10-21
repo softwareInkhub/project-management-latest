@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Bell, Users, Building2, CheckSquare, Settings, Plus, Edit, Trash2, Smartphone, MessageSquare, Globe } from 'lucide-react';
+import { apiService } from '../services/api';
+import { Bell, Users, Building2, CheckSquare, Settings, Plus, Edit, Trash2, Smartphone, MessageSquare, Globe, Target, AlertCircle } from 'lucide-react';
 
 interface NotificationConfig {
   id: string;
@@ -9,7 +10,7 @@ interface NotificationConfig {
   eventType: 'task_created' | 'task_updated' | 'task_deleted' | 'project_created' | 'project_updated' | 'project_deleted' | 'team_created' | 'team_updated' | 'team_deleted';
   entityType: 'task' | 'project' | 'team';
   recipients: {
-    type: 'user' | 'team' | 'community' | 'all';
+    type: 'user' | 'team' | 'project' | 'all';
     ids: string[];
   };
   messageTemplate: string;
@@ -17,29 +18,30 @@ interface NotificationConfig {
   createdAt: string;
 }
 
-interface User {
+interface BRMHUser {
   id: string;
   name: string;
   email: string;
+  phone?: string;
 }
 
-interface Team {
+interface BRMHTeam {
   id: string;
   name: string;
-  members: User[];
+  members: BRMHUser[];
 }
 
-interface Community {
+interface BRMHProject {
   id: string;
   name: string;
-  subgroups: string[];
+  team?: BRMHTeam;
 }
 
 const NotificationConfigPanel = () => {
   const [configs, setConfigs] = useState<NotificationConfig[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [communities, setCommunities] = useState<Community[]>([]);
+  const [brmhUsers, setBrmhUsers] = useState<BRMHUser[]>([]);
+  const [brmhTeams, setBrmhTeams] = useState<BRMHTeam[]>([]);
+  const [brmhProjects, setBrmhProjects] = useState<BRMHProject[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [editingConfig, setEditingConfig] = useState<NotificationConfig | null>(null);
   const [loading, setLoading] = useState(false);
@@ -49,7 +51,7 @@ const NotificationConfigPanel = () => {
     name: '',
     eventType: 'task_created' as NotificationConfig['eventType'],
     entityType: 'task' as NotificationConfig['entityType'],
-    recipientType: 'user' as 'user' | 'team' | 'community' | 'all',
+    recipientType: 'user' as 'user' | 'team' | 'project' | 'all',
     recipientIds: [] as string[],
     messageTemplate: '',
     active: true
@@ -62,24 +64,18 @@ const NotificationConfigPanel = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch users, teams, communities, and existing configs
-      // This would be replaced with actual API calls
-      const mockUsers = [
-        { id: '1', name: 'John Doe', email: 'john@example.com' },
-        { id: '2', name: 'Jane Smith', email: 'jane@example.com' },
-        { id: '3', name: 'Bob Johnson', email: 'bob@example.com' }
-      ];
-      
-      const mockTeams = [
-        { id: '1', name: 'Development Team', members: mockUsers.slice(0, 2) },
-        { id: '2', name: 'Design Team', members: mockUsers.slice(1) }
-      ];
-      
-      const mockCommunities = [
-        { id: '1', name: 'Project Updates', subgroups: ['announcements', 'discussions'] },
-        { id: '2', name: 'Team Communications', subgroups: ['general', 'meetings'] }
-      ];
-      
+      // Fetch BRMH data via apiService using correct table names
+      const [usersRes, teamsRes, projectsRes] = await Promise.all([
+        apiService.getUsers(),
+        apiService.getTeams(),
+        apiService.getProjects()
+      ]);
+
+      if (usersRes.success && Array.isArray(usersRes.data)) setBrmhUsers(usersRes.data as any);
+      if (teamsRes.success && Array.isArray(teamsRes.data)) setBrmhTeams(teamsRes.data as any);
+      if (projectsRes.success && Array.isArray(projectsRes.data)) setBrmhProjects(projectsRes.data as any);
+
+      // Mock existing configs for now
       const mockConfigs = [
         {
           id: '1',
@@ -87,15 +83,22 @@ const NotificationConfigPanel = () => {
           eventType: 'task_created' as const,
           entityType: 'task' as const,
           recipients: { type: 'user' as const, ids: ['1', '2'] },
-          messageTemplate: 'New task assigned: {{task.title}}',
+          messageTemplate: '🎯 New task assigned to you!\n\n📋 **{{task.title}}**\n👤 Project: {{project.name}}\n📅 Due: {{task.dueDate}}\n⭐ Priority: {{task.priority}}',
+          active: true,
+          createdAt: new Date().toISOString()
+        },
+        {
+          id: '2',
+          name: 'Project Updates',
+          eventType: 'project_updated' as const,
+          entityType: 'project' as const,
+          recipients: { type: 'team' as const, ids: ['1'] },
+          messageTemplate: '📁 Project updated!\n\n**{{project.name}}**\n📝 {{project.description}}\n👥 Team: {{team.name}}',
           active: true,
           createdAt: new Date().toISOString()
         }
       ];
 
-      setUsers(mockUsers);
-      setTeams(mockTeams);
-      setCommunities(mockCommunities);
       setConfigs(mockConfigs);
     } catch (error) {
       console.error('Failed to fetch data:', error);
@@ -191,8 +194,8 @@ const NotificationConfigPanel = () => {
         return <Users size={16} className="text-blue-600" />;
       case 'team':
         return <Users size={16} className="text-green-600" />;
-      case 'community':
-        return <Globe size={16} className="text-purple-600" />;
+      case 'project':
+        return <Building2 size={16} className="text-purple-600" />;
       case 'all':
         return <MessageSquare size={16} className="text-orange-600" />;
       default:
@@ -203,11 +206,11 @@ const NotificationConfigPanel = () => {
   const getRecipientName = (type: string, ids: string[]) => {
     switch (type) {
       case 'user':
-        return users.filter(u => ids.includes(u.id)).map(u => u.name).join(', ');
+        return brmhUsers.filter(u => ids.includes(u.id)).map(u => u.name).join(', ');
       case 'team':
-        return teams.filter(t => ids.includes(t.id)).map(t => t.name).join(', ');
-      case 'community':
-        return communities.filter(c => ids.includes(c.id)).map(c => c.name).join(', ');
+        return brmhTeams.filter(t => ids.includes(t.id)).map(t => t.name).join(', ');
+      case 'project':
+        return brmhProjects.filter(p => ids.includes(p.id)).map(p => p.name).join(', ');
       case 'all':
         return 'All Users';
       default:
@@ -215,13 +218,37 @@ const NotificationConfigPanel = () => {
     }
   };
 
+  const getAvailableRecipients = () => {
+    switch (formData.recipientType) {
+      case 'user':
+        return brmhUsers;
+      case 'team':
+        return brmhTeams;
+      case 'project':
+        return brmhProjects;
+      default:
+        return [];
+    }
+  };
+
+  const getDefaultTemplate = () => {
+    const templates = {
+      task_created: '🎯 New task created!\n\n📋 **{{task.title}}**\n👤 Assigned to: {{task.assignee}}\n📅 Due: {{task.dueDate}}\n⭐ Priority: {{task.priority}}\n\nProject: {{project.name}}',
+      task_updated: '📝 Task updated!\n\n📋 **{{task.title}}**\n🔄 Status: {{task.status}}\n👤 Assigned to: {{task.assignee}}\n📅 Due: {{task.dueDate}}',
+      project_created: '🚀 New project launched!\n\n📁 **{{project.name}}**\n📝 Description: {{project.description}}\n👥 Team: {{team.name}}\n📅 Start: {{project.startDate}}',
+      project_updated: '📁 Project updated!\n\n**{{project.name}}**\n📝 {{project.description}}\n👥 Team: {{team.name}}',
+      team_created: '👥 New team created!\n\n🏢 **{{team.name}}**\n📝 Description: {{team.description}}\n👤 Members: {{team.members}}',
+    };
+    return templates[formData.eventType] || '';
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Notification Configuration</h2>
-          <p className="text-sm text-gray-500">Configure notifications for tasks, projects, and teams</p>
+          <h3 className="text-lg font-semibold text-gray-900">Event Configurations</h3>
+          <p className="text-sm text-gray-500">Configure which notifications to send for specific events</p>
         </div>
         <button
           onClick={() => setIsCreating(true)}
@@ -235,11 +262,11 @@ const NotificationConfigPanel = () => {
       {/* Configuration List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {configs.map((config) => (
-          <div key={config.id} className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+          <div key={config.id} className="bg-white border border-gray-200 rounded-lg p-4 space-y-3 hover:shadow-md transition-shadow">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2">
                 {getEventIcon(config.eventType)}
-                <h3 className="font-medium text-gray-900">{config.name}</h3>
+                <h4 className="font-medium text-gray-900">{config.name}</h4>
               </div>
               <div className="flex items-center gap-1">
                 <button
@@ -271,7 +298,7 @@ const NotificationConfigPanel = () => {
               
               <div className="text-sm text-gray-600">
                 <span className="font-medium">Template:</span>
-                <p className="text-xs text-gray-500 mt-1 truncate">{config.messageTemplate}</p>
+                <p className="text-xs text-gray-500 mt-1 line-clamp-2">{config.messageTemplate}</p>
               </div>
             </div>
             
@@ -346,7 +373,14 @@ const NotificationConfigPanel = () => {
                 </label>
                 <select
                   value={formData.eventType}
-                  onChange={(e) => setFormData({ ...formData, eventType: e.target.value as any })}
+                  onChange={(e) => {
+                    const newEventType = e.target.value as any;
+                    setFormData({ 
+                      ...formData, 
+                      eventType: newEventType,
+                      messageTemplate: getDefaultTemplate()
+                    });
+                  }}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-200 focus:border-blue-300"
                 >
                   <option value={`${formData.entityType}_created`}>{formData.entityType} Created</option>
@@ -366,7 +400,7 @@ const NotificationConfigPanel = () => {
                 >
                   <option value="user">Specific Users</option>
                   <option value="team">Team Members</option>
-                  <option value="community">Community/Group</option>
+                  <option value="project">Project Members</option>
                   <option value="all">All Users</option>
                 </select>
               </div>
@@ -377,55 +411,22 @@ const NotificationConfigPanel = () => {
                     Select Recipients
                   </label>
                   <div className="border border-gray-300 rounded-lg p-3 max-h-32 overflow-y-auto">
-                    {formData.recipientType === 'user' && users.map(user => (
-                      <label key={user.id} className="flex items-center gap-2 py-1">
+                    {getAvailableRecipients().map((item: any, index: number) => (
+                      <label key={`${formData.recipientType}-${item?.id ?? index}`} className="flex items-center gap-2 py-1">
                         <input
                           type="checkbox"
-                          checked={formData.recipientIds.includes(user.id)}
+                          checked={formData.recipientIds.includes(item.id)}
                           onChange={(e) => {
                             if (e.target.checked) {
-                              setFormData({ ...formData, recipientIds: [...formData.recipientIds, user.id] });
+                              setFormData({ ...formData, recipientIds: [...formData.recipientIds, item.id] });
                             } else {
-                              setFormData({ ...formData, recipientIds: formData.recipientIds.filter(id => id !== user.id) });
+                              setFormData({ ...formData, recipientIds: formData.recipientIds.filter(id => id !== item.id) });
                             }
                           }}
                           className="rounded"
                         />
-                        <span className="text-sm">{user.name}</span>
-                      </label>
-                    ))}
-                    {formData.recipientType === 'team' && teams.map(team => (
-                      <label key={team.id} className="flex items-center gap-2 py-1">
-                        <input
-                          type="checkbox"
-                          checked={formData.recipientIds.includes(team.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setFormData({ ...formData, recipientIds: [...formData.recipientIds, team.id] });
-                            } else {
-                              setFormData({ ...formData, recipientIds: formData.recipientIds.filter(id => id !== team.id) });
-                            }
-                          }}
-                          className="rounded"
-                        />
-                        <span className="text-sm">{team.name}</span>
-                      </label>
-                    ))}
-                    {formData.recipientType === 'community' && communities.map(community => (
-                      <label key={community.id} className="flex items-center gap-2 py-1">
-                        <input
-                          type="checkbox"
-                          checked={formData.recipientIds.includes(community.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setFormData({ ...formData, recipientIds: [...formData.recipientIds, community.id] });
-                            } else {
-                              setFormData({ ...formData, recipientIds: formData.recipientIds.filter(id => id !== community.id) });
-                            }
-                          }}
-                          className="rounded"
-                        />
-                        <span className="text-sm">{community.name}</span>
+                        <span className="text-sm">{item.name}</span>
+                        {item.email && <span className="text-xs text-gray-500">({item.email})</span>}
                       </label>
                     ))}
                   </div>
@@ -440,11 +441,11 @@ const NotificationConfigPanel = () => {
                   value={formData.messageTemplate}
                   onChange={(e) => setFormData({ ...formData, messageTemplate: e.target.value })}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-200 focus:border-blue-300"
-                  rows={3}
-                  placeholder="e.g., New {{entityType}} created: {{title}}"
+                  rows={4}
+                  placeholder="Enter your message template here..."
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Available variables: {`{{entityType}}, {{title}}, {{assignee}}, {{priority}}, etc.`}
+                  Available variables: {`{{task.title}}, {{task.assignee}}, {{project.name}}, {{team.name}}, {{user.name}}`}
                 </p>
               </div>
 
