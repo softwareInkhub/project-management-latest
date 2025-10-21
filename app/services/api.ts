@@ -637,7 +637,7 @@ class ApiService {
 
   // User Operations
   async getUsers(): Promise<ApiResponse<User[]>> {
-    const result = await this.makeRequest<User[]>('?tableName=brmh-users&pagination=true', {
+    const result = await this.makeRequest<User[]>('?tableName=project-management-users&pagination=true', {
       method: 'GET',
     });
 
