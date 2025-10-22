@@ -7,7 +7,8 @@ import {
   CheckSquare, 
   Users, 
   Bell,
-  Plus
+  Plus,
+  Calendar
 } from 'lucide-react';
 import { useTabs } from '../hooks/useTabs';
 
@@ -26,8 +27,8 @@ const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/Dashboard', icon: LayoutDashboard },
   { name: 'Projects', href: '/project', icon: FolderKanban },
   { name: 'Tasks', href: '/task', icon: CheckSquare, isCenter: true },
+  { name: 'Calendar', href: '/calander', icon: Calendar },
   { name: 'Team', href: '/team', icon: Users },
-  { name: 'Notifications', href: '/notifications', icon: Bell },
 ];
 
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ onCreateTask }) => {

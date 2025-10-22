@@ -16,7 +16,8 @@ import {
   ChevronRight,
   LogOut,
   User,
-  HelpCircle
+  HelpCircle,
+  Calendar
 } from 'lucide-react';
 import { Avatar } from './ui/Avatar';
 import { Button } from './ui/Button';
@@ -29,6 +30,7 @@ const navigation = [
   { name: 'Projects', href: '/project', icon: FolderKanban },
   { name: 'Tasks', href: '/task', icon: CheckSquare },
   { name: 'Team', href: '/team', icon: Users },
+  { name: 'Calendar', href: '/calander', icon: Calendar },
   { name: 'Notifications', href: '/notifications', icon: Bell },
 ];
 
