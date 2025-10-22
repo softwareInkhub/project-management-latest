@@ -29,6 +29,7 @@ interface Task {
   progress: number;
   timeSpent: string; // Hours as string
   parentId: string | null;
+  attachments?: string; // JSON string array of file IDs
   createdAt: string;
   updatedAt: string;
 }
@@ -408,8 +409,9 @@ class ApiService {
       console.error('Failed to get task data before deletion:', error);
     }
 
-    const result = await this.makeRequest<void>(`?tableName=project-management-tasks&id=${id}`, {
+    const result = await this.makeRequest<void>(`?tableName=project-management-tasks`, {
       method: 'DELETE',
+      body: JSON.stringify({ id }),
     });
 
     // Send notification for task deletion

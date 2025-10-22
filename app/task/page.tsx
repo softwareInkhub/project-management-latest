@@ -4,13 +4,14 @@ import {
   Plus, 
   MoreVertical, 
   Calendar, 
-  User,
+  User, 
   Users,
   Clock,
   CheckCircle,
   CheckSquare,
   Circle,
   AlertCircle,
+  AlertTriangle,
   Flag,
   MessageSquare,
   Paperclip,
@@ -22,7 +23,8 @@ import {
   ArrowLeft,
   X,
   Search,
-  Link
+  Link,
+  Upload
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -37,6 +39,7 @@ import { useTabs } from '../hooks/useTabs';
 import { useSidebar } from '../components/AppLayout';
 import { useAuth } from '../hooks/useAuth';
 import { apiService, Task } from '../services/api';
+import { driveService, FileItem } from '../services/drive';
 
 // Mock data for tasks (fallback when API fails)
 const mockTasks: Task[] = [
@@ -217,7 +220,6 @@ const TasksPage = () => {
   const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
   const [isFormAnimating, setIsFormAnimating] = useState(false);
   const [formHeight, setFormHeight] = useState(80); // Default 80vh
-  const [isDragging, setIsDragging] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isTaskPreviewOpen, setIsTaskPreviewOpen] = useState(false);
   const [allUsers, setAllUsers] = useState<any[]>([]);
@@ -235,6 +237,36 @@ const TasksPage = () => {
   // Comment management
   const [newComment, setNewComment] = useState('');
   const [isPostingComment, setIsPostingComment] = useState(false);
+
+  // File attachment management
+  const [attachedFiles, setAttachedFiles] = useState<any[]>([]);
+  const [isLoadingFiles, setIsLoadingFiles] = useState(false);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [filePreviews, setFilePreviews] = useState<{[key: string]: string}>({});
+  const [loadingPreviews, setLoadingPreviews] = useState<Set<string>>(new Set());
+  
+  // File preview modal state
+  const [isFilePreviewOpen, setIsFilePreviewOpen] = useState(false);
+  const [selectedFileForPreview, setSelectedFileForPreview] = useState<FileItem | null>(null);
+
+  // Resizable columns state
+  const [columnWidths, setColumnWidths] = useState<{[key: string]: number}>({
+    project: 140,
+    taskName: 180,
+    taskDescription: 220,
+    status: 100,
+    priority: 100,
+    time: 80,
+    comments: 130,
+    subtasks: 130,
+    tags: 140,
+    dueDate: 110,
+    actions: 100
+  });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragColumn, setDragColumn] = useState<string | null>(null);
+  const [startX, setStartX] = useState(0);
+  const [startWidth, setStartWidth] = useState(0);
 
   // Delete confirmation
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -277,6 +309,15 @@ const TasksPage = () => {
     });
   }, [isTaskFormOpen, isCreatingSubtask, isAddingSubtask, selectedTask, parentTaskForSubtask]);
 
+  // Debug: Log delete modal state changes
+  useEffect(() => {
+    console.log('🗑️ Delete modal state changed:', {
+      showDeleteConfirm,
+      taskToDelete: taskToDelete?.title,
+      deleteConfirmText
+    });
+  }, [showDeleteConfirm, taskToDelete, deleteConfirmText]);
+
 
 
   // Simple back navigation (one step back)
@@ -286,19 +327,25 @@ const TasksPage = () => {
 
   // Delete task functions
   const handleDeleteTask = (task: Task) => {
+    console.log('🗑️ handleDeleteTask called with task:', task);
+    console.log('🗑️ Setting taskToDelete:', task);
+    console.log('🗑️ Setting showDeleteConfirm to true');
     setTaskToDelete(task);
     setShowDeleteConfirm(true);
     setDeleteConfirmText('');
+    console.log('🗑️ Delete task state updated');
   };
 
   const confirmDeleteTask = async () => {
     if (!taskToDelete || deleteConfirmText !== 'DELETE') {
+      console.log('❌ Delete validation failed:', { taskToDelete, deleteConfirmText });
       return;
     }
 
     try {
-      console.log('🗑️ Deleting task:', taskToDelete.id);
+      console.log('🗑️ Starting task deletion:', taskToDelete.id, taskToDelete.title);
       const result = await deleteTask(taskToDelete.id);
+      console.log('🗑️ Delete result:', result);
       
       if (result.success) {
         console.log('✅ Task deleted successfully');
@@ -309,6 +356,7 @@ const TasksPage = () => {
           closeTaskPreview();
         }
         // Show success message (you can add a toast notification here)
+        alert('Task deleted successfully!');
       } else {
         console.error('❌ Failed to delete task:', result.error);
         alert(`Failed to delete task: ${result.error}`);
@@ -414,16 +462,20 @@ const TasksPage = () => {
 
   const deleteTask = async (taskId: string) => {
     try {
+      console.log('🗑️ Calling apiService.deleteTask with ID:', taskId);
       const response = await apiService.deleteTask(taskId);
+      console.log('🗑️ API response:', response);
       
       if (response.success) {
+        console.log('✅ API deletion successful, updating local state');
         setTasks(prev => prev.filter(task => task.id !== taskId));
         return { success: true };
       } else {
+        console.error('❌ API deletion failed:', response.error);
         return { success: false, error: response.error || 'Failed to delete task' };
       }
     } catch (error) {
-      console.error('Error deleting task:', error);
+      console.error('❌ Error in deleteTask function:', error);
       return { success: false, error: 'An unexpected error occurred' };
     }
   };
@@ -807,8 +859,17 @@ const TasksPage = () => {
               setIsTaskFormOpen(false);
               setIsCreatingSubtask(false);
               
-              // Set the parent task as the selected task for the preview
-              setSelectedTask(parentTaskForSubtask);
+              // Wait a bit for the tasks to be updated, then find the updated parent task
+              setTimeout(async () => {
+                const updatedTasks = await apiService.getTasks();
+                if (updatedTasks.success && updatedTasks.data) {
+                  const updatedParentTask = updatedTasks.data.find(t => t.id === parentTaskForSubtask.id);
+                  if (updatedParentTask) {
+                    console.log('🔄 Updating selectedTask with latest parent data after subtask creation:', updatedParentTask);
+                    setSelectedTask(updatedParentTask);
+                  }
+                }
+              }, 500);
               
               // Clear the parent task reference
               setParentTaskForSubtask(null);
@@ -1495,6 +1556,13 @@ const TasksPage = () => {
     fetchUsers();
     fetchTeams();
     
+    // Load task files
+    if (task.attachments) {
+      loadTaskFiles(task.id, task.attachments);
+    } else {
+      setAttachedFiles([]);
+    }
+    
     // Scroll to top when opening task preview
     setTimeout(() => {
       const modal = document.querySelector('[data-task-preview-content]');
@@ -1514,6 +1582,271 @@ const TasksPage = () => {
     fetchUsers();
     fetchTeams();
   };
+
+  // File management functions
+  const loadTaskFiles = async (taskId: string, attachments: string) => {
+    setIsLoadingFiles(true);
+    try {
+      const fileIds = JSON.parse(attachments || '[]');
+      if (Array.isArray(fileIds) && fileIds.length > 0) {
+        const fileDetails = await Promise.all(
+          fileIds.map(async (fileId) => {
+            try {
+              return await driveService.getFileDetails(fileId);
+            } catch (error) {
+              console.error(`Failed to load file ${fileId}:`, error);
+              return null;
+            }
+          })
+        );
+        const validFiles = fileDetails.filter(f => f !== null);
+        setAttachedFiles(validFiles);
+        
+        // Create previews for image files
+        validFiles.forEach((file: FileItem) => {
+          if (file.mimeType?.startsWith('image/')) {
+            // Download and create preview for existing files
+            createPreviewForExistingFile(file);
+          }
+        });
+      } else {
+        setAttachedFiles([]);
+      }
+    } catch (error) {
+      console.error('Failed to load task files:', error);
+      setAttachedFiles([]);
+    } finally {
+      setIsLoadingFiles(false);
+    }
+  };
+
+  const handleFileUpload = async (files: FileList | null) => {
+    if (!files || !selectedTask || files.length === 0) return;
+
+    setIsUploadingFile(true);
+    try {
+      const uploadedFileIds: string[] = [];
+      
+      for (const file of Array.from(files)) {
+        try {
+          console.log('📤 Uploading file:', file.name);
+          const result = await driveService.uploadFile({
+            userId: '',
+            file,
+            parentId: 'ROOT',
+            tags: `task-${selectedTask.id}`,
+          });
+          uploadedFileIds.push(result.fileId);
+        } catch (error) {
+          console.error(`Failed to upload ${file.name}:`, error);
+          alert(`Failed to upload ${file.name}. Please try again.`);
+        }
+      }
+
+      if (uploadedFileIds.length > 0) {
+        // Get current attachments
+        const currentAttachments = JSON.parse(selectedTask.attachments || '[]');
+        const newAttachments = [...currentAttachments, ...uploadedFileIds];
+
+        // Update task with new attachments
+        const result = await apiService.updateTask(selectedTask.id, {
+          attachments: JSON.stringify(newAttachments),
+        });
+
+        if (result.success) {
+          // Reload files
+          await loadTaskFiles(selectedTask.id, JSON.stringify(newAttachments));
+          
+          // Update selected task
+          const updatedTask = { ...selectedTask, attachments: JSON.stringify(newAttachments) };
+          setSelectedTask(updatedTask);
+          
+          alert('Files uploaded successfully!');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to upload files:', error);
+      alert('Failed to upload files. Please try again.');
+    } finally {
+      setIsUploadingFile(false);
+    }
+  };
+
+  // Create file preview for images
+  const createFilePreview = (file: File, fileKey: string) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setFilePreviews(prev => ({
+        ...prev,
+        [fileKey]: e.target?.result as string
+      }));
+    };
+    
+    if (file.type.startsWith('image/')) {
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Download and create preview for existing files
+  const createPreviewForExistingFile = async (file: FileItem) => {
+    if (!file.mimeType?.startsWith('image/')) return;
+
+    const fileKey = `${file.name}-${file.size}`;
+    setLoadingPreviews(prev => new Set(prev).add(fileKey));
+
+    try {
+      const result = await driveService.downloadFile(file.id);
+      
+      // Set the download URL directly as preview
+      setFilePreviews(prev => ({
+        ...prev,
+        [fileKey]: result.downloadUrl
+      }));
+    } catch (error) {
+      console.error(`Failed to create preview for ${file.name}:`, error);
+      // Preview will not be available for this file
+    } finally {
+      setLoadingPreviews(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(fileKey);
+        return newSet;
+      });
+    }
+  };
+
+  const handleFileDelete = async (fileId: string) => {
+    if (!selectedTask) return;
+
+    if (!confirm('Are you sure you want to delete this file?')) return;
+
+    try {
+      // Delete file from drive
+      await driveService.deleteFile(fileId);
+
+      // Update task attachments
+      const currentAttachments = JSON.parse(selectedTask.attachments || '[]');
+      const newAttachments = currentAttachments.filter((id: string) => id !== fileId);
+
+      const result = await apiService.updateTask(selectedTask.id, {
+        attachments: JSON.stringify(newAttachments),
+      });
+
+      if (result.success) {
+        // Reload files
+        await loadTaskFiles(selectedTask.id, JSON.stringify(newAttachments));
+        
+        // Update selected task
+        const updatedTask = { ...selectedTask, attachments: JSON.stringify(newAttachments) };
+        setSelectedTask(updatedTask);
+        
+        alert('File deleted successfully!');
+      }
+    } catch (error) {
+      console.error('Failed to delete file:', error);
+      alert('Failed to delete file. Please try again.');
+    }
+  };
+
+  const handleFileDownload = async (fileId: string, fileName: string) => {
+    try {
+      const result = await driveService.downloadFile(fileId);
+      
+      // Open download URL in new tab
+      window.open(result.downloadUrl, '_blank');
+    } catch (error) {
+      console.error('Failed to download file:', error);
+      alert('Failed to download file. Please try again.');
+    }
+  };
+
+  // File preview modal functions
+  const openFilePreview = (file: FileItem) => {
+    setSelectedFileForPreview(file);
+    setIsFilePreviewOpen(true);
+  };
+
+  const closeFilePreview = () => {
+    setIsFilePreviewOpen(false);
+    setSelectedFileForPreview(null);
+  };
+
+  const handleFilePreviewDownload = async () => {
+    if (!selectedFileForPreview) return;
+    await handleFileDownload(selectedFileForPreview.id, selectedFileForPreview.name);
+  };
+
+  const handleFilePreviewDelete = async () => {
+    if (!selectedFileForPreview) return;
+    await handleFileDelete(selectedFileForPreview.id);
+    closeFilePreview();
+  };
+
+  // Column resize functions
+  const handleColumnResizeStart = (e: React.MouseEvent, column: string) => {
+    e.preventDefault();
+    setIsDragging(true);
+    setDragColumn(column);
+    setStartX(e.clientX);
+    setStartWidth(columnWidths[column]);
+  };
+
+  const handleColumnResizeMove = (e: MouseEvent) => {
+    if (!isDragging || !dragColumn) return;
+    
+    const deltaX = e.clientX - startX;
+    const minWidth = getMinWidth(dragColumn);
+    const newWidth = Math.max(minWidth, startWidth + deltaX);
+    
+    setColumnWidths(prev => ({
+      ...prev,
+      [dragColumn]: newWidth
+    }));
+  };
+
+  // Function to get minimum width for each column
+  const getMinWidth = (columnName: string): number => {
+    const minWidths: {[key: string]: number} = {
+      project: 100,
+      taskName: 120,
+      taskDescription: 150,
+      status: 80,
+      priority: 80,
+      time: 60,
+      comments: 120,
+      subtasks: 120,
+      tags: 100,
+      dueDate: 90,
+      actions: 80
+    };
+    return minWidths[columnName] || 80;
+  };
+
+  const handleColumnResizeEnd = () => {
+    setIsDragging(false);
+    setDragColumn(null);
+  };
+
+  // Add event listeners for mouse move and up
+  React.useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleColumnResizeMove);
+      document.addEventListener('mouseup', handleColumnResizeEnd);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    } else {
+      document.removeEventListener('mousemove', handleColumnResizeMove);
+      document.removeEventListener('mouseup', handleColumnResizeEnd);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleColumnResizeMove);
+      document.removeEventListener('mouseup', handleColumnResizeEnd);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isDragging, dragColumn, startX, startWidth]);
 
   // Comment management functions
   const handleAddComment = async () => {
@@ -1614,8 +1947,11 @@ const TasksPage = () => {
         closeTaskPreview();
       }
       
-      // Close dropdown when clicking outside
-      setOpenDropdown(null);
+      // Close dropdown when clicking outside (but not inside the dropdown itself)
+      const isClickInsideDropdown = (target as Element).closest('[data-dropdown-menu]');
+      if (!isClickInsideDropdown) {
+        setOpenDropdown(null);
+      }
       
       // Close user and team selection dropdowns only if not clicking inside them
       const isClickInsideUserSelection = (target as Element).closest('[data-user-selection]');
@@ -1630,7 +1966,7 @@ const TasksPage = () => {
     };
 
     // Always listen for clicks to close dropdown, but only listen for form/preview when they're open
-    document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('mousedown', handleClickOutside);
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
@@ -1699,6 +2035,44 @@ const TasksPage = () => {
           </div>
         </div>
 
+        {/* Analytics Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {/* Total Tasks */}
+          <StatsCard
+            title="Total Tasks"
+            value={tasks.length}
+            icon={CheckSquare}
+            iconColor="blue"
+            className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
+          />
+          
+          {/* Completed Tasks */}
+          <StatsCard
+            title="Completed"
+            value={tasks.filter(task => task.status === 'Completed').length}
+            icon={CheckCircle}
+            iconColor="green"
+            className="bg-gradient-to-r from-green-50 to-green-100 border-green-200"
+          />
+          
+          {/* In Progress Tasks */}
+          <StatsCard
+            title="In Progress"
+            value={tasks.filter(task => task.status === 'In Progress').length}
+            icon={Clock}
+            iconColor="yellow"
+            className="bg-gradient-to-r from-yellow-50 to-yellow-100 border-yellow-200"
+          />
+          
+          {/* Overdue Tasks */}
+          <StatsCard
+            title="Overdue"
+            value={tasks.filter(task => isOverdue(task.dueDate)).length}
+            icon={AlertTriangle}
+            iconColor="red"
+            className="bg-gradient-to-r from-red-50 to-red-100 border-red-200"
+          />
+        </div>
 
         {/* Filters and Search */}
         <SearchFilterSection
@@ -1783,45 +2157,308 @@ const TasksPage = () => {
            </div>
          )}
 
-         {/* Tasks List */}
+         {/* Tasks Table */}
          {!isLoading && !error && viewMode === 'list' ? (
-           <div className="space-y-3">
-             {filteredTasks.map((task) => (
-               <div key={task.id} className="relative p-3 sm:p-4 bg-white rounded-lg border border-gray-100 hover:border-gray-200 transition-colors min-h-[120px] sm:min-h-[140px] flex flex-col sm:flex-row sm:items-center cursor-pointer" onClick={() => handleTaskClick(task)}>
-                 {/* Action Buttons and Assignee Info - Top Right Corner (Desktop) */}
-                 <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex flex-col items-end space-y-2 z-20">
-                   {/* Action Buttons */}
-                   <div className="flex items-center space-x-1">
+           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+             <div className="overflow-x-auto">
+             {/* Table Header */}
+             <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 px-4 py-3">
+               <div className="flex text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                 {/* Task Name */}
+                 <div 
+                   className="flex items-center border-r border-gray-50 pr-2"
+                   style={{ width: `${columnWidths.taskName}px` }}
+                 >
+                   <span className="whitespace-nowrap">Task Name</span>
+                   <div 
+                     className="ml-auto w-1 h-4 bg-gray-400 hover:bg-gray-600 cursor-col-resize"
+                     onMouseDown={(e) => handleColumnResizeStart(e, 'taskName')}
+                   />
+                 </div>
+                 
+                 {/* Project */}
+                 <div 
+                   className="flex items-center border-r border-gray-50 pr-2"
+                   style={{ width: `${columnWidths.project}px` }}
+                 >
+                   <span className="whitespace-nowrap">Project</span>
+                   <div 
+                     className="ml-auto w-1 h-4 bg-gray-400 hover:bg-gray-600 cursor-col-resize"
+                     onMouseDown={(e) => handleColumnResizeStart(e, 'project')}
+                   />
+                 </div>
+                 
+                 {/* Task Description */}
+                 <div 
+                   className="flex items-center border-r border-gray-50 pr-2"
+                   style={{ width: `${columnWidths.taskDescription}px` }}
+                 >
+                   <span className="whitespace-nowrap">Task Description</span>
+                   <div 
+                     className="ml-auto w-1 h-4 bg-gray-400 hover:bg-gray-600 cursor-col-resize"
+                     onMouseDown={(e) => handleColumnResizeStart(e, 'taskDescription')}
+                   />
+                   </div>
                    
+                 {/* Status */}
+                 <div 
+                   className="flex items-center border-r border-gray-50 pr-2"
+                   style={{ width: `${columnWidths.status}px` }}
+                 >
+                   <span className="whitespace-nowrap">Status</span>
+                   <div 
+                     className="ml-auto w-1 h-4 bg-gray-400 hover:bg-gray-600 cursor-col-resize"
+                     onMouseDown={(e) => handleColumnResizeStart(e, 'status')}
+                   />
+                     </div>
+                 
+                 {/* Priority */}
+                 <div 
+                   className="flex items-center border-r border-gray-50 pr-2"
+                   style={{ width: `${columnWidths.priority}px` }}
+                 >
+                   <span className="whitespace-nowrap">Priority</span>
+                   <div 
+                     className="ml-auto w-1 h-4 bg-gray-400 hover:bg-gray-600 cursor-col-resize"
+                     onMouseDown={(e) => handleColumnResizeStart(e, 'priority')}
+                   />
+                     </div>
+                 
+                 {/* Time */}
+                 <div 
+                   className="flex items-center border-r border-gray-50 pr-2"
+                   style={{ width: `${columnWidths.time}px` }}
+                 >
+                   <span className="whitespace-nowrap">Time</span>
+                   <div 
+                     className="ml-auto w-1 h-4 bg-gray-400 hover:bg-gray-600 cursor-col-resize"
+                     onMouseDown={(e) => handleColumnResizeStart(e, 'time')}
+                   />
+                   </div>
+                 
+                 {/* Comments */}
+                 <div 
+                   className="flex items-center border-r border-gray-50 pr-3 min-w-0"
+                   style={{ width: `${columnWidths.comments}px` }}
+                 >
+                   <span className="whitespace-nowrap">Comments</span>
+                   <div 
+                     className="ml-auto w-1 h-4 bg-gray-400 hover:bg-gray-600 cursor-col-resize"
+                     onMouseDown={(e) => handleColumnResizeStart(e, 'comments')}
+                   />
+                 </div>
+
+                 {/* Subtasks */}
+                 <div 
+                   className="flex items-center border-r border-gray-50 pr-3 min-w-0"
+                   style={{ width: `${columnWidths.subtasks}px` }}
+                 >
+                   <span className="whitespace-nowrap">Subtasks</span>
+                   <div 
+                     className="ml-auto w-1 h-4 bg-gray-400 hover:bg-gray-600 cursor-col-resize"
+                     onMouseDown={(e) => handleColumnResizeStart(e, 'subtasks')}
+                   />
+                     </div>
+                     
+                 {/* Tags */}
+                 <div 
+                   className="flex items-center border-r border-gray-50 pr-2 min-w-0"
+                   style={{ width: `${columnWidths.tags}px` }}
+                 >
+                   <span className="whitespace-nowrap">Tags</span>
+                   <div 
+                     className="ml-auto w-1 h-4 bg-gray-400 hover:bg-gray-600 cursor-col-resize"
+                     onMouseDown={(e) => handleColumnResizeStart(e, 'tags')}
+                   />
+                 </div>
+                 
+                 
+                 {/* Due Date */}
+                 <div 
+                   className="flex items-center border-r border-gray-50 pr-2"
+                   style={{ width: `${columnWidths.dueDate}px` }}
+                 >
+                   <span className="whitespace-nowrap">Due Date</span>
+                   <div 
+                     className="ml-auto w-1 h-4 bg-gray-400 hover:bg-gray-600 cursor-col-resize"
+                     onMouseDown={(e) => handleColumnResizeStart(e, 'dueDate')}
+                   />
+                 </div>
+                 
+                 {/* Actions */}
+                 <div 
+                   className="flex items-center"
+                   style={{ width: `${columnWidths.actions}px` }}
+                 >
+                   <span className="whitespace-nowrap">Actions</span>
+                 </div>
+               </div>
+             </div>
+             
+             {/* Table Body */}
+             <div className="divide-y divide-gray-50">
+               {filteredTasks.map((task, index) => (
+                 <div key={task.id} className={`flex px-4 py-3 cursor-pointer transition-all duration-200 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 hover:shadow-sm ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`} onClick={() => handleTaskClick(task)}>
+                   {/* Task Name */}
+                   <div 
+                     className="flex items-center border-r border-gray-50 pr-2 min-w-0"
+                     style={{ width: `${columnWidths.taskName}px` }}
+                   >
+                     <h3 className={`text-sm font-semibold ${task.status === 'Completed' ? 'line-through text-gray-500' : 'text-gray-900'} truncate whitespace-nowrap`}>
+                           {task.title}
+                         </h3>
+                   </div>
+                   
+                   {/* Project */}
+                   <div 
+                     className="flex items-center border-r border-gray-50 pr-2 min-w-0"
+                     style={{ width: `${columnWidths.project}px` }}
+                   >
+                     <span className="text-sm text-gray-900 truncate whitespace-nowrap">
+                       {task.project}
+                     </span>
+                   </div>
+                   
+                   {/* Task Description */}
+                   <div 
+                     className="flex items-center border-r border-gray-50 pr-2 min-w-0"
+                     style={{ width: `${columnWidths.taskDescription}px` }}
+                   >
+                     <p className="text-sm text-gray-600 truncate whitespace-nowrap">
+                           {task.description}
+                         </p>
+                       </div>
+                       
+                   {/* Status */}
+                   <div 
+                     className="flex items-center border-r border-gray-50 pr-2"
+                     style={{ width: `${columnWidths.status}px` }}
+                   >
+                           <Badge variant={getStatusConfig(task.status).color as any} size="sm" className="whitespace-nowrap">
+                       {getStatusConfig(task.status).label}
+                           </Badge>
+                         </div>
+                   
+                   {/* Priority */}
+                   <div 
+                     className="flex items-center border-r border-gray-50 pr-2"
+                     style={{ width: `${columnWidths.priority}px` }}
+                   >
+                           <Badge variant={getPriorityConfig(task.priority).color as any} size="sm" className="whitespace-nowrap">
+                       {getPriorityConfig(task.priority).label}
+                           </Badge>
+                         </div>
+                   
+                   {/* Time */}
+                   <div 
+                     className="flex items-center border-r border-gray-50 pr-2"
+                     style={{ width: `${columnWidths.time}px` }}
+                   >
+                     <span className="text-sm text-gray-600 whitespace-nowrap">{task.estimatedHours}h</span>
+                         </div>
+                   
+                   {/* Comments */}
+                   <div 
+                     className="flex items-center border-r border-gray-50 pr-3 min-w-0"
+                     style={{ width: `${columnWidths.comments}px` }}
+                   >
+                     <span className="text-sm text-gray-600 whitespace-nowrap">
+                        {(() => {
+                          try {
+                           const commentsArray = JSON.parse(task.comments);
+                           return Array.isArray(commentsArray) ? commentsArray.length : parseInt(task.comments) || 0;
+                         } catch (e) {
+                           return parseInt(task.comments) || 0;
+                         }
+                       })()}
+                     </span>
+                   </div>
+                   
+                   {/* Subtasks */}
+                   <div 
+                     className="flex items-center border-r border-gray-50 pr-3 min-w-0"
+                     style={{ width: `${columnWidths.subtasks}px` }}
+                   >
+                     <span className="text-sm text-gray-600 whitespace-nowrap">
+                       {(() => {
+                              try {
+                                const subtasksArray = JSON.parse(task.subtasks);
+                                return Array.isArray(subtasksArray) ? subtasksArray.length : 0;
+                         } catch (e) {
+                                return 0;
+                              }
+                       })()}
+                       </span>
+                 </div>
+
+                   {/* Tags */}
+                   <div 
+                     className="flex items-center border-r border-gray-50 pr-2 min-w-0"
+                     style={{ width: `${columnWidths.tags}px` }}
+                   >
+                     <div className="flex items-center gap-1 overflow-hidden">
+                       {task.tags.split(',').slice(0, 1).map((tag, index) => (
+                         <span key={index} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full whitespace-nowrap">
+                         {tag.trim()}
+                       </span>
+                     ))}
+                       {task.tags.split(',').length > 1 && (
+                         <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full whitespace-nowrap">
+                           +{task.tags.split(',').length - 1}
+                       </span>
+                     )}
+                     </div>
+                   </div>
+                   
+                   
+                   {/* Due Date */}
+                   <div 
+                     className="flex items-center border-r border-gray-50 pr-2"
+                     style={{ width: `${columnWidths.dueDate}px` }}
+                   >
+                     <span className={`text-sm whitespace-nowrap ${isOverdue(task.dueDate) ? 'text-red-600 font-medium' : 'text-gray-600'}`}>
+                           {new Date(task.dueDate).toLocaleDateString()}
+                         </span>
+                       </div>
+                   
+                   {/* Actions */}
+                   <div 
+                     className="flex items-center justify-end space-x-2"
+                     style={{ width: `${columnWidths.actions}px` }}
+                   >
                      <Button 
                        variant="ghost" 
                        size="sm"
                        title="Edit Task"
-                       className="p-1.5 h-7 w-7 sm:p-2 sm:h-9 sm:w-9"
+                       className="p-2 h-9 w-9 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-all duration-200 hover:shadow-sm"
                        onClick={(e) => {
                          e.stopPropagation();
                          handleEditTask(task);
                        }}
                      >
-                       <Edit size={14} className="sm:w-[18px] sm:h-[18px]" />
+                       <Edit size={16} />
                      </Button>
                      <div className="relative">
                        <Button 
                          variant="ghost" 
                          size="sm"
                          title="More Options"
-                         className="p-1.5 h-7 w-7 sm:p-2 sm:h-9 sm:w-9"
+                         className="p-2 h-9 w-9 hover:bg-gray-100 rounded-lg transition-all duration-200 hover:shadow-sm"
                          onClick={(e) => {
                            e.stopPropagation();
                            setOpenDropdown(openDropdown === task.id ? null : task.id);
                          }}
                        >
-                         <MoreVertical size={14} className="sm:w-[18px] sm:h-[18px]" />
+                         <MoreVertical size={16} />
                        </Button>
                        
                        {/* Dropdown Menu */}
                        {openDropdown === task.id && (
-                         <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+                         <div 
+                           data-dropdown-menu
+                           className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
+                           onClick={(e) => e.stopPropagation()}
+                         >
                            <div className="py-1">
                              <button
                                onClick={(e) => {
@@ -1834,141 +2471,15 @@ const TasksPage = () => {
                                <Trash2 className="w-4 h-4" />
                                <span>Delete Task</span>
                              </button>
-                           </div>
+                     </div>
                          </div>
                        )}
-                     </div>
-                   </div>
-                   
-                   {/* Assignee and Due Date (Desktop only) */}
-                   <div className="hidden sm:flex items-center space-x-2">
-                     <div className="flex -space-x-2">
-                       <Avatar name={task.assignee} size="sm" />
-                       <Avatar name="Team Member 2" size="sm" />
-                       <Avatar name="Team Member 3" size="sm" />
-                     </div>
-                     <span className="text-xs text-gray-500">{task.assignee}</span>
-                     <div className="flex items-center space-x-1 text-xs">
-                       <Calendar size={12} />
-                       <span className={isOverdue(task.dueDate) ? 'text-red-600 font-medium' : 'text-gray-500'}>
-                         {new Date(task.dueDate).toLocaleDateString()}
-                       </span>
-                     </div>
-                   </div>
-                 </div>
-
-                 {/* Main Content Area */}
-                 <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 pr-16 sm:pr-20 flex-1">
-                   {/* Project Icon and Task Content in Same Row */}
-                   <div className="flex items-start space-x-3 flex-1 min-w-0">
-                     {/* Project Icon */}
-                     <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-xs sm:text-sm flex-shrink-0">
-                       {task.project.charAt(0)}
-                     </div>
-                     
-                     {/* Task Content */}
-                     <div className="flex-1 min-w-0">
-                       <div>
-                         <h3 className={`text-sm sm:text-base font-semibold ${task.status === 'Completed' ? 'line-through text-gray-500' : 'text-gray-900'} leading-tight line-clamp-1 sm:line-clamp-none`}>
-                           {task.title}
-                         </h3>
-                         <p className="text-xs sm:text-sm text-gray-600 mt-1 line-clamp-1 sm:line-clamp-2 leading-relaxed">
-                           {task.description}
-                         </p>
-                       </div>
-                       
-                       {/* Task Meta Info */}
-                       <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-gray-500 mt-3">
-                         <div className="flex items-center space-x-1">
-                           <Badge variant={getStatusConfig(task.status).color as any} size="sm">
-                             {getStatusIcon(task.status)}
-                             <span className="ml-1 hidden sm:inline">{getStatusConfig(task.status).label}</span>
-                           </Badge>
-                         </div>
-                         <div className="flex items-center space-x-1">
-                           <Badge variant={getPriorityConfig(task.priority).color as any} size="sm">
-                             {getPriorityIcon(task.priority)}
-                             <span className="ml-1 hidden sm:inline">{getPriorityConfig(task.priority).label}</span>
-                           </Badge>
-                         </div>
-                         <div className="flex items-center space-x-1">
-                           <Clock size={10} className="sm:w-3 sm:h-3" />
-                           <span className="text-xs">{task.estimatedHours}h</span>
-                         </div>
-                         <div className="flex items-center space-x-1">
-                           <MessageSquare size={10} className="sm:w-3 sm:h-3" />
-                           <span className="text-xs">{(() => {
-                             try {
-                               const commentsArray = JSON.parse(task.comments);
-                               return Array.isArray(commentsArray) ? commentsArray.length : parseInt(task.comments) || 0;
-                             } catch (e) {
-                               return parseInt(task.comments) || 0;
-                             }
-                           })()}</span>
-                         </div>
-                       <div className="flex items-center space-x-1">
-                         <CheckSquare size={10} className="sm:w-3 sm:h-3" />
-                         <span className="text-xs">{(() => {
-                           try {
-                             const subtasksArray = JSON.parse(task.subtasks);
-                             return Array.isArray(subtasksArray) ? subtasksArray.length : 0;
-                           } catch (e) {
-                             return 0;
-                           }
-                         })()}</span>
-                       </div>
-                       </div>
-                     </div>
-                   </div>
-                 </div>
-                 
-                 {/* Tags - Absolutely centered in the card (Desktop) */}
-                 <div className="hidden sm:block absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10">
-                   <div className="flex justify-center items-center gap-1">
-                     {task.tags.split(',').slice(0, 3).map((tag, index) => (
-                       <span key={index} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                         {tag.trim()}
-                       </span>
-                     ))}
-                     {task.tags.split(',').length > 3 && (
-                       <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                         +{task.tags.split(',').length - 3}
-                       </span>
-                     )}
-                   </div>
-                 </div>
-
-                 {/* Mobile: Assignee and Due Date - Bottom Row */}
-                 <div className="sm:hidden flex items-center justify-between mt-3">
-                   {/* Tags */}
-                   <div className="flex flex-wrap gap-1">
-                     {task.tags.split(',').slice(0, 2).map((tag, index) => (
-                       <span key={index} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                         {tag.trim()}
-                       </span>
-                     ))}
-                     {task.tags.split(',').length > 2 && (
-                       <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                         +{task.tags.split(',').length - 2}
-                       </span>
-                     )}
-                   </div>
-                   
-                   {/* Assignee and Due Date */}
-                   <div className="flex items-center space-x-2">
-                     <Avatar name={task.assignee} size="sm" />
-                     <div className="flex flex-col items-end">
-                       <div className="flex items-center space-x-1 text-xs">
-                         <Calendar size={10} />
-                         <span className={`text-xs ${isOverdue(task.dueDate) ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
-                           {new Date(task.dueDate).toLocaleDateString()}
-                         </span>
-                       </div>
-                     </div>
                    </div>
                  </div>
                </div>
              ))}
+             </div>
+             </div>
            </div>
         ) : !isLoading && !error ? (
           /* Card View */
@@ -1985,30 +2496,47 @@ const TasksPage = () => {
                       <div className="flex-1 min-w-0">
                         <h4 className="font-medium text-gray-900 text-xs sm:text-sm leading-tight line-clamp-2">{task.title}</h4>
                         <p className="text-xs text-gray-600 mt-1 line-clamp-1 hidden sm:block">{task.description}</p>
+                        {/* Labeled basics */}
+                        <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                          <div className="truncate">
+                            <span className="text-[10px] uppercase text-gray-500 font-medium mr-1">Project:</span>
+                            <span className="text-gray-700 truncate inline-block align-middle">{task.project}</span>
+                          </div>
+                          <div className="truncate text-right sm:text-left">
+                            <span className="text-[10px] uppercase text-gray-500 font-medium mr-1">Due:</span>
+                            <span className={`inline-block align-middle ${isOverdue(task.dueDate) ? 'text-red-600 font-medium' : 'text-gray-700'}`}>{new Date(task.dueDate).toLocaleDateString()}</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                     
-                    {/* Status and Priority Badges - Priority hidden on mobile */}
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                      <Badge variant={getStatusConfig(task.status).color as any} size="sm" className="text-xs">
-                        {getStatusIcon(task.status)}
-                        <span className="ml-1 text-xs">{getStatusConfig(task.status).label}</span>
-                      </Badge>
-                      <div className="hidden sm:block">
+                    {/* Status and Priority Badges - with labels (Priority hidden on mobile) */}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] uppercase text-gray-500 font-medium">Status:</span>
+                        <Badge variant={getStatusConfig(task.status).color as any} size="sm" className="text-xs">
+                          {getStatusIcon(task.status)}
+                          <span className="ml-1 text-xs">{getStatusConfig(task.status).label}</span>
+                        </Badge>
+                      </div>
+                      <div className="hidden sm:flex items-center gap-1">
+                        <span className="text-[10px] uppercase text-gray-500 font-medium">Priority:</span>
                         <Badge variant={getPriorityConfig(task.priority).color as any} size="sm" className="text-xs">
                           {getPriorityIcon(task.priority)}
                         </Badge>
                       </div>
                     </div>
                       
-                    {/* Meta Info - Minimal on mobile */}
-                    <div className="flex items-center justify-between text-xs text-gray-500">
-                      <div className="flex items-center space-x-1">
+                    {/* Meta Info - Minimal on mobile (with labels) */}
+                    <div className="flex items-center justify-between text-xs text-gray-600">
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] uppercase text-gray-500 font-medium">Time:</span>
                         <Clock size={8} className="sm:w-3 sm:h-3" />
                         <span className="text-xs">{task.estimatedHours}h</span>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <div className="flex items-center space-x-1">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] uppercase text-gray-500 font-medium">Comments:</span>
                           <MessageSquare size={8} className="sm:w-3 sm:h-3" />
                           <span className="text-xs">{(() => {
                             try {
@@ -2019,7 +2547,8 @@ const TasksPage = () => {
                             }
                           })()}</span>
                         </div>
-                        <div className="flex items-center space-x-1">
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] uppercase text-gray-500 font-medium">Subtasks:</span>
                           <CheckSquare size={8} className="sm:w-3 sm:h-3" />
                           <span className="text-xs">{(() => {
                             try {
@@ -2098,19 +2627,19 @@ const TasksPage = () => {
             className={`bg-white rounded-t-2xl shadow-2xl w-full transform transition-all duration-300 ease-out ${
               isFormAnimating ? 'translate-y-full' : 'translate-y-0'
             } ${isCollapsed ? 'lg:ml-16' : 'lg:ml-64'}`}
-            style={{ 
+              style={{ 
               width: `calc(100% - ${isCollapsed ? '4rem' : '16rem'})`,
-              height: `${formHeight}vh`,
-              boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
-            }}
-          >
-            <TaskForm
-              task={selectedTask || undefined}
-              onSubmit={handleTaskFormSubmit}
-              onCancel={handleTaskFormCancel}
-              isEditing={!!selectedTask}
+                height: `${formHeight}vh`,
+                boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+              }}
+            >
+                <TaskForm
+                  task={selectedTask || undefined}
+                  onSubmit={handleTaskFormSubmit}
+                  onCancel={handleTaskFormCancel}
+                  isEditing={!!selectedTask}
               isCreatingSubtask={isCreatingSubtask}
-              projects={Array.from(new Set(tasks.map(t => t.project)))}
+                  projects={Array.from(new Set(tasks.map(t => t.project)))}
               teams={allTeams.map(team => team.name)}
               users={allUsers}
               isLoadingUsers={isLoadingUsers}
@@ -2389,15 +2918,15 @@ const TasksPage = () => {
                               ))
                             ) : (
                               <div className="flex items-center space-x-3 bg-gray-50 dark:bg-gray-700 rounded-lg px-3 py-2">
-                                <Avatar name={selectedTask.assignee} size="md" />
+                          <Avatar name={selectedTask.assignee} size="md" />
                                 <span className="text-gray-600 dark:text-gray-300">{selectedTask.assignee || 'Not assigned'}</span>
-                              </div>
+                        </div>
                             )}
-                          </div>
+                      </div>
 
                           {/* Pending Users */}
                           {pendingUsers.length > 0 && (
-                            <div>
+                      <div>
                               <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Pending additions:</p>
                               <div className="flex flex-wrap gap-2">
                                 {pendingUsers.map((user, index) => (
@@ -2411,13 +2940,13 @@ const TasksPage = () => {
                                     >
                                       <X className="w-3 h-3 text-red-600 dark:text-red-400" />
                                     </button>
-                                  </div>
+                      </div>
                                 ))}
                               </div>
                             </div>
                           )}
-                        </div>
-                      </div>
+                    </div>
+                  </div>
 
                       {/* Assigned Teams */}
                       <div>
@@ -2548,14 +3077,14 @@ const TasksPage = () => {
                   <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 shadow-sm">
                     <div>
                       <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Tags</label>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedTask.tags.split(',').map((tag, index) => (
+                        <div className="flex flex-wrap gap-2">
+                          {selectedTask.tags.split(',').map((tag, index) => (
                           <span key={index} className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm rounded-full">
-                            {tag.trim()}
-                          </span>
-                        ))}
+                              {tag.trim()}
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                    </div>
                   </div>
 
                   {/* Subtasks Management */}
@@ -2896,8 +3425,214 @@ const TasksPage = () => {
                       })()}
                     </div>
                   </div>
+
+                  {/* File Attachments Section */}
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                      <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200">
+                        File Attachments ({attachedFiles.length})
+                      </label>
+                      <label className="flex items-center space-x-2 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium cursor-pointer">
+                        <Upload className="w-4 h-4" />
+                        <span>{isUploadingFile ? 'Uploading...' : 'Add Files'}</span>
+                        <input
+                          type="file"
+                          multiple
+                          className="hidden"
+                          onChange={(e) => handleFileUpload(e.target.files)}
+                          disabled={isUploadingFile}
+                        />
+                      </label>
+                    </div>
+
+                    {/* Loading State */}
+                    {isLoadingFiles && (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                        <span className="ml-3 text-gray-600 dark:text-gray-400">Loading files...</span>
+                      </div>
+                    )}
+
+                    {/* Attached Files List */}
+                    {!isLoadingFiles && attachedFiles.length > 0 && (
+                      <div className="space-y-2">
+                        {attachedFiles.map((file: FileItem) => {
+                          const fileKey = `${file.name}-${file.size}`;
+                          const preview = filePreviews[fileKey];
+                          const isImage = file.mimeType?.startsWith('image/');
+                          
+                          return (
+                            <div
+                              key={file.id}
+                              className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 transition-colors cursor-pointer"
+                              onClick={() => openFilePreview(file)}
+                            >
+                              <div className="flex items-center space-x-3 flex-1">
+                                {isImage && preview && preview !== 'placeholder' ? (
+                                  <div className="w-12 h-12 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 flex-shrink-0">
+                                    <img 
+                                      src={preview} 
+                                      alt={file.name}
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        console.warn(`Failed to load image preview for ${file.name}`);
+                                        e.currentTarget.style.display = 'none';
+                                      }}
+                                    />
+                                  </div>
+                                ) : isImage && loadingPreviews.has(fileKey) ? (
+                                  <div className="w-12 h-12 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-600 flex-shrink-0">
+                                    <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                                  </div>
+                                ) : (
+                                  <div className="w-12 h-12 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-600 flex-shrink-0">
+                                    <Paperclip className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                    {file.name}
+                                  </p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    {(file.size / 1024 / 1024).toFixed(2)} MB • {new Date(file.createdAt).toLocaleDateString()}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleFileDownload(file.id, file.name);
+                                  }}
+                                  className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                                  title="Download file"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                  </svg>
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleFileDelete(file.id);
+                                  }}
+                                  className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                  title="Delete file"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Empty State */}
+                    {!isLoadingFiles && attachedFiles.length === 0 && (
+                      <div className="text-center py-8">
+                        <Paperclip className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                        <p className="text-gray-500 dark:text-gray-400 text-sm">No files attached</p>
+                        <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">Upload files to share with your team</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* File Preview Modal */}
+      {isFilePreviewOpen && selectedFileForPreview && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 bg-opacity-50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              closeFilePreview();
+            }
+          }}
+        >
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-4xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700">
+                  <Paperclip className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                        </div>
+                        <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    {selectedFileForPreview.name}
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {(selectedFileForPreview.size / 1024 / 1024).toFixed(2)} MB • {new Date(selectedFileForPreview.createdAt).toLocaleDateString()}
+                  </p>
+                        </div>
+                      </div>
+              <button
+                onClick={closeFilePreview}
+                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+                    </div>
+
+            {/* File Preview Content */}
+            <div className="mb-6 max-h-[60vh] overflow-auto">
+              {selectedFileForPreview.mimeType?.startsWith('image/') ? (
+                <div className="flex justify-center">
+                  <img 
+                    src={filePreviews[`${selectedFileForPreview.name}-${selectedFileForPreview.size}`] || ''}
+                    alt={selectedFileForPreview.name}
+                    className="max-w-full max-h-[50vh] object-contain rounded-lg border border-gray-200 dark:border-gray-600"
+                    onError={(e) => {
+                      console.warn(`Failed to load image preview for ${selectedFileForPreview.name}`);
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                  </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="w-24 h-24 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700 mb-4">
+                    <Paperclip className="w-12 h-12 text-gray-400 dark:text-gray-500" />
+                </div>
+                  <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                    {selectedFileForPreview.name}
+                  </h4>
+                  <p className="text-gray-500 dark:text-gray-400 mb-4">
+                    This file type cannot be previewed
+                  </p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500">
+                    Click download to view the file
+                  </p>
+              </div>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end space-x-3">
+              <button
+                onClick={closeFilePreview}
+                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+              >
+                Close
+              </button>
+              <button
+                onClick={handleFilePreviewDownload}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                <span>Download</span>
+              </button>
+              <button
+                onClick={handleFilePreviewDelete}
+                className="flex items-center space-x-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Delete</span>
+              </button>
             </div>
           </div>
         </div>
@@ -2917,12 +3652,12 @@ const TasksPage = () => {
             <div className="flex items-center space-x-3 mb-4">
               <div className="w-10 h-10 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center">
                 <Trash2 className="w-5 h-5 text-red-600 dark:text-red-400" />
-              </div>
-              <div>
+                        </div>
+                        <div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Delete Task</h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">This action cannot be undone</p>
-              </div>
-            </div>
+                        </div>
+                      </div>
             
             <div className="mb-4">
               <p className="text-gray-700 dark:text-gray-300 mb-2">
@@ -2939,7 +3674,7 @@ const TasksPage = () => {
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
                 autoFocus
               />
-            </div>
+                    </div>
             
             <div className="flex space-x-3">
               <Button
@@ -2957,9 +3692,9 @@ const TasksPage = () => {
               >
                 Delete Task
               </Button>
-            </div>
-          </div>
-        </div>
+                  </div>
+                </div>
+              </div>
       )}
 
       {/* Remove User Confirmation Modal */}

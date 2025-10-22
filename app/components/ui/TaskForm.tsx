@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, User, Tag, FileText, Users, UserCheck, X } from 'lucide-react';
+import { Calendar, Clock, User, Tag, FileText, Users, UserCheck, X, Paperclip, Upload, Trash2 } from 'lucide-react';
 import { Button } from './Button';
 import { Input } from './Input';
 import { Select } from './Select';
 import { Task } from '../../services/api';
+import { driveService, FileItem } from '../../services/drive';
 
 interface TaskFormProps {
   task?: Task; // For editing existing tasks
@@ -65,6 +66,159 @@ export function TaskForm({
     timeSpent: task?.timeSpent || '0',
   });
 
+  // File attachment state
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [uploadedFileIds, setUploadedFileIds] = useState<string[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set());
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [isUploadingAll, setIsUploadingAll] = useState(false);
+  const [filePreviews, setFilePreviews] = useState<{[key: string]: string}>({});
+
+  // Load existing attachments when editing
+  useEffect(() => {
+    if (task?.attachments) {
+      try {
+        const fileIds = JSON.parse(task.attachments);
+        if (Array.isArray(fileIds)) {
+          setUploadedFileIds(fileIds);
+        }
+      } catch (e) {
+        console.error('Failed to parse attachments:', e);
+      }
+    }
+  }, [task]);
+
+  // File handling functions
+  const handleFileSelect = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    const newFiles = Array.from(files);
+    setAttachedFiles(prev => [...prev, ...newFiles]);
+    
+    // Create previews for the new files
+    newFiles.forEach(file => {
+      const fileKey = `${file.name}-${file.size}`;
+      createFilePreview(file, fileKey);
+    });
+  };
+
+  const createFilePreview = (file: File, fileKey: string) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setFilePreviews(prev => ({
+        ...prev,
+        [fileKey]: e.target?.result as string
+      }));
+    };
+    
+    if (file.type.startsWith('image/')) {
+      reader.readAsDataURL(file);
+    } else {
+      // For non-image files, we'll just show the file icon
+      setFilePreviews(prev => ({
+        ...prev,
+        [fileKey]: 'file'
+      }));
+    }
+  };
+
+  const uploadFile = async (file: File) => {
+    const fileKey = `${file.name}-${file.size}`;
+    
+    // Mark as uploading
+    setUploadingFiles(prev => new Set(prev).add(fileKey));
+
+    try {
+      console.log('📤 Uploading file:', file.name);
+      const result = await driveService.uploadFile({
+        userId: '', // Will be fetched from localStorage by the service
+        file,
+        parentId: 'ROOT',
+        tags: 'task-attachment',
+      });
+
+      // Add file ID to uploaded files
+      setUploadedFileIds(prev => [...prev, result.fileId]);
+      
+      console.log('✅ File uploaded successfully:', result.fileId);
+    } catch (error) {
+      console.error('❌ Failed to upload file:', error);
+      alert(`Failed to upload ${file.name}. Please try again.`);
+      
+      // Remove file from attached files on error
+      setAttachedFiles(prev => prev.filter(f => f.name !== file.name || f.size !== file.size));
+    } finally {
+      // Remove from uploading set
+      setUploadingFiles(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(fileKey);
+        return newSet;
+      });
+    }
+  };
+
+  const handleFileRemove = async (index: number, fileId?: string) => {
+    if (fileId) {
+      try {
+        await driveService.deleteFile(fileId);
+        setUploadedFileIds(prev => prev.filter(id => id !== fileId));
+      } catch (error) {
+        console.error('❌ Failed to delete file:', error);
+        alert('Failed to delete file. Please try again.');
+        return;
+      }
+    }
+    
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    handleFileSelect(e.dataTransfer.files);
+  };
+
+  // Upload all attached files when task is created
+  const uploadAllFiles = async (): Promise<string[]> => {
+    if (attachedFiles.length === 0) return [];
+
+    setIsUploadingAll(true);
+    const uploadedIds: string[] = [];
+
+    try {
+      for (const file of attachedFiles) {
+        try {
+          console.log('📤 Uploading file:', file.name);
+          const result = await driveService.uploadFile({
+            userId: '', // Will be fetched from localStorage by the service
+            file,
+            parentId: 'ROOT',
+            tags: 'task-attachment',
+          });
+          uploadedIds.push(result.fileId);
+          console.log('✅ File uploaded successfully:', result.fileId);
+        } catch (error) {
+          console.error(`❌ Failed to upload ${file.name}:`, error);
+          throw new Error(`Failed to upload ${file.name}. Please try again.`);
+        }
+      }
+    } finally {
+      setIsUploadingAll(false);
+    }
+
+    return uploadedIds;
+  };
+
   // Helper functions for hours and minutes
   const getHoursFromEstimatedHours = (hours: number) => Math.floor(hours);
   const getMinutesFromEstimatedHours = (hours: number) => Math.round((hours % 1) * 60);
@@ -105,24 +259,38 @@ export function TaskForm({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (validateForm()) {
-      const taskData: Partial<Task> = {
-        ...formData,
-        subtasks: formData.subtasks || '[]',
-        comments: formData.comments || '0',
-        updatedAt: new Date().toISOString(),
-      };
+      try {
+        // Upload files first if there are any
+        let fileIds = uploadedFileIds;
+        if (attachedFiles.length > 0) {
+          console.log('📤 Uploading files before creating task...');
+          fileIds = await uploadAllFiles();
+          console.log('✅ All files uploaded successfully:', fileIds);
+        }
 
-      // Only include id and createdAt for new tasks, not for updates
-      if (!isEditing) {
-        taskData.id = crypto.randomUUID();
-        taskData.createdAt = new Date().toISOString();
+        const taskData: Partial<Task> = {
+          ...formData,
+          subtasks: formData.subtasks || '[]',
+          comments: formData.comments || '0',
+          attachments: JSON.stringify(fileIds),
+          updatedAt: new Date().toISOString(),
+        };
+
+        // Only include id and createdAt for new tasks, not for updates
+        if (!isEditing) {
+          taskData.id = crypto.randomUUID();
+          taskData.createdAt = new Date().toISOString();
+        }
+        
+        onSubmit(taskData);
+      } catch (error) {
+        console.error('❌ Failed to upload files:', error);
+        alert('Failed to upload files. Please try again.');
       }
-      
-      onSubmit(taskData);
     }
   };
 
@@ -220,6 +388,100 @@ export function TaskForm({
                 )}
               </div>
             </div>
+          </div>
+
+          {/* File Attachments */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+            <label className="block text-sm font-semibold text-gray-800 mb-4">
+              File Attachments
+            </label>
+            
+            {/* File Upload Area */}
+            <div
+              className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors ${
+                isDragOver 
+                  ? 'border-blue-500 bg-blue-50' 
+                  : 'border-gray-300 hover:border-gray-400'
+              }`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+              <p className="text-gray-600 mb-2">
+                Drag and drop files here, or{' '}
+                <label className="text-blue-600 cursor-pointer hover:text-blue-700">
+                  browse to upload
+                  <input
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => handleFileSelect(e.target.files)}
+                  />
+                </label>
+              </p>
+              <p className="text-sm text-gray-500">
+                Supports all file types
+              </p>
+            </div>
+
+            {/* Attached Files List */}
+            {attachedFiles.length > 0 && (
+              <div className="mt-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">
+                  Attached Files ({attachedFiles.length})
+                </h4>
+                <div className="space-y-2">
+                  {attachedFiles.map((file, index) => {
+                    const fileKey = `${file.name}-${file.size}`;
+                    const isUploading = uploadingFiles.has(fileKey);
+                    const uploadedFileId = uploadedFileIds[index];
+                    const preview = filePreviews[fileKey];
+                    const isImage = file.type.startsWith('image/');
+                    
+                    return (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-3 rounded-lg border bg-gray-50 border-gray-200 hover:border-gray-300 transition-colors"
+                      >
+                        <div className="flex items-center space-x-3 flex-1">
+                          {isImage && preview && preview !== 'file' ? (
+                            <div className="w-10 h-10 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
+                              <img 
+                                src={preview} 
+                                alt={file.name}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg border border-gray-200 flex items-center justify-center bg-gray-100 flex-shrink-0">
+                              <Paperclip className="w-4 h-4 text-gray-500" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
+                            <p className="text-xs text-gray-500">
+                              {(file.size / 1024 / 1024).toFixed(2)} MB
+                              {uploadedFileId && ' • Ready to upload'}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleFileRemove(index, uploadedFileId)}
+                          className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                          title="Remove file"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mt-2 text-xs text-gray-500">
+                  Files will be uploaded when the task is created
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Project and Assignment */}
@@ -534,8 +796,16 @@ export function TaskForm({
               e.preventDefault();
               handleSubmit(e as any);
             }}
+            disabled={isUploadingAll}
           >
-            {isEditing ? 'Update Task' : isCreatingSubtask ? 'Create Subtask' : 'Create Task'}
+            {isUploadingAll ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                Uploading Files...
+              </>
+            ) : (
+              isEditing ? 'Update Task' : isCreatingSubtask ? 'Create Subtask' : 'Create Task'
+            )}
           </Button>
         </div>
       </div>
