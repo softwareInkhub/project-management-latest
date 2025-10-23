@@ -105,6 +105,37 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         
         console.log('[AuthGuard] Auth result:', { isAuthenticated: authResult, user: user?.email });
         
+        // Ensure user data is in localStorage (might be missing on page refresh)
+        if (authResult && user) {
+          console.log('[AuthGuard] Ensuring user data is in localStorage...');
+          
+          // Store user info if not already present
+          if (!localStorage.getItem('user_id')) {
+            localStorage.setItem('user_id', user.sub);
+            localStorage.setItem('userId', user.sub);
+          }
+          if (!localStorage.getItem('user_email')) {
+            localStorage.setItem('user_email', user.email);
+          }
+          if (!localStorage.getItem('user_name') && user.name) {
+            localStorage.setItem('user_name', user.name);
+          }
+          if (!localStorage.getItem('user')) {
+            localStorage.setItem('user', JSON.stringify(user));
+          }
+          if (!localStorage.getItem('userRole')) {
+            localStorage.setItem('userRole', 'user');
+          }
+          if (!localStorage.getItem('userPermissions')) {
+            localStorage.setItem('userPermissions', JSON.stringify(['read:own']));
+          }
+          
+          console.log('[AuthGuard] ✅ User data synced to localStorage');
+          
+          // Dispatch custom event to notify useAuth hook
+          window.dispatchEvent(new Event('auth-guard-synced'));
+        }
+        
         // Update global state
         globalAuthChecked = true;
         globalIsAuthenticated = authResult;

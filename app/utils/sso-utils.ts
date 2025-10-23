@@ -112,14 +112,35 @@ export interface SSOTokens {
     }
   
     /**
-     * Get user info from ID token
+     * Get user info from ID token or localStorage
      */
     static getUser(): SSOUser | null {
+      // First, try to get from localStorage (faster and works on subsequent visits)
+      if (typeof localStorage !== 'undefined') {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          try {
+            const user = JSON.parse(storedUser);
+            if (user.sub && user.email) {
+              console.log('[SSO] Found user in localStorage:', user.email);
+              return user;
+            }
+          } catch (error) {
+            console.warn('[SSO] Failed to parse stored user:', error);
+          }
+        }
+      }
+      
+      // Fallback: parse from ID token
       const tokens = this.getTokens();
-      if (!tokens.idToken) return null;
+      if (!tokens.idToken) {
+        console.log('[SSO] No user in localStorage and no ID token');
+        return null;
+      }
   
       try {
         const payload = JSON.parse(atob(tokens.idToken.split('.')[1]));
+        console.log('[SSO] Parsed user from ID token:', payload.email);
         return {
           sub: payload.sub,
           email: payload.email,
@@ -166,15 +187,22 @@ export interface SSOTokens {
           const user = data.user;
           
           if (user) {
-            // Store user info in localStorage
+            // Store user info in localStorage (use both formats for compatibility)
             localStorage.setItem('user', JSON.stringify(user));
             localStorage.setItem('user_id', user.sub);
+            localStorage.setItem('userId', user.sub); // Also set userId for compatibility
             if (user.email) localStorage.setItem('user_email', user.email);
             if (user.name) localStorage.setItem('user_name', user.name);
+            if (user['cognito:username']) localStorage.setItem('cognitoUsername', user['cognito:username']);
+            
+            // Set user role and permissions
+            localStorage.setItem('userRole', 'user');
+            localStorage.setItem('userPermissions', JSON.stringify(['read:own']));
             
             // Set a local flag that we've synced successfully
-            // Use same settings as middleware for consistency
-            document.cookie = 'auth_valid_local=1; path=/; domain=.brmh.in; secure; samesite=lax; max-age=' + (60 * 60 * 24 * 7); // 7 days
+            const cookieDomain = window.location.hostname.includes('brmh.in') ? '; domain=.brmh.in' : '';
+            const cookieSecure = window.location.protocol === 'https:' ? '; secure' : '';
+            document.cookie = `auth_valid_local=1; path=/${cookieDomain}${cookieSecure}; samesite=lax; max-age=${60 * 60 * 24 * 7}`; // 7 days
             
             console.log('[SSO] Successfully synced user info from backend');
           }

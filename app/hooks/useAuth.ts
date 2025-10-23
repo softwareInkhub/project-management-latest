@@ -17,7 +17,8 @@ export function useAuth() {
   // Initialize user state from localStorage to prevent initial flash
   const [user, setUser] = useState<User | null>(() => {
     if (typeof window !== 'undefined') {
-      const userId = localStorage.getItem('userId');
+      // Try both userId formats for compatibility
+      const userId = localStorage.getItem('userId') || localStorage.getItem('user_id');
       const email = localStorage.getItem('user_email');
       const name = localStorage.getItem('user_name');
       const username = localStorage.getItem('cognitoUsername');
@@ -26,6 +27,7 @@ export function useAuth() {
       const permissions = permissionsStr ? JSON.parse(permissionsStr) : ['read:own'];
 
       if (userId && email) {
+        console.log('[useAuth] Initialized with user from localStorage:', email);
         return { userId, email, name: name || undefined, username: username || undefined, role, permissions };
       }
     }
@@ -44,7 +46,8 @@ export function useAuth() {
       globalUserLoaded = true;
       
       try {
-        const userId = localStorage.getItem('userId');
+        // Try both userId formats for compatibility
+        const userId = localStorage.getItem('userId') || localStorage.getItem('user_id');
         const email = localStorage.getItem('user_email');
         const name = localStorage.getItem('user_name');
         const username = localStorage.getItem('cognitoUsername');
@@ -53,6 +56,7 @@ export function useAuth() {
         const permissions = permissionsStr ? JSON.parse(permissionsStr) : ['read:own'];
 
         if (userId && email) {
+          console.log('[useAuth] User authenticated:', email);
           setUser({ 
             userId, 
             email, 
@@ -62,10 +66,11 @@ export function useAuth() {
             permissions
           });
         } else {
+          console.log('[useAuth] No user data found in localStorage');
           setUser(null);
         }
       } catch (error) {
-        console.error('Error checking auth:', error);
+        console.error('[useAuth] Error checking auth:', error);
         setUser(null);
       } finally {
         setIsLoading(false);
@@ -74,16 +79,29 @@ export function useAuth() {
 
     checkAuth();
 
-    // Listen for storage changes
+    // Listen for storage changes (e.g., from SSO sync)
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'userId' || e.key === 'user_email' || e.key === 'userRole') {
+      if (e.key === 'userId' || e.key === 'user_id' || e.key === 'user_email' || e.key === 'userRole') {
+        console.log('[useAuth] Storage changed, reloading user data');
         globalUserLoaded = false; // Reset to allow reload
         checkAuth();
       }
     };
 
+    // Also listen for custom events from AuthGuard
+    const handleAuthGuardSync = () => {
+      console.log('[useAuth] AuthGuard sync detected, reloading user data');
+      globalUserLoaded = false; // Reset to allow reload
+      checkAuth();
+    };
+
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    window.addEventListener('auth-guard-synced', handleAuthGuardSync);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('auth-guard-synced', handleAuthGuardSync);
+    };
   }, []);
 
   const login = (userData: User) => {

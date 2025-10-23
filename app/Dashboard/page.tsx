@@ -569,12 +569,17 @@ const Dashboard = () => {
 
   // Load data on component mount and when filters change
   useEffect(() => {
-    if (isAuthenticated) {
+    console.log('[Dashboard] useEffect triggered:', { isAuthenticated, user: user?.email });
+    // Fetch data if we have user data (even if isAuthenticated flag is temporarily false)
+    if (isAuthenticated || user) {
       fetchDashboardData();
     }
-  }, [isAuthenticated, timeRange, filters, upcomingTasksFilter]);
+  }, [isAuthenticated, user, timeRange, filters, upcomingTasksFilter]);
 
-  if (!isAuthenticated) {
+  // Show loading ONLY if we have no user data at all (before AuthGuard completes)
+  // Since useAuth initializes from localStorage, user should be available immediately
+  if (!user) {
+    console.log('[Dashboard] No user data, showing loading...');
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
