@@ -187,13 +187,16 @@ export interface SSOTokens {
           const user = data.user;
           
           if (user) {
+            // Extract username from cognito:username or fallback to name/email
+            const username = user['cognito:username'] || user.name || user.email?.split('@')[0] || 'User';
+            
             // Store user info in localStorage (use both formats for compatibility)
             localStorage.setItem('user', JSON.stringify(user));
             localStorage.setItem('user_id', user.sub);
             localStorage.setItem('userId', user.sub); // Also set userId for compatibility
             if (user.email) localStorage.setItem('user_email', user.email);
-            if (user.name) localStorage.setItem('user_name', user.name);
-            if (user['cognito:username']) localStorage.setItem('cognitoUsername', user['cognito:username']);
+            localStorage.setItem('user_name', username);
+            localStorage.setItem('cognitoUsername', username);
             
             // Set user role and permissions
             localStorage.setItem('userRole', 'user');
@@ -204,7 +207,10 @@ export interface SSOTokens {
             const cookieSecure = window.location.protocol === 'https:' ? '; secure' : '';
             document.cookie = `auth_valid_local=1; path=/${cookieDomain}${cookieSecure}; samesite=lax; max-age=${60 * 60 * 24 * 7}`; // 7 days
             
-            console.log('[SSO] Successfully synced user info from backend');
+            console.log('[SSO] Successfully synced user info from backend:', {
+              email: user.email,
+              username: username
+            });
           }
         } else {
           console.warn('[SSO] Failed to fetch user info from backend:', response.status);

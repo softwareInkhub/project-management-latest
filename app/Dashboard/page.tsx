@@ -633,7 +633,7 @@ const Dashboard = () => {
                       Dashboard
                     </h1>
                     <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 mt-1 truncate">
-                      Welcome back, <span className="font-semibold text-blue-600 dark:text-blue-400">{user?.name || 'User'}</span>!
+                      Welcome back, <span className="font-semibold text-blue-600 dark:text-blue-400">{user?.name || user?.username || user?.email?.split('@')[0] || 'User'}</span>!
                     </p>
                   </div>
                 </div>

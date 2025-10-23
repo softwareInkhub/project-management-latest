@@ -47,13 +47,17 @@ export const Navigation: React.FC<NavigationProps> = ({ onMobileMenuClick }) => 
           {/* User Avatar */}
           <div className="flex items-center space-x-1 sm:space-x-2 lg:space-x-3 min-w-0">
             <Avatar 
-              name={user?.name || 'User'} 
+              name={user?.name || user?.username || user?.email || 'User'} 
               size="sm"
               className="cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all flex-shrink-0 sm:w-8 sm:h-8"
             />
             <div className="hidden sm:block min-w-0">
-              <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{user?.name || 'User'}</p>
-              <p className="text-xs text-gray-500 truncate hidden lg:block">{user?.role || 'Project Manager'}</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white truncate">
+                {user?.name || user?.username || user?.email?.split('@')[0] || 'User'}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate hidden lg:block">
+                {user?.email || user?.role || 'Project Manager'}
+              </p>
             </div>
           </div>
         </div>

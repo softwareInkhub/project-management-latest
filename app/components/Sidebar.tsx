@@ -178,14 +178,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onMobile
         isCollapsed ? 'p-2' : 'p-4'
       }`}>
         <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'space-x-3'}`}>
-          <Avatar name={user?.name || 'User'} size="md" />
+          <Avatar 
+            name={user?.name || user?.username || user?.email || 'User'} 
+            size="md" 
+          />
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                {user?.name || 'User'}
+                {user?.name || user?.username || user?.email?.split('@')[0] || 'User'}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                {user?.role || 'Project Manager'}
+                {user?.email || user?.role || 'Member'}
               </p>
             </div>
           )}
@@ -194,10 +197,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onMobile
         {!isCollapsed && (
           <div className="mt-3 flex space-x-2 border-t border-gray-200 dark:border-gray-700 pt-3">
             <Button
-              variant="ghost"
+              variant="danger"
               size="sm"
               onClick={logout}
-              className="flex-1 flex items-center justify-center space-x-2"
+              className="flex-1 flex items-center justify-center space-x-2 bg-red-600 hover:bg-red-700 text-white"
             >
               <LogOut size={16} />
               <span>Logout</span>
@@ -206,12 +209,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onMobile
         )}
         
         {isCollapsed && (
-          <div className="mt-2 flex justify-center ">
+          <div className="mt-2 flex justify-center">
             <Button
-              variant="ghost"
+              variant="danger"
               size="sm"
               onClick={logout}
-              className="p-2"
+              className="p-2 bg-red-600 hover:bg-red-700 text-white"
               title="Logout"
             >
               <LogOut size={16} />

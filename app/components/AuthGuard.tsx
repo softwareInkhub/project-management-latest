@@ -109,6 +109,9 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         if (authResult && user) {
           console.log('[AuthGuard] Ensuring user data is in localStorage...');
           
+          // Get username from user object (could be cognito:username)
+          const username = (user as any)['cognito:username'] || user.name || user.email?.split('@')[0];
+          
           // Store user info if not already present
           if (!localStorage.getItem('user_id')) {
             localStorage.setItem('user_id', user.sub);
@@ -117,8 +120,11 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
           if (!localStorage.getItem('user_email')) {
             localStorage.setItem('user_email', user.email);
           }
-          if (!localStorage.getItem('user_name') && user.name) {
-            localStorage.setItem('user_name', user.name);
+          if (!localStorage.getItem('user_name')) {
+            localStorage.setItem('user_name', username || user.email?.split('@')[0] || 'User');
+          }
+          if (!localStorage.getItem('cognitoUsername')) {
+            localStorage.setItem('cognitoUsername', username || user.email?.split('@')[0] || 'User');
           }
           if (!localStorage.getItem('user')) {
             localStorage.setItem('user', JSON.stringify(user));
@@ -130,7 +136,10 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
             localStorage.setItem('userPermissions', JSON.stringify(['read:own']));
           }
           
-          console.log('[AuthGuard] ✅ User data synced to localStorage');
+          console.log('[AuthGuard] ✅ User data synced to localStorage:', {
+            email: user.email,
+            username: username
+          });
           
           // Dispatch custom event to notify useAuth hook
           window.dispatchEvent(new Event('auth-guard-synced'));
