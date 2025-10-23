@@ -169,8 +169,6 @@ const TeamsPage = () => {
   const [teamForm, setTeamForm] = useState({
     name: '',
     description: '',
-    project: '',
-    budget: '',
     startDate: new Date().toISOString().slice(0, 10),
     tags: [] as string[],
     members: [] as TeamMember[]
@@ -279,8 +277,6 @@ const TeamsPage = () => {
         name: teamForm.name.trim(),
         description: teamForm.description.trim(),
         members: teamForm.members,
-        project: teamForm.project.trim(),
-        budget: teamForm.budget.trim(),
         startDate: teamForm.startDate,
         tags: teamForm.tags
       };
@@ -348,8 +344,6 @@ const TeamsPage = () => {
     setTeamForm({
       name: '',
       description: '',
-      project: '',
-      budget: '',
       startDate: new Date().toISOString().slice(0, 10),
       tags: [],
       members: []
@@ -856,106 +850,72 @@ const TeamsPage = () => {
                   />
                   </div>
 
-                {/* Project, Budget & Start Date */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div>
-                    <label className="block text-sm font-semibold text-gray-800 mb-2">
-                      Project
-                    </label>
-                    <Input
-                      value={teamForm.project}
-                      onChange={(e) => setTeamForm(prev => ({ ...prev, project: e.target.value }))}
-                      placeholder="Enter project name"
-                    />
-                      </div>
-                      <div>
-                    <label className="block text-sm font-semibold text-gray-800 mb-2">
-                      Budget
-                    </label>
-                    <Input
-                      value={teamForm.budget}
-                      onChange={(e) => setTeamForm(prev => ({ ...prev, budget: e.target.value }))}
-                      placeholder="Enter budget"
-                    />
-                      </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-800 mb-2">
-                      Start Date
-                    </label>
-                    <Input
-                      type="date"
-                      value={teamForm.startDate}
-                      onChange={(e) => setTeamForm(prev => ({ ...prev, startDate: e.target.value }))}
-                    />
-                    </div>
-                  </div>
-
-                {/* Team Members */}
-                      <div>
+                {/* Start Date */}
+                <div>
                   <label className="block text-sm font-semibold text-gray-800 mb-2">
+                    Start Date
+                  </label>
+                  <Input
+                    type="date"
+                    value={teamForm.startDate}
+                    onChange={(e) => setTeamForm(prev => ({ ...prev, startDate: e.target.value }))}
+                  />
+                </div>
+
+                {/* Team Members - Multi-select Dropdown */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-800 mb-2 flex items-center">
+                    <Users className="w-4 h-4 mr-2 text-blue-600" />
                     Team Members
                   </label>
                   <div className="relative">
-                    <input
-                      ref={userSearchRef}
-                      value={usersSearch}
-                      onChange={(e) => setUsersSearch(e.target.value)}
-                      onFocus={() => setShowUsersDropdown(true)}
-                      onBlur={() => setTimeout(() => setShowUsersDropdown(false), 200)}
-                      placeholder="Search users by name or email"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                    {showUsersDropdown && (
-                      <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
-                        {isLoadingUsers ? (
-                          <div className="px-3 py-2 text-center text-gray-500">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                            Loading users...
-                </div>
-                        ) : filteredUsers.length === 0 ? (
-                          <div className="px-3 py-2 text-center text-gray-500">
-                            {usersSearch.trim() ? 'No users found' : 'No users available'}
-              </div>
-                        ) : (
-                          filteredUsers.map((user, index) => (
-                            <button
-                              key={user.id || user.email || user.username || `user-${index}`}
-                              type="button"
-                              className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center justify-between"
-                              onClick={() => addMember(user)}
-                            >
-                      <div>
-                                <p className="font-medium">{user.name || user.username || user.email}</p>
-                                {user.email && user.name && <p className="text-sm text-gray-600">{user.email}</p>}
-            </div>
-                              {teamForm.members.some(m => m.id === user.id) && (
-                                <Check className="w-4 h-4 text-green-500" />
-                              )}
-                            </button>
-                          ))
-                        )}
-                    </div>
-                    )}
+                    <select
+                      className="w-full px-4 py-3 h-12 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                      onChange={(e) => {
+                        const selectedUser = e.target.value;
+                        if (selectedUser && !teamForm.members.some(m => m.name === selectedUser)) {
+                          const user = allUsers.find(u => (u.name || u.username || u.email) === selectedUser);
+                          if (user) {
+                            addMember(user);
+                          }
+                        }
+                        e.target.value = ''; // Reset dropdown
+                      }}
+                      disabled={isLoadingUsers}
+                    >
+                      <option value="">{isLoadingUsers ? 'Loading users...' : 'Select team members...'}</option>
+                      {allUsers
+                        .filter(user => !teamForm.members.some(m => m.name === (user.name || user.username || user.email)))
+                        .map((user, index) => (
+                          <option key={user.id || user.email || `user-${index}`} value={user.name || user.username || user.email}>
+                            {user.name || user.username || user.email} {user.email && user.name && `(${user.email})`}
+                          </option>
+                        ))
+                      }
+                    </select>
                   </div>
-
-                  {/* Selected Members */}
-                  <div className="mt-3 space-y-2">
-                    {teamForm.members.map((member, index) => (
-                      <div key={member.id || member.name || `selected-member-${index}`} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
-                        <div className="flex items-center space-x-2">
-                          <Avatar name={member.name} size="sm" />
-                          <span className="text-sm text-gray-800">{member.name}</span>
-                </div>
-                        <button
-                          type="button"
-                          onClick={() => removeMember(member.id)}
-                          className="text-red-500 hover:text-red-700"
+                  
+                  {/* Selected Members Display */}
+                  {teamForm.members.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {teamForm.members.map((member, index) => (
+                        <div
+                          key={`selected-member-${index}`}
+                          className="flex items-center space-x-2 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-sm font-medium"
                         >
-                          <X className="w-4 h-4" />
-                        </button>
-              </div>
-                    ))}
-                  </div>
+                          <User className="w-3 h-3" />
+                          <span>{member.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeMember(member.id)}
+                            className="hover:bg-blue-100 rounded-full p-0.5 transition-colors"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Tags */}

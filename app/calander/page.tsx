@@ -30,6 +30,24 @@ interface CalendarEvent {
   meetLink?: string;
 }
 
+interface TaskData {
+  id: string;
+  title: string;
+  description?: string;
+  project?: string;
+  assignee?: string;
+  dueDate?: string;
+  startDate?: string;
+  estimatedHours?: number;
+  priority?: string;
+  status?: string;
+}
+
+interface CalendarTaskData extends TaskData {
+  calendarId?: string;
+  eventId?: string;
+}
+
 export default function CalendarPage() {
   const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());

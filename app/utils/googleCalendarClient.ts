@@ -129,7 +129,7 @@ export async function handleGoogleCalendarCallback(currentUserId: string) {
   if (!res.ok) {
     const errorText = await res.text();
     console.error('Token exchange failed:', errorText);
-    console.error('Request details:', { code, redirect_uri, code_verifier });
+    console.error('Request details:', { code, redirectUri, codeVerifier });
     throw new Error(`Token exchange failed: ${errorText}`);
   }
   

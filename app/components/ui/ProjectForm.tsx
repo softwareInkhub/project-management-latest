@@ -5,7 +5,8 @@ import { Button } from './Button';
 import { Input } from './Input';
 import { Select } from './Select';
 import { Badge } from './Badge';
-import { X, Plus, Calendar, Users, User, Crown } from 'lucide-react';
+import { X, Calendar, User, Crown } from 'lucide-react';
+import { useAuth } from '@/app/hooks/useAuth';
 
 export interface Project {
   id: string;
@@ -53,12 +54,11 @@ const priorityOptions = [
   { value: 'Critical', label: 'Critical' }
 ];
 
-const teamMembers = [
-  'John Doe', 'Jane Smith', 'Mike Johnson', 'Sarah Wilson', 
-  'David Brown', 'Lisa Davis', 'Tom Anderson', 'Emma Taylor'
-];
+// Removed dummy team members - will use real data from API
 
 export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCollapsed = false }: ProjectFormProps) {
+  const { user } = useAuth(); // Get current user
+  
   const [formData, setFormData] = useState<Partial<Project>>({
     name: '',
     company: '',
@@ -74,15 +74,19 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [newTeamMember, setNewTeamMember] = useState('');
+  // Removed newTeamMember state - no longer needed
   const [formHeight, setFormHeight] = useState(80); // Default 80vh
   const [isDragging, setIsDragging] = useState(false);
+  
+  // Removed team member and team selection - no longer needed
+
+  // Removed team member and team fetching - no longer needed
 
   useEffect(() => {
     if (project) {
       setFormData({
         ...project,
-        team: Array.isArray(project.team) ? project.team : (typeof project.team === 'string' ? [project.team] : [])
+        team: [] // Removed team assignment
       });
     } else {
       setFormData({
@@ -93,7 +97,7 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
         startDate: '',
         endDate: '',
         budget: '',
-        team: [],
+        team: [], // Removed team assignment
         assignee: '',
         description: '',
         progress: 0
@@ -143,9 +147,7 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
       newErrors.company = 'Company is required';
     }
 
-    if (!formData.assignee?.trim()) {
-      newErrors.assignee = 'Assignee is required';
-    }
+    // Assignee validation removed - will be set automatically from logged-in user
 
     if (!formData.startDate) {
       newErrors.startDate = 'Start date is required';
@@ -174,6 +176,9 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
       return;
     }
 
+    // Automatically set assignee to current logged-in user
+    const assignee = user?.userId || user?.email || user?.name || 'Unknown User';
+
     // Clean the form data to remove any React DOM elements or circular references
     const cleanFormData = {
       name: String(formData.name || '').trim(),
@@ -183,13 +188,14 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
       startDate: String(formData.startDate || ''),
       endDate: String(formData.endDate || ''),
       budget: String(formData.budget || '').trim(),
-      team: Array.isArray(formData.team) ? formData.team.map(String) : [],
-      assignee: String(formData.assignee || '').trim(),
+      team: [], // Removed team assignment
+      assignee: String(assignee).trim(), // Automatically set from logged-in user
       description: String(formData.description || '').trim(),
       progress: Number(formData.progress || 0)
     };
 
     console.log('🧹 Cleaned form data:', cleanFormData);
+    console.log('👤 Auto-assigned to user:', assignee);
     onSubmit(cleanFormData);
   };
 
@@ -200,31 +206,7 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
     }
   };
 
-  const addTeamMember = () => {
-    if (newTeamMember.trim() && !(Array.isArray(formData.team) ? formData.team : []).includes(newTeamMember.trim())) {
-      setFormData(prev => ({
-        ...prev,
-        team: [...(Array.isArray(prev.team) ? prev.team : []), newTeamMember.trim()]
-      }));
-      setNewTeamMember('');
-    }
-  };
-
-  const removeTeamMember = (member: string) => {
-    setFormData(prev => ({
-      ...prev,
-      team: (Array.isArray(prev.team) ? prev.team : []).filter(m => m !== member)
-    }));
-  };
-
-  const addPresetTeamMember = (member: string) => {
-    if (!(Array.isArray(formData.team) ? formData.team : []).includes(member)) {
-      setFormData(prev => ({
-        ...prev,
-        team: [...(Array.isArray(prev.team) ? prev.team : []), member]
-      }));
-    }
-  };
+  // Removed all team member functions - no longer needed
 
   if (!isOpen) return null;
 
@@ -292,34 +274,21 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
             {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
           </div>
 
-          {/* Company & Assignee */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-800 mb-2">
-                Company *
-              </label>
-              <Input
-                value={formData.company || ''}
-                onChange={(e) => handleInputChange('company', e.target.value)}
-                placeholder="Enter company name"
-                className={errors.company ? 'border-red-500' : ''}
-              />
-              {errors.company && <p className="text-red-500 text-sm mt-1">{errors.company}</p>}
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-800 mb-2">
-                <User className="w-4 h-4 inline mr-1" />
-                Assignee *
-              </label>
-              <Input
-                value={formData.assignee || ''}
-                onChange={(e) => handleInputChange('assignee', e.target.value)}
-                placeholder="Enter assignee name"
-                className={errors.assignee ? 'border-red-500' : ''}
-              />
-              {errors.assignee && <p className="text-red-500 text-sm mt-1">{errors.assignee}</p>}
-            </div>
+          {/* Company */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-800 mb-2">
+              Company *
+            </label>
+            <Input
+              value={formData.company || ''}
+              onChange={(e) => handleInputChange('company', e.target.value)}
+              placeholder="Enter company name"
+              className={errors.company ? 'border-red-500' : ''}
+            />
+            {errors.company && <p className="text-red-500 text-sm mt-1">{errors.company}</p>}
+            <p className="text-xs text-gray-500 mt-1">
+              Project will be automatically assigned to: <span className="font-semibold">{user?.name || user?.email || 'Current User'}</span>
+            </p>
           </div>
 
           {/* Description */}
@@ -423,73 +392,7 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
             </div>
           </div>
 
-          {/* Team Members */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-800 mb-2">
-              <Users className="w-4 h-4 inline mr-1" />
-              Team Members
-            </label>
-            
-            {/* Add Team Member */}
-            <div className="flex gap-2 mb-3">
-              <Input
-                value={newTeamMember}
-                onChange={(e) => setNewTeamMember(e.target.value)}
-                placeholder="Enter team member name"
-                className="flex-1"
-              />
-              <Button
-                type="button"
-                onClick={addTeamMember}
-                variant="outline"
-                size="sm"
-                className="px-3"
-              >
-                <Plus className="w-4 h-4" />
-              </Button>
-            </div>
-
-            {/* Preset Team Members */}
-            <div className="mb-3">
-              <p className="text-sm text-gray-600 mb-2">Quick add:</p>
-              <div className="flex flex-wrap gap-2">
-                {teamMembers.map((member) => (
-                  <Button
-                    key={member}
-                    type="button"
-                    onClick={() => addPresetTeamMember(member)}
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs"
-                    disabled={(Array.isArray(formData.team) ? formData.team : []).includes(member)}
-                  >
-                    {member}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            {/* Selected Team Members */}
-            <div className="space-y-2">
-              {(Array.isArray(formData.team) ? formData.team : []).map((member) => (
-                <div key={member} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
-                  <span className="text-sm text-gray-800">{member}</span>
-                  <Button
-                    type="button"
-                    onClick={() => removeTeamMember(member)}
-                    variant="ghost"
-                    size="sm"
-                    className="text-red-500 hover:text-red-700 p-1"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-              ))}
-              {(!Array.isArray(formData.team) || formData.team.length === 0) && (
-                <p className="text-sm text-gray-500 italic">No team members added yet</p>
-              )}
-            </div>
-          </div>
+          {/* Team Members section completely removed */}
 
             </form>
           </div>

@@ -235,9 +235,13 @@ const NotificationConfigPanel = () => {
     const templates = {
       task_created: '🎯 New task created!\n\n📋 **{{task.title}}**\n👤 Assigned to: {{task.assignee}}\n📅 Due: {{task.dueDate}}\n⭐ Priority: {{task.priority}}\n\nProject: {{project.name}}',
       task_updated: '📝 Task updated!\n\n📋 **{{task.title}}**\n🔄 Status: {{task.status}}\n👤 Assigned to: {{task.assignee}}\n📅 Due: {{task.dueDate}}',
+      task_deleted: '🗑️ Task deleted!\n\n📋 **{{task.title}}**\n👤 Was assigned to: {{task.assignee}}\n📅 Due date was: {{task.dueDate}}',
       project_created: '🚀 New project launched!\n\n📁 **{{project.name}}**\n📝 Description: {{project.description}}\n👥 Team: {{team.name}}\n📅 Start: {{project.startDate}}',
       project_updated: '📁 Project updated!\n\n**{{project.name}}**\n📝 {{project.description}}\n👥 Team: {{team.name}}',
+      project_deleted: '🗑️ Project deleted!\n\n📁 **{{project.name}}**\n📝 Description: {{project.description}}\n👥 Team: {{team.name}}',
       team_created: '👥 New team created!\n\n🏢 **{{team.name}}**\n📝 Description: {{team.description}}\n👤 Members: {{team.members}}',
+      team_updated: '👥 Team updated!\n\n🏢 **{{team.name}}**\n📝 Description: {{team.description}}\n👤 Members: {{team.members}}',
+      team_deleted: '🗑️ Team deleted!\n\n🏢 **{{team.name}}**\n📝 Description: {{team.description}}\n👤 Members: {{team.members}}',
     };
     return templates[formData.eventType] || '';
   };
