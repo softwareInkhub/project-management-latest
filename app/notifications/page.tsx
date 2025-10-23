@@ -701,48 +701,45 @@ const NotificationsPage = () => {
 
               <div className="mt-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Recipient Type</label>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     onClick={() => setTriggerType('users')}
-                    className={`p-4 border rounded-lg text-left transition-colors ${
+                    className={`p-3 border rounded-lg text-center transition-colors ${
                       triggerType === 'users' 
                         ? 'border-blue-300 bg-blue-50' 
                         : 'border-gray-300 hover:bg-gray-50'
                     }`}
                   >
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="flex flex-col items-center gap-1">
                       <Users className="w-4 h-4" />
-                      <span className="font-medium">Users</span>
+                      <span className="text-xs font-medium">Users</span>
                     </div>
-                    <p className="text-sm text-gray-600">Send to specific phone numbers</p>
                   </button>
                   <button
                     onClick={() => setTriggerType('community')}
-                    className={`p-4 border rounded-lg text-left transition-colors ${
+                    className={`p-3 border rounded-lg text-center transition-colors ${
                       triggerType === 'community' 
                         ? 'border-blue-300 bg-blue-50' 
                         : 'border-gray-300 hover:bg-gray-50'
                     }`}
                   >
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="flex flex-col items-center gap-1">
                       <Globe className="w-4 h-4" />
-                      <span className="font-medium">Community</span>
+                      <span className="text-xs font-medium">Community</span>
                     </div>
-                    <p className="text-sm text-gray-600">Send to WhatsApp communities</p>
                   </button>
                   <button
                     onClick={() => setTriggerType('group')}
-                    className={`p-4 border rounded-lg text-left transition-colors ${
+                    className={`p-3 border rounded-lg text-center transition-colors ${
                       triggerType === 'group' 
                         ? 'border-blue-300 bg-blue-50' 
                         : 'border-gray-300 hover:bg-gray-50'
                     }`}
                   >
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="flex flex-col items-center gap-1">
                       <MessageSquare className="w-4 h-4" />
-                      <span className="font-medium">Groups</span>
+                      <span className="text-xs font-medium">Groups</span>
                     </div>
-                    <p className="text-sm text-gray-600">Send to WhatsApp groups</p>
                   </button>
                 </div>
               </div>
@@ -751,13 +748,13 @@ const NotificationsPage = () => {
               {triggerType === 'users' && (
                 <div className="mt-6 p-4 bg-gray-50 rounded-lg">
                   <h3 className="font-medium text-gray-900 mb-4">Phone Number Configuration</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-3 gap-3">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Country Code</label>
                       <select 
                         value={countryCode} 
                         onChange={e=>setCountryCode(e.target.value)} 
-                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors text-sm"
                       >
                         <option value="91">+91 (India)</option>
                         <option value="1">+1 (USA/Canada)</option>
@@ -781,12 +778,12 @@ const NotificationsPage = () => {
                         <option value="968">+968 (Oman)</option>
                       </select>
                     </div>
-                    <div className="md:col-span-2">
+                    <div className="col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
                       <input 
                         value={phoneNumber} 
                         onChange={e=>setPhoneNumber(e.target.value)} 
-                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors" 
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors" 
                         placeholder="e.g. 1234567890" 
                       />
                     </div>
