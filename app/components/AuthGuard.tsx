@@ -65,6 +65,20 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
               console.error('[AuthGuard] Failed to parse ID token:', error);
             }
             
+            // Sync tokens to httpOnly cookies for middleware
+            try {
+              console.log('[AuthGuard] Syncing tokens to httpOnly cookies...');
+              await fetch('/api/auth/sync-tokens', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ accessToken, idToken })
+              });
+              console.log('[AuthGuard] ✅ Tokens synced to httpOnly cookies');
+            } catch (error) {
+              console.error('[AuthGuard] ⚠️ Failed to sync tokens to cookies:', error);
+              // Continue anyway - localStorage auth will work
+            }
+            
             // Clean up URL
             window.history.replaceState(null, '', window.location.pathname + window.location.search);
             console.log('[AuthGuard] Cleaned URL hash');
