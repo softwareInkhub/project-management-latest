@@ -12,6 +12,7 @@ export function middleware(request: NextRequest) {
     '/api/users',
     '/api/auth/sync-tokens',
     '/debug-auth',
+    '/diagnostic',
     '/test-cookies',
     '/_next',
     '/favicon.ico',

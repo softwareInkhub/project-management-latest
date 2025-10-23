@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 interface User {
   userId: string;
@@ -13,25 +13,32 @@ interface User {
 // Global singleton to prevent multiple loads
 let globalUserLoaded = false;
 
+// Helper function to load user from localStorage (outside component)
+const loadUserFromStorage = (): User | null => {
+  if (typeof window === 'undefined') return null;
+  
+  const userId = localStorage.getItem('userId') || localStorage.getItem('user_id');
+  const email = localStorage.getItem('user_email');
+  const name = localStorage.getItem('user_name');
+  const username = localStorage.getItem('cognitoUsername');
+  const role = localStorage.getItem('userRole') || 'user';
+  const permissionsStr = localStorage.getItem('userPermissions');
+  const permissions = permissionsStr ? JSON.parse(permissionsStr) : ['read:own'];
+
+  if (userId && email) {
+    return { userId, email, name: name || undefined, username: username || undefined, role, permissions };
+  }
+  return null;
+};
+
 export function useAuth() {
   // Initialize user state from localStorage to prevent initial flash
   const [user, setUser] = useState<User | null>(() => {
-    if (typeof window !== 'undefined') {
-      // Try both userId formats for compatibility
-      const userId = localStorage.getItem('userId') || localStorage.getItem('user_id');
-      const email = localStorage.getItem('user_email');
-      const name = localStorage.getItem('user_name');
-      const username = localStorage.getItem('cognitoUsername');
-      const role = localStorage.getItem('userRole') || 'user';
-      const permissionsStr = localStorage.getItem('userPermissions');
-      const permissions = permissionsStr ? JSON.parse(permissionsStr) : ['read:own'];
-
-      if (userId && email) {
-        console.log('[useAuth] Initialized with user from localStorage:', email);
-        return { userId, email, name: name || undefined, username: username || undefined, role, permissions };
-      }
+    const userData = loadUserFromStorage();
+    if (userData) {
+      console.log('[useAuth] Initialized with user from localStorage:', userData.email);
     }
-    return null;
+    return userData;
   });
   const [isLoading, setIsLoading] = useState(false); // AuthGuard handles loading
 
@@ -46,25 +53,11 @@ export function useAuth() {
       globalUserLoaded = true;
       
       try {
-        // Try both userId formats for compatibility
-        const userId = localStorage.getItem('userId') || localStorage.getItem('user_id');
-        const email = localStorage.getItem('user_email');
-        const name = localStorage.getItem('user_name');
-        const username = localStorage.getItem('cognitoUsername');
-        const role = localStorage.getItem('userRole') || 'user';
-        const permissionsStr = localStorage.getItem('userPermissions');
-        const permissions = permissionsStr ? JSON.parse(permissionsStr) : ['read:own'];
-
-        if (userId && email) {
-          console.log('[useAuth] User authenticated:', email);
-          setUser({ 
-            userId, 
-            email, 
-            name: name || undefined,
-            username: username || undefined,
-            role,
-            permissions
-          });
+        const userData = loadUserFromStorage();
+        
+        if (userData) {
+          console.log('[useAuth] User authenticated:', userData.email);
+          setUser(userData);
         } else {
           console.log('[useAuth] No user data found in localStorage');
           setUser(null);
@@ -88,11 +81,17 @@ export function useAuth() {
       }
     };
 
-    // Also listen for custom events from AuthGuard
+    // Listen for custom events from AuthGuard - FORCE UPDATE
     const handleAuthGuardSync = () => {
-      console.log('[useAuth] AuthGuard sync detected, reloading user data');
+      console.log('[useAuth] AuthGuard sync detected, FORCING user data reload');
       globalUserLoaded = false; // Reset to allow reload
-      checkAuth();
+      
+      // Force immediate update
+      const userData = loadUserFromStorage();
+      if (userData) {
+        console.log('[useAuth] ✅ Force updated user:', userData.email);
+        setUser(userData);
+      }
     };
 
     window.addEventListener('storage', handleStorageChange);

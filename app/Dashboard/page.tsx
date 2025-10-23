@@ -135,6 +135,18 @@ const upcomingTasks = [
 const Dashboard = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const router = useRouter();
+  
+  // DEBUG: Log component mount and state changes
+  useEffect(() => {
+    console.log('[Dashboard] 🎯 Component mounted');
+    console.log('[Dashboard] 👤 User:', user?.email);
+    console.log('[Dashboard] 🔐 isAuthenticated:', isAuthenticated);
+  }, []);
+  
+  useEffect(() => {
+    console.log('[Dashboard] 🔄 State changed:', { user: user?.email, isAuthenticated });
+  }, [user, isAuthenticated]);
+  
   const [dashboardData, setDashboardData] = useState({
     projects: [] as any[],
     tasks: [] as any[],
