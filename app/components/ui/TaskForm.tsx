@@ -15,13 +15,14 @@ interface TaskFormProps {
   isEditing?: boolean;
   isCreatingSubtask?: boolean;
   projects?: string[];
-  teams?: string[];
+  teams?: any[];
   users?: any[];
   isLoadingUsers?: boolean;
   isLoadingTeams?: boolean;
   formHeight?: number;
   isDragging?: boolean;
   onMouseDown?: (e: React.MouseEvent) => void;
+  currentUser?: { userId: string; email: string; name?: string; username?: string };
 }
 
 export function TaskForm({ 
@@ -37,7 +38,8 @@ export function TaskForm({
   isLoadingTeams = false,
   formHeight = 80,
   isDragging = false,
-  onMouseDown
+  onMouseDown,
+  currentUser
 }: TaskFormProps) {
   // Debug: Log users when they change
   React.useEffect(() => {
@@ -50,13 +52,13 @@ export function TaskForm({
     title: task?.title || '',
     description: task?.description || '',
     project: task?.project || '',
-    assignee: task?.assignee || '',
+    assignee: task?.assignee || currentUser?.userId || '',
     assignedTeams: task?.assignedTeams || [],
     assignedUsers: task?.assignedUsers || [],
     status: task?.status || 'To Do',
     priority: task?.priority || 'Medium',
     dueDate: task?.dueDate || '',
-    startDate: task?.startDate || '',
+    startDate: task?.startDate || new Date().toISOString().split('T')[0],
     estimatedHours: task?.estimatedHours || 0,
     tags: task?.tags || '',
     subtasks: task?.subtasks || '[]',
@@ -131,7 +133,7 @@ export function TaskForm({
     try {
       console.log('📤 Uploading file:', file.name);
       const result = await driveService.uploadFile({
-        userId: '', // Will be fetched from localStorage by the service
+        userId: formData.assignee || currentUser?.userId || '', // Use assignee's userId or current user's userId
         file,
         parentId: 'ROOT',
         tags: 'task-attachment',
@@ -160,7 +162,7 @@ export function TaskForm({
   const handleFileRemove = async (index: number, fileId?: string) => {
     if (fileId) {
       try {
-        await driveService.deleteFile(fileId);
+        await driveService.deleteFile(fileId, formData.assignee || currentUser?.userId);
         setUploadedFileIds(prev => prev.filter(id => id !== fileId));
       } catch (error) {
         console.error('❌ Failed to delete file:', error);
@@ -200,7 +202,7 @@ export function TaskForm({
         try {
           console.log('📤 Uploading file:', file.name);
           const result = await driveService.uploadFile({
-            userId: '', // Will be fetched from localStorage by the service
+            userId: formData.assignee || currentUser?.userId || '', // Use assignee's userId or current user's userId
             file,
             parentId: 'ROOT',
             tags: 'task-attachment',
@@ -484,9 +486,9 @@ export function TaskForm({
             )}
           </div>
 
-          {/* Project and Assignment */}
+          {/* Project, Status and Priority */}
           <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
                 <label className="block text-sm font-semibold text-gray-800 mb-2">
                   Project *
@@ -508,126 +510,6 @@ export function TaskForm({
                 )}
               </div>
 
-
-            </div>
-          </div>
-
-          {/* Assignment Details */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-            {/* Assigned Users - Multi-select */}
-            <div className="mb-6">
-              <label className="block text-sm font-semibold text-gray-800 mb-2 flex items-center">
-                <User className="w-4 h-4 mr-2 text-blue-600" />
-                Assigned Users
-              </label>
-              <div className="relative">
-                <select
-                  className="w-full px-4 py-3 h-12 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                  onChange={(e) => {
-                    const selectedUser = e.target.value;
-                    if (selectedUser && !(formData.assignedUsers || []).includes(selectedUser)) {
-                      handleInputChange('assignedUsers', [...(formData.assignedUsers || []), selectedUser]);
-                    }
-                    e.target.value = ''; // Reset dropdown
-                  }}
-                  disabled={isLoadingUsers}
-                >
-                  <option value="">{isLoadingUsers ? 'Loading users...' : 'Select users to assign...'}</option>
-                  {users
-                    .filter(user => !(formData.assignedUsers || []).includes(user.name || user.username || user.email))
-                    .map((user, index) => (
-                      <option key={user.id || user.email || `user-${index}`} value={user.name || user.username || user.email}>
-                        {user.name || user.username || user.email}
-                      </option>
-                    ))
-                  }
-                </select>
-              </div>
-              
-              {/* Selected Users Display */}
-              {(formData.assignedUsers || []).length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {(formData.assignedUsers || []).map((user, index) => (
-                    <div
-                      key={`selected-user-${index}`}
-                      className="flex items-center space-x-2 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-sm font-medium"
-                    >
-                      <User className="w-3 h-3" />
-                      <span>{user}</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          handleInputChange('assignedUsers', (formData.assignedUsers || []).filter(u => u !== user));
-                        }}
-                        className="hover:bg-blue-100 rounded-full p-0.5 transition-colors"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Assigned Teams - Multi-select */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-800 mb-2 flex items-center">
-                <Users className="w-4 h-4 mr-2 text-purple-600" />
-                Assigned Teams
-              </label>
-              <div className="relative">
-                <select
-                  className="w-full px-4 py-3 h-12 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                  onChange={(e) => {
-                    const selectedTeam = e.target.value;
-                    if (selectedTeam && !(formData.assignedTeams || []).includes(selectedTeam)) {
-                      handleInputChange('assignedTeams', [...(formData.assignedTeams || []), selectedTeam]);
-                    }
-                    e.target.value = ''; // Reset dropdown
-                  }}
-                  disabled={isLoadingTeams}
-                >
-                  <option value="">{isLoadingTeams ? 'Loading teams...' : 'Select teams to assign...'}</option>
-                  {teams
-                    .filter(team => !(formData.assignedTeams || []).includes(team))
-                    .map((team, index) => (
-                      <option key={`team-${index}`} value={team}>
-                        {team}
-                      </option>
-                    ))
-                  }
-                </select>
-              </div>
-              
-              {/* Selected Teams Display */}
-              {(formData.assignedTeams || []).length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {(formData.assignedTeams || []).map((team, index) => (
-                    <div
-                      key={`selected-team-${index}`}
-                      className="flex items-center space-x-2 bg-purple-50 text-purple-700 px-3 py-1.5 rounded-full text-sm font-medium"
-                    >
-                      <Users className="w-3 h-3" />
-                      <span>{team}</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          handleInputChange('assignedTeams', (formData.assignedTeams || []).filter(t => t !== team));
-                        }}
-                        className="hover:bg-purple-100 rounded-full p-0.5 transition-colors"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Status and Priority */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-semibold text-gray-800 mb-2">
                   Status
@@ -660,6 +542,125 @@ export function TaskForm({
                   className="h-12 text-base focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
+            </div>
+          </div>
+
+          {/* Assignment Details */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+            {/* Assigned Users - Multi-select */}
+            <div className="mb-6">
+              <label className="block text-sm font-semibold text-gray-800 mb-2 flex items-center">
+                <User className="w-4 h-4 mr-2 text-blue-600" />
+                Assigned Users
+              </label>
+              <div className="relative">
+                <select
+                  className="w-full px-4 py-3 h-12 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  onChange={(e) => {
+                    const selectedUser = e.target.value;
+                    if (selectedUser && !(formData.assignedUsers || []).includes(selectedUser)) {
+                      handleInputChange('assignedUsers', [...(formData.assignedUsers || []), selectedUser]);
+                    }
+                    e.target.value = ''; // Reset dropdown
+                  }}
+                  disabled={isLoadingUsers}
+                >
+                  <option value="">{isLoadingUsers ? 'Loading users...' : 'Select users to assign...'}</option>
+                  {users
+                    .filter(user => !(formData.assignedUsers || []).includes(user.id || user.userId))
+                    .map((user, index) => (
+                      <option key={user.id || user.userId || `user-${index}`} value={user.id || user.userId}>
+                        {user.name || user.username || user.email}
+                      </option>
+                    ))
+                  }
+                </select>
+              </div>
+              
+              {/* Selected Users Display */}
+              {(formData.assignedUsers || []).length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {(formData.assignedUsers || []).map((userId, index) => {
+                    const user = users.find(u => (u.id || u.userId) === userId);
+                    return (
+                      <div
+                        key={`selected-user-${index}`}
+                        className="flex items-center space-x-2 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-sm font-medium"
+                      >
+                        <User className="w-3 h-3" />
+                        <span>{user?.name || user?.username || user?.email || userId}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleInputChange('assignedUsers', (formData.assignedUsers || []).filter(u => u !== userId));
+                          }}
+                          className="hover:bg-blue-100 rounded-full p-0.5 transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Assigned Teams - Multi-select */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-800 mb-2 flex items-center">
+                <Users className="w-4 h-4 mr-2 text-purple-600" />
+                Assigned Teams
+              </label>
+              <div className="relative">
+                <select
+                  className="w-full px-4 py-3 h-12 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  onChange={(e) => {
+                    const selectedTeam = e.target.value;
+                    if (selectedTeam && !(formData.assignedTeams || []).includes(selectedTeam)) {
+                      handleInputChange('assignedTeams', [...(formData.assignedTeams || []), selectedTeam]);
+                    }
+                    e.target.value = ''; // Reset dropdown
+                  }}
+                  disabled={isLoadingTeams}
+                >
+                  <option value="">{isLoadingTeams ? 'Loading teams...' : 'Select teams to assign...'}</option>
+                  {teams
+                    .filter(team => !(formData.assignedTeams || []).includes(team.id))
+                    .map((team, index) => (
+                      <option key={team.id || `team-${index}`} value={team.id}>
+                        {team.name}
+                      </option>
+                    ))
+                  }
+                </select>
+              </div>
+              
+              {/* Selected Teams Display */}
+              {(formData.assignedTeams || []).length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {(formData.assignedTeams || []).map((teamId, index) => {
+                    const team = teams.find(t => t.id === teamId);
+                    return (
+                      <div
+                        key={`selected-team-${index}`}
+                        className="flex items-center space-x-2 bg-purple-50 text-purple-700 px-3 py-1.5 rounded-full text-sm font-medium"
+                      >
+                        <Users className="w-3 h-3" />
+                        <span>{team?.name || teamId}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleInputChange('assignedTeams', (formData.assignedTeams || []).filter(t => t !== teamId));
+                          }}
+                          className="hover:bg-purple-100 rounded-full p-0.5 transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
