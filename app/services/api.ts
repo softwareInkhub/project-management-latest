@@ -316,13 +316,20 @@ class ApiService {
   }
 
   async createTask(task: Partial<Task>): Promise<ApiResponse<Task>> {
+    // Generate unique ID for the task
+    const taskId = `task-${Date.now()}`;
+    
     const payload = {
       item: {
         ...task,
+        id: taskId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }
     };
+
+    console.log('🆕 Creating task with ID:', taskId);
+    console.log('📦 Task payload:', payload);
 
     const result = await this.makeRequest<Task>('?tableName=project-management-tasks', {
       method: 'POST',
@@ -331,31 +338,23 @@ class ApiService {
 
     // Handle the response format from your CRUD API
     if (result.success) {
-      let taskData = result.data;
-      
-      // If we only got an id back, try to fetch the full task
-      if (result.data && (result.data as any).id && !(result.data as any).title) {
-        console.log('🔄 Fetching created task with id:', (result.data as any).id);
-        const fetchResult = await this.getTaskById((result.data as any).id);
-        if (fetchResult.success) {
-          taskData = fetchResult.data;
-        }
-      }
-      
-      // Send notification for task creation
-      if (taskData) {
+      // The API returns success: true and the key fields, but we need the full item
+      // Let's fetch the created task to get the complete data
+      const getResult = await this.getTaskById(taskId);
+      if (getResult.success) {
+        // Send notification for task creation
         try {
-          await notificationService.notifyTaskEvent('created', taskData);
+          await notificationService.notifyTaskEvent('created', getResult.data);
         } catch (error) {
           console.error('Failed to send task creation notification:', error);
         }
+        
+        return {
+          success: true,
+          data: getResult.data,
+          error: undefined
+        };
       }
-      
-      return {
-        success: true,
-        data: taskData,
-        error: undefined
-      };
     }
 
     return result;
@@ -649,18 +648,41 @@ class ApiService {
   }
 
   async createTeam(team: Partial<Team>): Promise<ApiResponse<Team>> {
+    // Generate unique ID for the team
+    const teamId = `team-${Date.now()}`;
+    
     const payload = {
       item: {
         ...team,
+        id: teamId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }
     };
 
-    return this.makeRequest<Team>('?tableName=project-management-teams', {
+    console.log('🆕 Creating team with ID:', teamId);
+    console.log('📦 Team payload:', payload);
+
+    const result = await this.makeRequest<Team>('?tableName=project-management-teams', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
+
+    // Handle the response format from your CRUD API
+    if (result.success) {
+      // The API returns success: true and the key fields, but we need the full item
+      // Let's fetch the created team to get the complete data
+      const getResult = await this.getTeamById(teamId);
+      if (getResult.success) {
+        return {
+          success: true,
+          data: getResult.data,
+          error: undefined
+        };
+      }
+    }
+
+    return result;
   }
 
   async updateTeam(id: string, updates: Partial<Team>): Promise<ApiResponse<Team>> {

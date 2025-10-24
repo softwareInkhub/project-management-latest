@@ -174,9 +174,10 @@ const TeamsPage = () => {
     members: [] as TeamMember[]
   });
   
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
   const { isCollapsed } = useSidebar();
   const userSearchRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Fetch teams from API
   const fetchTeams = useCallback(async () => {
@@ -246,8 +247,25 @@ const TeamsPage = () => {
       (team.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (team.description || '').toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesStatus = statusFilter === 'All' || 
-      (team.archived ? 'Archived' : 'Active') === statusFilter;
+    let matchesStatus = true;
+    
+    if (statusFilter === 'My Teams') {
+      // Check if current user is a member of this team
+      const members = parseMembers(team.members);
+      const currentUserEmail = user?.email;
+      const currentUserName = user?.name;
+      const currentUserId = user?.userId;
+      
+      matchesStatus = members.some(member => 
+        member.email === currentUserEmail ||
+        member.name === currentUserName ||
+        member.id === currentUserId
+      );
+    } else if (statusFilter === 'All') {
+      matchesStatus = true;
+    } else {
+      matchesStatus = (team.archived ? 'Archived' : 'Active') === statusFilter;
+    }
     
     return matchesSearch && matchesStatus;
   });
@@ -256,7 +274,19 @@ const TeamsPage = () => {
   const statusCounts = {
     All: teams.length,
     Active: teams.filter(t => !t.archived).length,
-    Archived: teams.filter(t => t.archived).length
+    Archived: teams.filter(t => t.archived).length,
+    'My Teams': teams.filter(team => {
+      const members = parseMembers(team.members);
+      const currentUserEmail = user?.email;
+      const currentUserName = user?.name;
+      const currentUserId = user?.userId;
+      
+      return members.some(member => 
+        member.email === currentUserEmail ||
+        member.name === currentUserName ||
+        member.id === currentUserId
+      );
+    }).length
   };
 
   // Handle opening create team modal
@@ -375,12 +405,13 @@ const TeamsPage = () => {
 
   // Add member
   const addMember = (user: any) => {
-    const alreadyAdded = teamForm.members.some(m => m.id === user.id);
+    const userName = user.name || user.username || user.email;
+    const alreadyAdded = teamForm.members.some(m => m.name === userName);
     if (alreadyAdded) return;
 
     const member: TeamMember = {
       id: user.id,
-      name: user.name || user.username || user.email,
+      name: userName,
       email: user.email,
       role: 'member'
     };
@@ -403,7 +434,14 @@ const TeamsPage = () => {
 
   // Filter users for dropdown
   const filteredUsers = allUsers.filter(user => {
+    const userName = user.name || user.username || user.email;
     const query = usersSearch.trim().toLowerCase();
+    
+    // Exclude already selected members
+    const isAlreadySelected = teamForm.members.some(m => m.name === userName);
+    if (isAlreadySelected) return false;
+    
+    // Apply search filter
     if (!query) return true;
     const searchString = `${user.name || ''} ${user.username || ''} ${user.email || ''}`.toLowerCase();
     return searchString.includes(query);
@@ -447,6 +485,24 @@ const TeamsPage = () => {
       document.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isDragging]);
+
+  // Handle click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node) &&
+          userSearchRef.current && !userSearchRef.current.contains(event.target as Node)) {
+        setShowUsersDropdown(false);
+      }
+    };
+
+    if (showUsersDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showUsersDropdown]);
 
   return (
     <AppLayout>
@@ -515,6 +571,7 @@ const TeamsPage = () => {
                 onChange={(e) => setStatusFilter(e.target.value)}
                 options={[
                   { value: 'All', label: 'All Teams' },
+                  { value: 'My Teams', label: 'My Teams' },
                   { value: 'Active', label: 'Active' },
                   { value: 'Archived', label: 'Archived' }
                 ]}
@@ -862,42 +919,72 @@ const TeamsPage = () => {
                   />
                 </div>
 
-                {/* Team Members - Multi-select Dropdown */}
+                {/* Team Members - Searchable Multi-select */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-800 mb-2 flex items-center">
                     <Users className="w-4 h-4 mr-2 text-blue-600" />
                     Team Members
                   </label>
-                  <div className="relative">
-                    <select
-                      className="w-full px-4 py-3 h-12 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                      onChange={(e) => {
-                        const selectedUser = e.target.value;
-                        if (selectedUser && !teamForm.members.some(m => m.name === selectedUser)) {
-                          const user = allUsers.find(u => (u.name || u.username || u.email) === selectedUser);
-                          if (user) {
-                            addMember(user);
-                          }
-                        }
-                        e.target.value = ''; // Reset dropdown
-                      }}
-                      disabled={isLoadingUsers}
-                    >
-                      <option value="">{isLoadingUsers ? 'Loading users...' : 'Select team members...'}</option>
-                      {allUsers
-                        .filter(user => !teamForm.members.some(m => m.name === (user.name || user.username || user.email)))
-                        .map((user, index) => (
-                          <option key={user.id || user.email || `user-${index}`} value={user.name || user.username || user.email}>
-                            {user.name || user.username || user.email} {user.email && user.name && `(${user.email})`}
-                          </option>
-                        ))
-                      }
-                    </select>
+                  
+                  {/* Search Input */}
+                  <div className="relative mb-3">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <input
+                      ref={userSearchRef}
+                      type="text"
+                      placeholder="Search team members..."
+                      value={usersSearch}
+                      onChange={(e) => setUsersSearch(e.target.value)}
+                      onFocus={() => setShowUsersDropdown(true)}
+                      className="w-full px-4 py-3 pl-10 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                    />
                   </div>
+
+                  {/* Users List Dropdown */}
+                  {showUsersDropdown && (
+                    <div ref={dropdownRef} className="border border-gray-200 rounded-lg bg-white shadow-lg max-h-60 overflow-y-auto mb-3">
+                      {isLoadingUsers ? (
+                        <div className="p-4 text-center text-gray-500">
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                          Loading users...
+                        </div>
+                      ) : filteredUsers.length > 0 ? (
+                        <div className="py-2">
+                          {filteredUsers.map((user, index) => (
+                            <button
+                              key={user.id || user.email || `user-${index}`}
+                              type="button"
+                              onClick={() => addMember(user)}
+                              className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center space-x-3 transition-colors"
+                            >
+                              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                                {(user.name || user.username || user.email || '?').charAt(0).toUpperCase()}
+                              </div>
+                              <div className="flex-1">
+                                <p className="font-medium text-gray-900">
+                                  {user.name || user.username || user.email}
+                                </p>
+                                {user.email && user.name && (
+                                  <p className="text-sm text-gray-500">{user.email}</p>
+                                )}
+                              </div>
+                              <div className="text-blue-600">
+                                <User className="w-4 h-4" />
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="p-4 text-center text-gray-500">
+                          {usersSearch.trim() ? 'No users found matching your search' : 'No users available'}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   
                   {/* Selected Members Display */}
                   {teamForm.members.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2">
                       {teamForm.members.map((member, index) => (
                         <div
                           key={`selected-member-${index}`}
