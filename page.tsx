@@ -6,7 +6,7 @@ type TabKey = 'overview' | 'config' | 'triggers' | 'templates' | 'test' | 'logs'
 
 const Page = () => {
   const [active, setActive] = useState<TabKey>('overview')
-  const [apiBase, setApiBase] = useState<string>(process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001')
+  const [apiBase, setApiBase] = useState<string>(process.env.NEXT_PUBLIC_BACKEND_URL || 'https://brmh.in')
   const [saving, setSaving] = useState(false)
 
   // Config form
