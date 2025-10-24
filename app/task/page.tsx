@@ -1196,14 +1196,20 @@ const TasksPage = () => {
     console.log('🔍 getAvailableUsers called - selectedTask:', selectedTask);
     
     if (!selectedTask) {
-      const validUsers = allUsers.filter((user: any) => user.name);
+      const validUsers = allUsers.filter((user: any) => user.name || user.username || user.email);
       console.log('🔍 Available users (no task selected):', validUsers);
       return validUsers;
     }
     
     const currentUsers = selectedTask.assignedUsers || [];
-    console.log('🔍 Current assigned users:', currentUsers);
-    const validUsers = allUsers.filter((user: any) => user.name && !currentUsers.includes(user.name));
+    console.log('🔍 Current assigned users (IDs):', currentUsers);
+    const validUsers = allUsers.filter((user: any) => {
+      const userId = user.id || user.userId;
+      const hasName = user.name || user.username || user.email;
+      const isNotAssigned = !currentUsers.includes(userId);
+      console.log(`🔍 User ${user.name || user.username || user.email} (ID: ${userId}): hasName=${hasName}, isNotAssigned=${isNotAssigned}`);
+      return hasName && isNotAssigned;
+    });
     console.log('🔍 Available users (task selected):', validUsers);
     return validUsers;
   };
@@ -1216,17 +1222,24 @@ const TasksPage = () => {
     }
     
     const currentTeams = selectedTask.assignedTeams || [];
-    const validTeams = allTeams.filter((team: any) => team.name && !currentTeams.includes(team.name));
+    console.log('🔍 Current assigned teams (IDs):', currentTeams);
+    const validTeams = allTeams.filter((team: any) => {
+      const teamId = team.id;
+      const hasName = team.name;
+      const isNotAssigned = !currentTeams.includes(teamId);
+      console.log(`🔍 Team ${team.name} (ID: ${teamId}): hasName=${hasName}, isNotAssigned=${isNotAssigned}`);
+      return hasName && isNotAssigned;
+    });
     console.log('🔍 Available teams (task selected):', validTeams);
     return validTeams;
   };
 
-  const handleAddUser = async (userName: string) => {
+  const handleAddUser = async (userId: string) => {
     if (!selectedTask) return;
     
     try {
       const currentUsers = selectedTask.assignedUsers || [];
-      const updatedUsers = [...currentUsers, userName];
+      const updatedUsers = [...currentUsers, userId];
       
       const result = await updateTask(selectedTask.id, {
         assignedUsers: updatedUsers
@@ -1250,12 +1263,12 @@ const TasksPage = () => {
     }
   };
 
-  const handleAddTeam = async (teamName: string) => {
+  const handleAddTeam = async (teamId: string) => {
     if (!selectedTask) return;
     
     try {
       const currentTeams = selectedTask.assignedTeams || [];
-      const updatedTeams = [...currentTeams, teamName];
+      const updatedTeams = [...currentTeams, teamId];
       
       const result = await updateTask(selectedTask.id, {
         assignedTeams: updatedTeams
@@ -1315,12 +1328,12 @@ const TasksPage = () => {
     }
   };
 
-  const handleRemoveTeam = async (teamName: string) => {
+  const handleRemoveTeam = async (teamId: string) => {
     if (!selectedTask) return;
     
     try {
       const currentTeams = selectedTask.assignedTeams || [];
-      const updatedTeams = currentTeams.filter(team => team !== teamName);
+      const updatedTeams = currentTeams.filter(team => team !== teamId);
       
       const result = await updateTask(selectedTask.id, {
         assignedTeams: updatedTeams
@@ -1352,27 +1365,27 @@ const TasksPage = () => {
   };
 
   // Handle adding users to pending list
-  const handleAddUserToPending = (userName: string) => {
-    if (!pendingUsers.includes(userName)) {
-      setPendingUsers([...pendingUsers, userName]);
+  const handleAddUserToPending = (userId: string) => {
+    if (!pendingUsers.includes(userId)) {
+      setPendingUsers([...pendingUsers, userId]);
     }
   };
 
   // Handle removing users from pending list
-  const handleRemoveUserFromPending = (userName: string) => {
-    setPendingUsers(pendingUsers.filter(user => user !== userName));
+  const handleRemoveUserFromPending = (userId: string) => {
+    setPendingUsers(pendingUsers.filter(user => user !== userId));
   };
 
   // Handle adding teams to pending list
-  const handleAddTeamToPending = (teamName: string) => {
-    if (!pendingTeams.includes(teamName)) {
-      setPendingTeams([...pendingTeams, teamName]);
+  const handleAddTeamToPending = (teamId: string) => {
+    if (!pendingTeams.includes(teamId)) {
+      setPendingTeams([...pendingTeams, teamId]);
     }
   };
 
   // Handle removing teams from pending list
-  const handleRemoveTeamFromPending = (teamName: string) => {
-    setPendingTeams(pendingTeams.filter(team => team !== teamName));
+  const handleRemoveTeamFromPending = (teamId: string) => {
+    setPendingTeams(pendingTeams.filter(team => team !== teamId));
   };
 
   // Save all pending changes
@@ -1465,8 +1478,8 @@ const TasksPage = () => {
   };
 
   // Handle user removal confirmation
-  const handleRemoveUserClick = (userName: string) => {
-    setUserToRemove(userName);
+  const handleRemoveUserClick = (userId: string) => {
+    setUserToRemove(userId);
     setShowRemoveUserConfirm(true);
   };
 
@@ -2712,7 +2725,7 @@ const TasksPage = () => {
                   isEditing={!!selectedTask}
               isCreatingSubtask={isCreatingSubtask}
                   projects={allProjects.map(project => project.name)}
-              teams={allTeams.map(team => team.name)}
+              teams={allTeams}
               users={allUsers}
               isLoadingUsers={isLoadingUsers}
               isLoadingTeams={isLoadingTeams}
@@ -2942,26 +2955,35 @@ const TasksPage = () => {
                               ) : (
                                 <>
                                   {getAvailableUsers()
-                                    .filter((user: any) => user.name && user.name.toLowerCase().includes(userSearch.toLowerCase()))
-                                    .map((user: any) => (
-                                      <div key={user.id} className="flex items-center justify-between px-3 py-2 hover:bg-blue-100 dark:hover:bg-blue-800/30 rounded-lg transition-colors">
-                                        <div className="flex items-center space-x-2 flex-1">
-                                          <Avatar name={user.name} size="sm" />
-                                          <span className="text-sm text-gray-700 dark:text-gray-300">{user.name}</span>
+                                    .filter((user: any) => {
+                                      const userName = user.name || user.username || user.email;
+                                      return userName && userName.toLowerCase().includes(userSearch.toLowerCase());
+                                    })
+                                    .map((user: any) => {
+                                      const userName = user.name || user.username || user.email;
+                                      return (
+                                        <div key={user.id || user.userId} className="flex items-center justify-between px-3 py-2 hover:bg-blue-100 dark:hover:bg-blue-800/30 rounded-lg transition-colors">
+                                          <div className="flex items-center space-x-2 flex-1">
+                                            <Avatar name={userName} size="sm" />
+                                            <span className="text-sm text-gray-700 dark:text-gray-300">{userName}</span>
+                                          </div>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleAddUserToPending(user.id || user.userId);
+                                            }}
+                                            disabled={pendingUsers.includes(user.id || user.userId)}
+                                            className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-md transition-colors"
+                                          >
+                                            {pendingUsers.includes(user.id || user.userId) ? 'Added' : 'Add'}
+                                          </button>
                                         </div>
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleAddUserToPending(user.name);
-                                          }}
-                                          disabled={pendingUsers.includes(user.name)}
-                                          className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-md transition-colors"
-                                        >
-                                          {pendingUsers.includes(user.name) ? 'Added' : 'Add'}
-                                        </button>
-                                      </div>
-                                    ))}
-                                  {getAvailableUsers().filter((user: any) => user.name && user.name.toLowerCase().includes(userSearch.toLowerCase())).length === 0 && (
+                                      );
+                                    })}
+                                  {getAvailableUsers().filter((user: any) => {
+                                    const userName = user.name || user.username || user.email;
+                                    return userName && userName.toLowerCase().includes(userSearch.toLowerCase());
+                                  }).length === 0 && (
                                     <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-2">
                                       {userSearch ? 'No users found' : 'No available users'}
                                     </p>
@@ -2976,24 +2998,26 @@ const TasksPage = () => {
                           {/* Current Assigned Users */}
                           <div className="flex flex-wrap gap-2">
                             {(selectedTask.assignedUsers && selectedTask.assignedUsers.length > 0) ? (
-                              selectedTask.assignedUsers.map((user, index) => (
-                                <div key={`assigned-user-${index}`} className="flex items-center space-x-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 px-3 py-1.5 rounded-full text-sm">
-                                  <Avatar name={user} size="sm" />
-                                  <span>{user}</span>
-                                  <button
-                                    onClick={() => handleRemoveUserClick(user)}
-                                    className="ml-1 p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-                                    title="Remove user"
-                                  >
-                                    <X className="w-3 h-3 text-red-600 dark:text-red-400" />
-                                  </button>
-                                </div>
-                              ))
+                              selectedTask.assignedUsers.map((userId, index) => {
+                                const user = allUsers.find(u => (u.id || u.userId) === userId);
+                                return (
+                                  <div key={`assigned-user-${index}`} className="flex items-center space-x-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 px-3 py-1.5 rounded-full text-sm">
+                                    <Avatar name={user?.name || user?.username || user?.email || userId} size="sm" />
+                                    <span>{user?.name || user?.username || user?.email || userId}</span>
+                                    <button
+                                      onClick={() => handleRemoveUserClick(userId)}
+                                      className="ml-1 p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                                      title="Remove user"
+                                    >
+                                      <X className="w-3 h-3 text-red-600 dark:text-red-400" />
+                                    </button>
+                                  </div>
+                                );
+                              })
                             ) : (
                               <div className="flex items-center space-x-3 bg-gray-50 dark:bg-gray-700 rounded-lg px-3 py-2">
-                          <Avatar name={selectedTask.assignee} size="md" />
-                                <span className="text-gray-600 dark:text-gray-300">{selectedTask.assignee || 'Not assigned'}</span>
-                        </div>
+                                <span className="text-gray-600 dark:text-gray-300">No users assigned</span>
+                              </div>
                             )}
                       </div>
 
@@ -3002,19 +3026,23 @@ const TasksPage = () => {
                       <div>
                               <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Pending additions:</p>
                               <div className="flex flex-wrap gap-2">
-                                {pendingUsers.map((user, index) => (
-                                  <div key={`pending-user-${index}`} className="flex items-center space-x-2 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-3 py-1.5 rounded-full text-sm">
-                                    <Avatar name={user} size="sm" />
-                                    <span>{user}</span>
-                                    <button
-                                      onClick={() => handleRemoveUserFromPending(user)}
-                                      className="ml-1 p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-                                      title="Remove from pending"
-                                    >
-                                      <X className="w-3 h-3 text-red-600 dark:text-red-400" />
-                                    </button>
-                      </div>
-                                ))}
+                                {pendingUsers.map((userId, index) => {
+                                  const user = allUsers.find(u => (u.id || u.userId) === userId);
+                                  const userName = user?.name || user?.username || user?.email || userId;
+                                  return (
+                                    <div key={`pending-user-${index}`} className="flex items-center space-x-2 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-3 py-1.5 rounded-full text-sm">
+                                      <Avatar name={userName} size="sm" />
+                                      <span>{userName}</span>
+                                      <button
+                                        onClick={() => handleRemoveUserFromPending(userId)}
+                                        className="ml-1 p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                                        title="Remove from pending"
+                                      >
+                                        <X className="w-3 h-3 text-red-600 dark:text-red-400" />
+                                      </button>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
                           )}
@@ -3078,12 +3106,12 @@ const TasksPage = () => {
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            handleAddTeamToPending(team.name);
+                                            handleAddTeamToPending(team.id);
                                           }}
-                                          disabled={pendingTeams.includes(team.name)}
+                                          disabled={pendingTeams.includes(team.id)}
                                           className="px-3 py-1 text-xs bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-md transition-colors"
                                         >
-                                          {pendingTeams.includes(team.name) ? 'Added' : 'Add'}
+                                          {pendingTeams.includes(team.id) ? 'Added' : 'Add'}
                                         </button>
                                       </div>
                                     ))}
@@ -3102,19 +3130,22 @@ const TasksPage = () => {
                           {/* Current Assigned Teams */}
                           <div className="flex flex-wrap gap-2">
                             {(selectedTask.assignedTeams && selectedTask.assignedTeams.length > 0) ? (
-                              selectedTask.assignedTeams.map((team, index) => (
-                                <div key={`assigned-team-${index}`} className="flex items-center space-x-2 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 px-3 py-1.5 rounded-full text-sm">
-                                  <Users className="w-3 h-3" />
-                                  <span>{team}</span>
-                                  <button
-                                    onClick={() => handleRemoveTeam(team)}
-                                    className="ml-1 p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-                                    title="Remove team"
-                                  >
-                                    <X className="w-3 h-3 text-red-600 dark:text-red-400" />
-                                  </button>
-                                </div>
-                              ))
+                              selectedTask.assignedTeams.map((teamId, index) => {
+                                const team = allTeams.find(t => t.id === teamId);
+                                return (
+                                  <div key={`assigned-team-${index}`} className="flex items-center space-x-2 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 px-3 py-1.5 rounded-full text-sm">
+                                    <Users className="w-3 h-3" />
+                                    <span>{team?.name || teamId}</span>
+                                    <button
+                                      onClick={() => handleRemoveTeam(teamId)}
+                                      className="ml-1 p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                                      title="Remove team"
+                                    >
+                                      <X className="w-3 h-3 text-red-600 dark:text-red-400" />
+                                    </button>
+                                  </div>
+                                );
+                              })
                             ) : (
                               <p className="text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 rounded-lg px-3 py-2">Not assigned</p>
                             )}
@@ -3125,19 +3156,23 @@ const TasksPage = () => {
                             <div>
                               <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Pending additions:</p>
                               <div className="flex flex-wrap gap-2">
-                                {pendingTeams.map((team, index) => (
-                                  <div key={`pending-team-${index}`} className="flex items-center space-x-2 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-3 py-1.5 rounded-full text-sm">
-                                    <Users className="w-3 h-3" />
-                                    <span>{team}</span>
-                                    <button
-                                      onClick={() => handleRemoveTeamFromPending(team)}
-                                      className="ml-1 p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-                                      title="Remove from pending"
-                                    >
-                                      <X className="w-3 h-3 text-red-600 dark:text-red-400" />
-                                    </button>
-                                  </div>
-                                ))}
+                                {pendingTeams.map((teamId, index) => {
+                                  const team = allTeams.find(t => t.id === teamId);
+                                  const teamName = team?.name || teamId;
+                                  return (
+                                    <div key={`pending-team-${index}`} className="flex items-center space-x-2 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-3 py-1.5 rounded-full text-sm">
+                                      <Users className="w-3 h-3" />
+                                      <span>{teamName}</span>
+                                      <button
+                                        onClick={() => handleRemoveTeamFromPending(teamId)}
+                                        className="ml-1 p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                                        title="Remove from pending"
+                                      >
+                                        <X className="w-3 h-3 text-red-600 dark:text-red-400" />
+                                      </button>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
                           )}

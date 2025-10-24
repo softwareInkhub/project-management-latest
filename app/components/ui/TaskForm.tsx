@@ -15,7 +15,7 @@ interface TaskFormProps {
   isEditing?: boolean;
   isCreatingSubtask?: boolean;
   projects?: string[];
-  teams?: string[];
+  teams?: any[];
   users?: any[];
   isLoadingUsers?: boolean;
   isLoadingTeams?: boolean;
@@ -133,7 +133,7 @@ export function TaskForm({
     try {
       console.log('📤 Uploading file:', file.name);
       const result = await driveService.uploadFile({
-        userId: formData.assignee || '', // Use assignee's userId
+        userId: formData.assignee || currentUser?.userId || '', // Use assignee's userId or current user's userId
         file,
         parentId: 'ROOT',
         tags: 'task-attachment',
@@ -162,7 +162,7 @@ export function TaskForm({
   const handleFileRemove = async (index: number, fileId?: string) => {
     if (fileId) {
       try {
-        await driveService.deleteFile(fileId, formData.assignee);
+        await driveService.deleteFile(fileId, formData.assignee || currentUser?.userId);
         setUploadedFileIds(prev => prev.filter(id => id !== fileId));
       } catch (error) {
         console.error('❌ Failed to delete file:', error);
@@ -202,7 +202,7 @@ export function TaskForm({
         try {
           console.log('📤 Uploading file:', file.name);
           const result = await driveService.uploadFile({
-            userId: formData.assignee || '', // Use assignee's userId
+            userId: formData.assignee || currentUser?.userId || '', // Use assignee's userId or current user's userId
             file,
             parentId: 'ROOT',
             tags: 'task-attachment',
@@ -567,9 +567,9 @@ export function TaskForm({
                 >
                   <option value="">{isLoadingUsers ? 'Loading users...' : 'Select users to assign...'}</option>
                   {users
-                    .filter(user => !(formData.assignedUsers || []).includes(user.name || user.username || user.email))
+                    .filter(user => !(formData.assignedUsers || []).includes(user.id || user.userId))
                     .map((user, index) => (
-                      <option key={user.id || user.email || `user-${index}`} value={user.name || user.username || user.email}>
+                      <option key={user.id || user.userId || `user-${index}`} value={user.id || user.userId}>
                         {user.name || user.username || user.email}
                       </option>
                     ))
@@ -580,24 +580,27 @@ export function TaskForm({
               {/* Selected Users Display */}
               {(formData.assignedUsers || []).length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {(formData.assignedUsers || []).map((user, index) => (
-                    <div
-                      key={`selected-user-${index}`}
-                      className="flex items-center space-x-2 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-sm font-medium"
-                    >
-                      <User className="w-3 h-3" />
-                      <span>{user}</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          handleInputChange('assignedUsers', (formData.assignedUsers || []).filter(u => u !== user));
-                        }}
-                        className="hover:bg-blue-100 rounded-full p-0.5 transition-colors"
+                  {(formData.assignedUsers || []).map((userId, index) => {
+                    const user = users.find(u => (u.id || u.userId) === userId);
+                    return (
+                      <div
+                        key={`selected-user-${index}`}
+                        className="flex items-center space-x-2 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-sm font-medium"
                       >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ))}
+                        <User className="w-3 h-3" />
+                        <span>{user?.name || user?.username || user?.email || userId}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleInputChange('assignedUsers', (formData.assignedUsers || []).filter(u => u !== userId));
+                          }}
+                          className="hover:bg-blue-100 rounded-full p-0.5 transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -622,10 +625,10 @@ export function TaskForm({
                 >
                   <option value="">{isLoadingTeams ? 'Loading teams...' : 'Select teams to assign...'}</option>
                   {teams
-                    .filter(team => !(formData.assignedTeams || []).includes(team))
+                    .filter(team => !(formData.assignedTeams || []).includes(team.id))
                     .map((team, index) => (
-                      <option key={`team-${index}`} value={team}>
-                        {team}
+                      <option key={team.id || `team-${index}`} value={team.id}>
+                        {team.name}
                       </option>
                     ))
                   }
@@ -635,24 +638,27 @@ export function TaskForm({
               {/* Selected Teams Display */}
               {(formData.assignedTeams || []).length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {(formData.assignedTeams || []).map((team, index) => (
-                    <div
-                      key={`selected-team-${index}`}
-                      className="flex items-center space-x-2 bg-purple-50 text-purple-700 px-3 py-1.5 rounded-full text-sm font-medium"
-                    >
-                      <Users className="w-3 h-3" />
-                      <span>{team}</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          handleInputChange('assignedTeams', (formData.assignedTeams || []).filter(t => t !== team));
-                        }}
-                        className="hover:bg-purple-100 rounded-full p-0.5 transition-colors"
+                  {(formData.assignedTeams || []).map((teamId, index) => {
+                    const team = teams.find(t => t.id === teamId);
+                    return (
+                      <div
+                        key={`selected-team-${index}`}
+                        className="flex items-center space-x-2 bg-purple-50 text-purple-700 px-3 py-1.5 rounded-full text-sm font-medium"
                       >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ))}
+                        <Users className="w-3 h-3" />
+                        <span>{team?.name || teamId}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleInputChange('assignedTeams', (formData.assignedTeams || []).filter(t => t !== teamId));
+                          }}
+                          className="hover:bg-purple-100 rounded-full p-0.5 transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
