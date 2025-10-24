@@ -224,8 +224,10 @@ const TasksPage = () => {
   const [isTaskPreviewOpen, setIsTaskPreviewOpen] = useState(false);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [allTeams, setAllTeams] = useState<any[]>([]);
+  const [allProjects, setAllProjects] = useState<any[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isLoadingTeams, setIsLoadingTeams] = useState(false);
+  const [isLoadingProjects, setIsLoadingProjects] = useState(false);
   
   // Subtask management
   const [isAddingSubtask, setIsAddingSubtask] = useState(false);
@@ -607,6 +609,27 @@ const TasksPage = () => {
     }
   };
 
+  const fetchProjects = async () => {
+    setIsLoadingProjects(true);
+    try {
+      console.log('📁 Fetching projects for task assignment...');
+      const res = await apiService.getProjects();
+      console.log('🔍 Projects API response:', res);
+      if (res.success && res.data) {
+        console.log('✅ Projects fetched:', res.data.length, res.data);
+        setAllProjects(res.data);
+      } else {
+        console.error('❌ Failed to fetch projects:', res.error);
+        setAllProjects([]);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching projects:', error);
+      setAllProjects([]);
+    } finally {
+      setIsLoadingProjects(false);
+    }
+  };
+
   const isOverdue = (dueDate: string) => {
     const task = tasks.find(t => t.dueDate === dueDate);
     return new Date(dueDate) < new Date() && task?.status !== 'Completed';
@@ -631,6 +654,25 @@ const TasksPage = () => {
       matchesPredefined = isOverdue(task.dueDate);
     } else if (activePredefinedFilter === 'high-priority') {
       matchesPredefined = task.priority === 'High';
+    } else if (activePredefinedFilter === 'my-tasks') {
+      // Filter tasks assigned to the current user
+      const currentUserId = user?.userId || user?.email || user?.name;
+      if (!currentUserId) {
+        matchesPredefined = false;
+      } else {
+        const assignedUsers = task.assignedUsers || [];
+        const assignedTeams = task.assignedTeams || [];
+        matchesPredefined = assignedUsers.includes(currentUserId) || 
+                          assignedTeams.some(team => {
+                            // Check if the current user is a member of this team
+                            const teamMembers = allTeams.find(t => t.name === team)?.members || [];
+                            return teamMembers.some((member: any) => 
+                              member.name === currentUserId || 
+                              member.email === currentUserId || 
+                              member.id === currentUserId
+                            );
+                          });
+      }
     }
     
     // Apply advanced filters
@@ -669,6 +711,25 @@ const TasksPage = () => {
       if (filterKey === 'in-progress') return task.status === 'In Progress';
       if (filterKey === 'overdue') return isOverdue(task.dueDate);
       if (filterKey === 'high-priority') return task.priority === 'High';
+      if (filterKey === 'my-tasks') {
+        // Count tasks assigned to the current user
+        const currentUserId = user?.userId || user?.email || user?.name;
+        if (!currentUserId) {
+          return false;
+        }
+        const assignedUsers = task.assignedUsers || [];
+        const assignedTeams = task.assignedTeams || [];
+        return assignedUsers.includes(currentUserId) || 
+               assignedTeams.some(team => {
+                 // Check if the current user is a member of this team
+                 const teamMembers = allTeams.find(t => t.name === team)?.members || [];
+                 return teamMembers.some((member: any) => 
+                   member.name === currentUserId || 
+                   member.email === currentUserId || 
+                   member.id === currentUserId
+                 );
+               });
+      }
       return false;
     }).length;
   };
@@ -681,6 +742,13 @@ const TasksPage = () => {
       count: getFilterCount('all'),
       isActive: activePredefinedFilter === 'all',
       onClick: () => setActivePredefinedFilter('all')
+    },
+    {
+      key: 'my-tasks',
+      label: 'My Tasks',
+      count: getFilterCount('my-tasks'),
+      isActive: activePredefinedFilter === 'my-tasks',
+      onClick: () => setActivePredefinedFilter('my-tasks')
     },
     {
       key: 'completed',
@@ -742,9 +810,10 @@ const TasksPage = () => {
     setIsTaskFormOpen(true);
     setIsFormAnimating(true); // Start with form off-screen (translate-y-full)
     
-    // Fetch users and teams when opening form
+    // Fetch users, teams, and projects when opening form
     fetchUsers();
     fetchTeams();
+    fetchProjects();
     
     // Trigger slide-up animation after a brief delay
     setTimeout(() => {
@@ -777,9 +846,10 @@ const TasksPage = () => {
       setIsCreatingSubtask(true);
       setIsFormAnimating(true); // Start with form off-screen (translate-y-full)
       
-      // Fetch users and teams when opening form
+      // Fetch users, teams, and projects when opening form
       fetchUsers();
       fetchTeams();
+      fetchProjects();
       
       // Trigger slide-up animation after a brief delay
       setTimeout(() => {
@@ -1552,9 +1622,10 @@ const TasksPage = () => {
     setIsTaskPreviewOpen(true);
     setIsPreviewAnimating(false);
     
-    // Fetch users and teams when opening task preview
+    // Fetch users, teams, and projects when opening task preview
     fetchUsers();
     fetchTeams();
+    fetchProjects();
     
     // Load task files
     if (task.attachments) {
@@ -1578,9 +1649,10 @@ const TasksPage = () => {
     setIsTaskFormOpen(true);
     setIsFormAnimating(false);
     
-    // Fetch users and teams when editing
+    // Fetch users, teams, and projects when editing
     fetchUsers();
     fetchTeams();
+    fetchProjects();
   };
 
   // File management functions
@@ -2639,7 +2711,7 @@ const TasksPage = () => {
                   onCancel={handleTaskFormCancel}
                   isEditing={!!selectedTask}
               isCreatingSubtask={isCreatingSubtask}
-                  projects={Array.from(new Set(tasks.map(t => t.project)))}
+                  projects={allProjects.map(project => project.name)}
               teams={allTeams.map(team => team.name)}
               users={allUsers}
               isLoadingUsers={isLoadingUsers}
