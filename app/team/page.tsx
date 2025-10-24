@@ -31,6 +31,7 @@ import { AppLayout } from '../components/AppLayout';
 import { useTabs } from '../hooks/useTabs';
 import { useSidebar } from '../components/AppLayout';
 import { useAuth } from '../hooks/useAuth';
+import { useToast, ToastContainer } from '../components/ui/Toast';
 
 // Team interfaces
 interface TeamMember {
@@ -176,6 +177,7 @@ const TeamsPage = () => {
   
   const { hasPermission, user } = useAuth();
   const { isCollapsed } = useSidebar();
+  const { toasts, removeToast, success, error } = useToast();
   const userSearchRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -200,11 +202,11 @@ const TeamsPage = () => {
         setTeams(normalized);
       } else {
         console.error('❌ Failed to fetch teams:', res.error);
-        alert(`Failed to fetch teams: ${res.error || 'Unknown error'}`);
+        error('Fetch Failed', `Failed to fetch teams: ${res.error || 'Unknown error'}`);
       }
-    } catch (error) {
-      console.error('❌ Error fetching teams:', error);
-      alert('An unexpected error occurred while fetching teams');
+    } catch (err) {
+      console.error('❌ Error fetching teams:', err);
+      error('Unexpected Error', 'An unexpected error occurred while fetching teams');
     } finally {
       setIsLoading(false);
     }
@@ -298,7 +300,7 @@ const TeamsPage = () => {
   // Handle team creation
   const handleCreateTeam = async () => {
     if (!teamForm.name.trim()) {
-      alert('Please enter team name');
+      error('Validation Error', 'Please enter team name');
       return;
     }
 
@@ -319,14 +321,14 @@ const TeamsPage = () => {
         setIsCreateTeamOpen(false);
         resetForm();
         fetchTeams(); // Refresh teams list
-        alert('Team created successfully');
+        success('Team Created', `Team "${teamForm.name}" has been created successfully!`);
       } else {
         console.error('❌ Failed to create team:', res.error);
-        alert(`Failed to create team: ${res.error}`);
+        error('Creation Failed', `Failed to create team: ${res.error}`);
       }
-    } catch (error) {
-      console.error('❌ Error creating team:', error);
-      alert('An unexpected error occurred while creating team');
+    } catch (err) {
+      console.error('❌ Error creating team:', err);
+      error('Unexpected Error', 'An unexpected error occurred while creating team');
     }
   };
 
@@ -340,13 +342,13 @@ const TeamsPage = () => {
       const res = await apiService.deleteTeam(team.id);
       if (res.success) {
         setTeams(prev => prev.filter(t => t.id !== team.id));
-        alert('Team deleted successfully');
+        success('Team Deleted', `Team "${team.name}" has been deleted successfully`);
       } else {
-        alert(`Failed to delete team: ${res.error}`);
+        error('Deletion Failed', `Failed to delete team: ${res.error}`);
       }
-    } catch (error) {
-      console.error('❌ Error deleting team:', error);
-      alert('An unexpected error occurred while deleting team');
+    } catch (err) {
+      console.error('❌ Error deleting team:', err);
+      error('Unexpected Error', 'An unexpected error occurred while deleting team');
     }
   };
 
@@ -1065,6 +1067,9 @@ const TeamsPage = () => {
           </div>
         </div>
       )}
+
+      {/* Toast Container */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </AppLayout>
   );
 };

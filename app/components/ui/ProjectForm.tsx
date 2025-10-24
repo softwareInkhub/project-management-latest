@@ -16,7 +16,6 @@ export interface Project {
   priority: string;
   startDate: string;
   endDate: string;
-  budget: string;
   team: string | string[];
   assignee: string;
   
@@ -66,7 +65,6 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
     priority: 'Medium',
     startDate: '',
     endDate: '',
-    budget: '',
     team: [],
     assignee: '',
     description: '',
@@ -96,7 +94,6 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
         priority: 'Medium',
         startDate: '',
         endDate: '',
-        budget: '',
         team: [], // Removed team assignment
         assignee: '',
         description: '',
@@ -161,9 +158,6 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
       newErrors.endDate = 'End date must be after start date';
     }
 
-    if (formData.budget && isNaN(Number(formData.budget))) {
-      newErrors.budget = 'Budget must be a valid number';
-    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -187,7 +181,6 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
       priority: String(formData.priority || 'Medium').trim(),
       startDate: String(formData.startDate || ''),
       endDate: String(formData.endDate || ''),
-      budget: String(formData.budget || '').trim(),
       team: [], // Removed team assignment
       assignee: String(assignee).trim(), // Automatically set from logged-in user
       description: String(formData.description || '').trim(),
@@ -361,22 +354,8 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
             </div>
           </div>
 
-          {/* Budget & Progress */}
+          {/* Progress */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-800 mb-2">
-                Budget
-              </label>
-              <Input
-                value={formData.budget || ''}
-                onChange={(e) => handleInputChange('budget', e.target.value)}
-                placeholder="Enter budget amount"
-                type="number"
-                className={errors.budget ? 'border-red-500' : ''}
-              />
-              {errors.budget && <p className="text-red-500 text-sm mt-1">{errors.budget}</p>}
-            </div>
-
             <div>
               <label className="block text-sm font-semibold text-gray-800 mb-2">
                 Progress (%)
@@ -389,6 +368,9 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
                 min="0"
                 max="100"
               />
+            </div>
+            <div>
+              {/* Empty div to maintain consistent layout */}
             </div>
           </div>
 

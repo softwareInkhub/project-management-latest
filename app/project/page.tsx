@@ -34,6 +34,7 @@ import { ViewToggle } from '../components/ui/ViewToggle';
 import { AppLayout } from '../components/AppLayout';
 import { useTabs } from '../hooks/useTabs';
 import { useSidebar } from '../components/AppLayout';
+import { useAuth } from '../hooks/useAuth';
 import ProjectForm, { Project } from '../components/ui/ProjectForm';
 
 // Status and priority mapping
@@ -109,6 +110,7 @@ const ProjectsPage = () => {
   const advancedFilterRef = useRef<HTMLDivElement>(null);
   const { openTab } = useTabs();
   const { isCollapsed } = useSidebar();
+  const { user } = useAuth();
 
   // Fetch projects from API
   const fetchProjects = useCallback(async () => {
@@ -140,6 +142,18 @@ const ProjectsPage = () => {
   // Predefined filters
   const predefinedFilters = [
     { id: 'all', label: 'All Projects', count: projects.length },
+    { id: 'my-projects', label: 'My Projects', count: projects.filter(project => {
+      const currentUserEmail = user?.email;
+      const currentUserName = user?.name;
+      const currentUserId = user?.userId;
+      
+      return project.assignee === currentUserEmail ||
+             project.assignee === currentUserName ||
+             project.assignee === currentUserId ||
+             project.assignee?.includes(currentUserEmail) ||
+             project.assignee?.includes(currentUserName) ||
+             project.assignee?.includes(currentUserId);
+    }).length },
     { id: 'Active', label: 'Active', count: projects.filter(p => p.status === 'Active').length },
     { id: 'Completed', label: 'Completed', count: projects.filter(p => p.status === 'Completed').length },
     { id: 'On Hold', label: 'On Hold', count: projects.filter(p => p.status === 'On Hold').length },
@@ -154,7 +168,19 @@ const ProjectsPage = () => {
     
     // Apply predefined filters
     let matchesPredefined = true;
-    if (activePredefinedFilter !== 'all') {
+    if (activePredefinedFilter === 'my-projects') {
+      // Check if current user is assigned to this project
+      const currentUserEmail = user?.email;
+      const currentUserName = user?.name;
+      const currentUserId = user?.userId;
+      
+      matchesPredefined = project.assignee === currentUserEmail ||
+                        project.assignee === currentUserName ||
+                        project.assignee === currentUserId ||
+                        project.assignee?.includes(currentUserEmail) ||
+                        project.assignee?.includes(currentUserName) ||
+                        project.assignee?.includes(currentUserId);
+    } else if (activePredefinedFilter !== 'all') {
       matchesPredefined = project.status === activePredefinedFilter;
     }
     
@@ -755,30 +781,12 @@ const ProjectsPage = () => {
                     </div>
                   </div>
 
-                  {/* Team and Assignment */}
+                  {/* Assignment */}
                   <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-800 mb-2">Team(s)</label>
-                        <p className="text-gray-600">
-                          {Array.isArray(selectedProject.team) 
-                            ? selectedProject.team.join(', ') 
-                            : selectedProject.team || 'No team assigned'}
-                        </p>
-                      </div>
                       <div>
                         <label className="block text-sm font-semibold text-gray-800 mb-2">Assignee</label>
                         <p className="text-gray-600">{selectedProject.assignee || 'Not assigned'}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Budget and Additional Info */}
-                  <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-800 mb-2">Budget</label>
-                        <p className="text-gray-600">${selectedProject.budget || '0'}</p>
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-gray-800 mb-2">Company</label>
