@@ -105,6 +105,47 @@ interface User {
   updatedAt: string;
 }
 
+interface Sprint {
+  id: string; // Partition key
+  sprint_id: string;
+  name: string;
+  goal: string;
+  start_date: string;
+  end_date: string;
+  status: 'planned' | 'active' | 'completed';
+  created_by: string;
+  project_id: string;
+  team_id: string;
+  velocity: number;
+  stories: string[];
+  retrospective_notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface Story {
+  id: string; // Partition key
+  story_id: string;
+  title: string;
+  description: string;
+  acceptance_criteria: string[];
+  story_points: number;
+  priority: 'low' | 'medium' | 'high';
+  status: 'backlog' | 'in_progress' | 'review' | 'done';
+  sprint_id: string;
+  project_id: string;
+  assigned_to: string;
+  tags: string[];
+  tasks: Array<{
+    task_id: string;
+    title: string;
+    status: string;
+  }>;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
 class ApiService {
   private crudBaseUrl = 'https://brmh.in/crud';
   private notifyBaseUrl = 'https://brmh.in/notify';
@@ -770,6 +811,168 @@ class ApiService {
     });
   }
 
+  // Sprint Operations
+  async getSprints(): Promise<ApiResponse<Sprint[]>> {
+    const result = await this.makeRequest<Sprint[]>('?tableName=project-management-sprints&pagination=true', {
+      method: 'GET',
+    });
+
+    if (result.success && result.data && Array.isArray(result.data)) {
+      return {
+        success: true,
+        data: result.data,
+        error: undefined
+      };
+    }
+
+    return result;
+  }
+
+  async getSprintById(id: string): Promise<ApiResponse<Sprint>> {
+    return this.makeRequest<Sprint>(`?tableName=project-management-sprints&id=${id}`, {
+      method: 'GET',
+    });
+  }
+
+  async createSprint(sprint: Partial<Sprint>): Promise<ApiResponse<Sprint>> {
+    const sprintId = `SPRT_${String(Date.now()).slice(-3)}`;
+    
+    const payload = {
+      item: {
+        ...sprint,
+        id: sprintId, // Use id as partition key
+        sprint_id: sprintId, // Keep sprint_id for reference
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+    };
+
+    console.log('🆕 Creating sprint with ID:', sprintId);
+    console.log('📦 Sprint payload:', payload);
+
+    const result = await this.makeRequest<Sprint>('?tableName=project-management-sprints', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+
+    if (result.success) {
+      const getResult = await this.getSprintById(sprintId);
+      if (getResult.success) {
+        return {
+          success: true,
+          data: getResult.data,
+          error: undefined
+        };
+      }
+    }
+
+    return result;
+  }
+
+  async updateSprint(id: string, updates: Partial<Sprint>): Promise<ApiResponse<Sprint>> {
+    const payload = {
+      key: {
+        id: id
+      },
+      updates: {
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      }
+    };
+
+    return this.makeRequest<Sprint>('?tableName=project-management-sprints', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async deleteSprint(id: string): Promise<ApiResponse<void>> {
+    return this.makeRequest<void>(`?tableName=project-management-sprints&id=${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Story Operations
+  async getStories(): Promise<ApiResponse<Story[]>> {
+    const result = await this.makeRequest<Story[]>('?tableName=project-management-stories&pagination=true', {
+      method: 'GET',
+    });
+
+    if (result.success && result.data && Array.isArray(result.data)) {
+      return {
+        success: true,
+        data: result.data,
+        error: undefined
+      };
+    }
+
+    return result;
+  }
+
+  async getStoryById(id: string): Promise<ApiResponse<Story>> {
+    return this.makeRequest<Story>(`?tableName=project-management-stories&id=${id}`, {
+      method: 'GET',
+    });
+  }
+
+  async createStory(story: Partial<Story>): Promise<ApiResponse<Story>> {
+    const storyId = `ST_${String(Date.now()).slice(-3)}`;
+    
+    const payload = {
+      item: {
+        ...story,
+        id: storyId, // Use id as partition key
+        story_id: storyId, // Keep story_id for reference
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+    };
+
+    console.log('🆕 Creating story with ID:', storyId);
+    console.log('📦 Story payload:', payload);
+
+    const result = await this.makeRequest<Story>('?tableName=project-management-stories', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+
+    if (result.success) {
+      const getResult = await this.getStoryById(storyId);
+      if (getResult.success) {
+        return {
+          success: true,
+          data: getResult.data,
+          error: undefined
+        };
+      }
+    }
+
+    return result;
+  }
+
+  async updateStory(id: string, updates: Partial<Story>): Promise<ApiResponse<Story>> {
+    const payload = {
+      key: {
+        id: id
+      },
+      updates: {
+        ...updates,
+        updated_at: new Date().toISOString(),
+      }
+    };
+
+    return this.makeRequest<Story>('?tableName=project-management-stories', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async deleteStory(id: string): Promise<ApiResponse<void>> {
+    return this.makeRequest<void>(`?tableName=project-management-stories&id=${id}`, {
+      method: 'DELETE',
+    });
+  }
+
   // WhatsApp Notification
   async sendWhatsAppNotification(taskData: any): Promise<ApiResponse<any>> {
     try {
@@ -837,4 +1040,4 @@ ${assignmentDetails.join('\n')}`;
 }
 
 export const apiService = new ApiService();
-export type { Task, Project, Team, TeamMember, User, ApiResponse };
+export type { Task, Project, Team, TeamMember, User, Sprint, Story, ApiResponse };

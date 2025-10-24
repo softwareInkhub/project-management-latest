@@ -17,7 +17,8 @@ import {
   LogOut,
   User,
   HelpCircle,
-  Calendar
+  Calendar,
+  BookOpen
 } from 'lucide-react';
 import { Avatar } from './ui/Avatar';
 import { Button } from './ui/Button';
@@ -29,6 +30,7 @@ const navigation = [
   { name: 'Dashboard', href: '/Dashboard', icon: LayoutDashboard },
   { name: 'Projects', href: '/project', icon: FolderKanban },
   { name: 'Tasks', href: '/task', icon: CheckSquare },
+  { name: 'Sprint & Stories', href: '/sprint-stories', icon: BookOpen },
   { name: 'Team', href: '/team', icon: Users },
   { name: 'Calendar', href: '/calander', icon: Calendar },
   { name: 'Notifications', href: '/notifications', icon: Bell },
@@ -197,10 +199,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onMobile
         {!isCollapsed && (
           <div className="mt-3 flex space-x-2 border-t border-gray-200 dark:border-gray-700 pt-3">
             <Button
-              variant="danger"
               size="sm"
               onClick={logout}
-              className="flex-1 flex items-center justify-center space-x-2 bg-red-600 hover:bg-red-700 text-white"
+              className="flex-1 flex items-center justify-center space-x-2 bg-gray-600 hover:bg-gray-700 text-white"
             >
               <LogOut size={16} />
               <span>Logout</span>
@@ -211,10 +212,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onMobile
         {isCollapsed && (
           <div className="mt-2 flex justify-center">
             <Button
-              variant="danger"
               size="sm"
               onClick={logout}
-              className="p-2 bg-red-600 hover:bg-red-700 text-white"
+              className="p-2 bg-gray-600 hover:bg-gray-700 text-white"
               title="Logout"
             >
               <LogOut size={16} />

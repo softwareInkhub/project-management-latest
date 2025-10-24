@@ -3,9 +3,7 @@ import React, { useState, createContext, useContext, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { Navigation } from './Navigation';
-import { TabBar } from './ui/TabBar';
 import { MobileBottomNav } from './MobileBottomNav';
-import { useTabs } from '../hooks/useTabs';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -35,7 +33,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, onCreateTask }) 
     return false;
   });
 
-  const { tabs, activeTabId, openTab, closeTab, switchToTab } = useTabs();
 
   // Close mobile menu when route changes
   useEffect(() => {
@@ -60,10 +57,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, onCreateTask }) 
     }
   };
 
-  const handleNewTab = () => {
-    // Open a new tab with a default page or let user choose
-    openTab('/project', 'New Project');
-  };
 
   return (
     <SidebarContext.Provider value={{ isCollapsed, toggleSidebar }}>
@@ -75,15 +68,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, onCreateTask }) 
         <div className={`transition-all duration-300 ${isCollapsed ? 'lg:ml-16' : 'lg:ml-64'} min-h-screen`}>
           {/* Top Navigation */}
           <Navigation onMobileMenuClick={toggleMobileMenu} />
-          
-          {/* Tab Bar */}
-          <TabBar
-            tabs={tabs}
-            activeTabId={activeTabId}
-            onTabClick={switchToTab}
-            onTabClose={closeTab}
-            onNewTab={handleNewTab}
-          />
           
           {/* Page Content */}
           <main className="flex-1 overflow-x-hidden pb-24 lg:pb-0">
