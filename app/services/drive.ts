@@ -54,7 +54,7 @@ class DriveService {
   constructor() {
     // Get configuration from environment variables
     this.config = {
-      apiUrl: process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001',
+      apiUrl: process.env.NEXT_PUBLIC_BACKEND_URL || 'https://brmh.in',
       namespaceId: process.env.NEXT_PUBLIC_NAMESPACE_ID || '779f7250-b99e-46ca-9462-2e1008a365b8',
       namespaceName: process.env.NEXT_PUBLIC_NAMESPACE_NAME || 'BRMH Project Management',
     };
