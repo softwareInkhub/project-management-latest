@@ -94,11 +94,11 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
         company: '',
         status: 'Planning',
         priority: 'Medium',
-        startDate: '',
+        startDate: new Date().toISOString().split('T')[0],
         endDate: '',
         budget: '',
         team: [], // Removed team assignment
-        assignee: '',
+        assignee: user?.userId || '',
         description: '',
         progress: 0
       });

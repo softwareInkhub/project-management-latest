@@ -98,11 +98,11 @@ class DriveService {
    * Upload a file to the drive
    */
   async uploadFile(params: UploadFileParams): Promise<UploadResponse> {
-    const { file, parentId = 'ROOT', tags = '' } = params;
-    const userId = this.getUserId();
+    const { userId: providedUserId, file, parentId = 'ROOT', tags = '' } = params;
+    const userId = providedUserId;
 
     if (!userId) {
-      throw new Error('User ID not found. Please log in.');
+      throw new Error('User ID is required for file operations.');
     }
 
     console.log('📤 Uploading file:', {
@@ -178,14 +178,14 @@ class DriveService {
   /**
    * Get file details
    */
-  async getFileDetails(fileId: string): Promise<FileItem> {
-    const userId = this.getUserId();
+  async getFileDetails(fileId: string, userId?: string): Promise<FileItem> {
+    const finalUserId = userId;
 
-    if (!userId) {
-      throw new Error('User ID not found. Please log in.');
+    if (!finalUserId) {
+      throw new Error('User ID is required for file operations.');
     }
 
-    const url = `${this.config.apiUrl}/drive/file/${userId}/${fileId}?namespaceId=${this.config.namespaceId}`;
+    const url = `${this.config.apiUrl}/drive/file/${finalUserId}/${fileId}?namespaceId=${this.config.namespaceId}`;
     
     const response = await fetch(url, {
       method: 'GET',
@@ -207,16 +207,16 @@ class DriveService {
   /**
    * Download a file (get presigned URL)
    */
-  async downloadFile(fileId: string): Promise<DownloadResponse> {
-    const userId = this.getUserId();
+  async downloadFile(fileId: string, userId?: string): Promise<DownloadResponse> {
+    const finalUserId = userId;
 
-    if (!userId) {
-      throw new Error('User ID not found. Please log in.');
+    if (!finalUserId) {
+      throw new Error('User ID is required for file operations.');
     }
 
     console.log('📥 Getting download URL for file:', fileId);
 
-    const url = `${this.config.apiUrl}/drive/download/${userId}/${fileId}?namespaceId=${this.config.namespaceId}`;
+    const url = `${this.config.apiUrl}/drive/download/${finalUserId}/${fileId}?namespaceId=${this.config.namespaceId}`;
     
     const response = await fetch(url, {
       method: 'GET',
@@ -271,16 +271,16 @@ class DriveService {
   /**
    * Delete a file
    */
-  async deleteFile(fileId: string): Promise<void> {
-    const userId = this.getUserId();
+  async deleteFile(fileId: string, userId?: string): Promise<void> {
+    const finalUserId = userId;
 
-    if (!userId) {
-      throw new Error('User ID not found. Please log in.');
+    if (!finalUserId) {
+      throw new Error('User ID is required for file operations.');
     }
 
     console.log('🗑️ Deleting file:', fileId);
 
-    const url = `${this.config.apiUrl}/drive/file/${userId}/${fileId}?namespaceId=${this.config.namespaceId}`;
+    const url = `${this.config.apiUrl}/drive/file/${finalUserId}/${fileId}?namespaceId=${this.config.namespaceId}`;
     
     const response = await fetch(url, {
       method: 'DELETE',

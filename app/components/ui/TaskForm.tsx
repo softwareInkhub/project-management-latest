@@ -22,6 +22,7 @@ interface TaskFormProps {
   formHeight?: number;
   isDragging?: boolean;
   onMouseDown?: (e: React.MouseEvent) => void;
+  currentUser?: { userId: string; email: string; name?: string; username?: string };
 }
 
 export function TaskForm({ 
@@ -37,7 +38,8 @@ export function TaskForm({
   isLoadingTeams = false,
   formHeight = 80,
   isDragging = false,
-  onMouseDown
+  onMouseDown,
+  currentUser
 }: TaskFormProps) {
   // Debug: Log users when they change
   React.useEffect(() => {
@@ -50,13 +52,13 @@ export function TaskForm({
     title: task?.title || '',
     description: task?.description || '',
     project: task?.project || '',
-    assignee: task?.assignee || '',
+    assignee: task?.assignee || currentUser?.userId || '',
     assignedTeams: task?.assignedTeams || [],
     assignedUsers: task?.assignedUsers || [],
     status: task?.status || 'To Do',
     priority: task?.priority || 'Medium',
     dueDate: task?.dueDate || '',
-    startDate: task?.startDate || '',
+    startDate: task?.startDate || new Date().toISOString().split('T')[0],
     estimatedHours: task?.estimatedHours || 0,
     tags: task?.tags || '',
     subtasks: task?.subtasks || '[]',
@@ -131,7 +133,7 @@ export function TaskForm({
     try {
       console.log('📤 Uploading file:', file.name);
       const result = await driveService.uploadFile({
-        userId: '', // Will be fetched from localStorage by the service
+        userId: formData.assignee || '', // Use assignee's userId
         file,
         parentId: 'ROOT',
         tags: 'task-attachment',
@@ -160,7 +162,7 @@ export function TaskForm({
   const handleFileRemove = async (index: number, fileId?: string) => {
     if (fileId) {
       try {
-        await driveService.deleteFile(fileId);
+        await driveService.deleteFile(fileId, formData.assignee);
         setUploadedFileIds(prev => prev.filter(id => id !== fileId));
       } catch (error) {
         console.error('❌ Failed to delete file:', error);
@@ -200,7 +202,7 @@ export function TaskForm({
         try {
           console.log('📤 Uploading file:', file.name);
           const result = await driveService.uploadFile({
-            userId: '', // Will be fetched from localStorage by the service
+            userId: formData.assignee || '', // Use assignee's userId
             file,
             parentId: 'ROOT',
             tags: 'task-attachment',
@@ -484,9 +486,9 @@ export function TaskForm({
             )}
           </div>
 
-          {/* Project and Assignment */}
+          {/* Project, Status and Priority */}
           <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
                 <label className="block text-sm font-semibold text-gray-800 mb-2">
                   Project *
@@ -508,7 +510,38 @@ export function TaskForm({
                 )}
               </div>
 
+              <div>
+                <label className="block text-sm font-semibold text-gray-800 mb-2">
+                  Status
+                </label>
+                <Select
+                  value={formData.status || 'To Do'}
+                  onChange={(e) => handleInputChange('status', e.target.value)}
+                  options={[
+                    { value: 'To Do', label: 'To Do' },
+                    { value: 'In Progress', label: 'In Progress' },
+                    { value: 'Completed', label: 'Completed' },
+                    { value: 'Overdue', label: 'Overdue' }
+                  ]}
+                  className="h-12 text-base focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
 
+              <div>
+                <label className="block text-sm font-semibold text-gray-800 mb-2">
+                  Priority
+                </label>
+                <Select
+                  value={formData.priority || 'Medium'}
+                  onChange={(e) => handleInputChange('priority', e.target.value)}
+                  options={[
+                    { value: 'Low', label: 'Low' },
+                    { value: 'Medium', label: 'Medium' },
+                    { value: 'High', label: 'High' }
+                  ]}
+                  className="h-12 text-base focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
             </div>
           </div>
 
@@ -622,44 +655,6 @@ export function TaskForm({
                   ))}
                 </div>
               )}
-            </div>
-          </div>
-
-          {/* Status and Priority */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-2">
-                  Status
-                </label>
-                <Select
-                  value={formData.status || 'To Do'}
-                  onChange={(e) => handleInputChange('status', e.target.value)}
-                  options={[
-                    { value: 'To Do', label: 'To Do' },
-                    { value: 'In Progress', label: 'In Progress' },
-                    { value: 'Completed', label: 'Completed' },
-                    { value: 'Overdue', label: 'Overdue' }
-                  ]}
-                  className="h-12 text-base focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-2">
-                  Priority
-                </label>
-                <Select
-                  value={formData.priority || 'Medium'}
-                  onChange={(e) => handleInputChange('priority', e.target.value)}
-                  options={[
-                    { value: 'Low', label: 'Low' },
-                    { value: 'Medium', label: 'Medium' },
-                    { value: 'High', label: 'High' }
-                  ]}
-                  className="h-12 text-base focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
             </div>
           </div>
 

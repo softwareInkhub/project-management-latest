@@ -1629,7 +1629,7 @@ const TasksPage = () => {
     
     // Load task files
     if (task.attachments) {
-      loadTaskFiles(task.id, task.attachments);
+      loadTaskFiles(task.id, task.attachments, task.assignee);
     } else {
       setAttachedFiles([]);
     }
@@ -1656,7 +1656,7 @@ const TasksPage = () => {
   };
 
   // File management functions
-  const loadTaskFiles = async (taskId: string, attachments: string) => {
+  const loadTaskFiles = async (taskId: string, attachments: string, assignee?: string) => {
     setIsLoadingFiles(true);
     try {
       const fileIds = JSON.parse(attachments || '[]');
@@ -1664,7 +1664,7 @@ const TasksPage = () => {
         const fileDetails = await Promise.all(
           fileIds.map(async (fileId) => {
             try {
-              return await driveService.getFileDetails(fileId);
+              return await driveService.getFileDetails(fileId, assignee);
             } catch (error) {
               console.error(`Failed to load file ${fileId}:`, error);
               return null;
@@ -1678,7 +1678,7 @@ const TasksPage = () => {
         validFiles.forEach((file: FileItem) => {
           if (file.mimeType?.startsWith('image/')) {
             // Download and create preview for existing files
-            createPreviewForExistingFile(file);
+            createPreviewForExistingFile(file, assignee);
           }
         });
       } else {
@@ -1703,10 +1703,10 @@ const TasksPage = () => {
         try {
           console.log('📤 Uploading file:', file.name);
           const result = await driveService.uploadFile({
-            userId: '',
+            userId: selectedTask?.assignee || '',
             file,
             parentId: 'ROOT',
-            tags: `task-${selectedTask.id}`,
+            tags: `task-${selectedTask?.id}`,
           });
           uploadedFileIds.push(result.fileId);
         } catch (error) {
@@ -1717,17 +1717,17 @@ const TasksPage = () => {
 
       if (uploadedFileIds.length > 0) {
         // Get current attachments
-        const currentAttachments = JSON.parse(selectedTask.attachments || '[]');
+        const currentAttachments = JSON.parse(selectedTask?.attachments || '[]');
         const newAttachments = [...currentAttachments, ...uploadedFileIds];
 
         // Update task with new attachments
-        const result = await apiService.updateTask(selectedTask.id, {
+        const result = await apiService.updateTask(selectedTask?.id, {
           attachments: JSON.stringify(newAttachments),
         });
 
         if (result.success) {
           // Reload files
-          await loadTaskFiles(selectedTask.id, JSON.stringify(newAttachments));
+          await loadTaskFiles(selectedTask?.id, JSON.stringify(newAttachments), selectedTask?.assignee);
           
           // Update selected task
           const updatedTask = { ...selectedTask, attachments: JSON.stringify(newAttachments) };
@@ -1760,14 +1760,14 @@ const TasksPage = () => {
   };
 
   // Download and create preview for existing files
-  const createPreviewForExistingFile = async (file: FileItem) => {
+  const createPreviewForExistingFile = async (file: FileItem, assignee?: string) => {
     if (!file.mimeType?.startsWith('image/')) return;
 
     const fileKey = `${file.name}-${file.size}`;
     setLoadingPreviews(prev => new Set(prev).add(fileKey));
 
     try {
-      const result = await driveService.downloadFile(file.id);
+      const result = await driveService.downloadFile(file.id, assignee);
       
       // Set the download URL directly as preview
       setFilePreviews(prev => ({
@@ -1793,19 +1793,19 @@ const TasksPage = () => {
 
     try {
       // Delete file from drive
-      await driveService.deleteFile(fileId);
+      await driveService.deleteFile(fileId, selectedTask?.assignee);
 
       // Update task attachments
-      const currentAttachments = JSON.parse(selectedTask.attachments || '[]');
+      const currentAttachments = JSON.parse(selectedTask?.attachments || '[]');
       const newAttachments = currentAttachments.filter((id: string) => id !== fileId);
 
-      const result = await apiService.updateTask(selectedTask.id, {
+      const result = await apiService.updateTask(selectedTask?.id, {
         attachments: JSON.stringify(newAttachments),
       });
 
       if (result.success) {
         // Reload files
-        await loadTaskFiles(selectedTask.id, JSON.stringify(newAttachments));
+        await loadTaskFiles(selectedTask?.id, JSON.stringify(newAttachments), selectedTask?.assignee);
         
         // Update selected task
         const updatedTask = { ...selectedTask, attachments: JSON.stringify(newAttachments) };
@@ -1821,7 +1821,7 @@ const TasksPage = () => {
 
   const handleFileDownload = async (fileId: string, fileName: string) => {
     try {
-      const result = await driveService.downloadFile(fileId);
+      const result = await driveService.downloadFile(fileId, selectedTask?.assignee);
       
       // Open download URL in new tab
       window.open(result.downloadUrl, '_blank');
@@ -2719,6 +2719,7 @@ const TasksPage = () => {
               formHeight={formHeight}
               isDragging={isDragging}
               onMouseDown={handleMouseDown}
+              currentUser={user || undefined}
             />
           </div>
         </div>
