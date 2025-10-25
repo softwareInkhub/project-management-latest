@@ -2477,23 +2477,23 @@ const TasksPage = () => {
                  </div>
 
                    {/* Tags */}
-                   <div 
-                     className="flex items-center border-r border-gray-50 pr-2 min-w-0"
-                     style={{ width: `${columnWidths.tags}px` }}
-                   >
-                     <div className="flex items-center gap-1 overflow-hidden">
-                       {task.tags.split(',').slice(0, 1).map((tag, index) => (
-                         <span key={index} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full whitespace-nowrap">
-                         {tag.trim()}
-                       </span>
-                     ))}
-                       {task.tags.split(',').length > 1 && (
-                         <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full whitespace-nowrap">
-                           +{task.tags.split(',').length - 1}
-                       </span>
-                     )}
-                     </div>
-                   </div>
+                  <div 
+                    className="flex items-center border-r border-gray-50 pr-2 min-w-0"
+                    style={{ width: `${columnWidths.tags}px` }}
+                  >
+                    <div className="flex items-center gap-1 overflow-hidden">
+                      {task.tags && task.tags.split(',').slice(0, 1).map((tag, index) => (
+                        <span key={index} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full whitespace-nowrap">
+                        {tag.trim()}
+                      </span>
+                    ))}
+                      {task.tags && task.tags.split(',').length > 1 && (
+                        <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full whitespace-nowrap">
+                          +{task.tags.split(',').length - 1}
+                      </span>
+                    )}
+                    </div>
+                  </div>
                    
                    
                    {/* Due Date */}
@@ -2649,12 +2649,12 @@ const TasksPage = () => {
                       
                     {/* Tags - Show only first tag on mobile */}
                     <div className="flex flex-wrap gap-1">
-                      {task.tags.split(',').slice(0, 1).map((tag, index) => (
+                      {task.tags && task.tags.split(',').slice(0, 1).map((tag, index) => (
                         <span key={index} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
                           {tag.trim()}
                         </span>
                       ))}
-                      {task.tags.split(',').length > 1 && (
+                      {task.tags && task.tags.split(',').length > 1 && (
                         <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
                           +{task.tags.split(',').length - 1}
                         </span>
@@ -3186,11 +3186,15 @@ const TasksPage = () => {
                     <div>
                       <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Tags</label>
                         <div className="flex flex-wrap gap-2">
-                          {selectedTask.tags.split(',').map((tag, index) => (
-                          <span key={index} className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm rounded-full">
-                              {tag.trim()}
-                            </span>
-                          ))}
+                          {selectedTask.tags ? (
+                            selectedTask.tags.split(',').map((tag, index) => (
+                              <span key={index} className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm rounded-full">
+                                {tag.trim()}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-sm text-gray-500 dark:text-gray-400">No tags</span>
+                          )}
                         </div>
                       </div>
                   </div>

@@ -20,15 +20,12 @@ import {
   Eye,
   ChevronDown,
   ChevronRight,
-  ChevronLeft,
   Filter,
   Search,
   BarChart3,
   TrendingUp,
-  Activity,
-  ListTodo
+  Activity
 } from 'lucide-react';
-import { TaskCreationModal } from './TaskCreationModal';
 
 interface SprintFormData {
   name: string;
@@ -77,9 +74,6 @@ export default function SprintStoriesPage() {
   const [editingSprint, setEditingSprint] = useState<Sprint | null>(null);
   const [editingStory, setEditingStory] = useState<Story | null>(null);
   const [expandedStories, setExpandedStories] = useState<Set<string>>(new Set());
-  const [showTaskCreationModal, setShowTaskCreationModal] = useState(false);
-  const [selectedStoryForTask, setSelectedStoryForTask] = useState<{ id: string; title: string } | null>(null);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   
   // Search and filter state
   const [searchTerm, setSearchTerm] = useState('');
@@ -358,10 +352,10 @@ export default function SprintStoriesPage() {
   const getTasksByStatus = (story: Story) => {
     const tasks = getTasksForStory(story);
     return {
-      todo: tasks.filter(t => t && (t.task_status === 'to_do' || t.task_status === 'backlog' || t.task_status?.toLowerCase().includes('to do'))),
-      in_progress: tasks.filter(t => t && (t.task_status === 'in_progress' || t.task_status?.toLowerCase().includes('progress'))),
-      completed: tasks.filter(t => t && (t.task_status === 'completed' || t.task_status === 'done' || t.task_status?.toLowerCase().includes('complet'))),
-      overdue: tasks.filter(t => t && (t.task_status === 'overdue' || t.task_status?.toLowerCase().includes('overdue')))
+      todo: tasks.filter(t => t && (t.task_status === 'backlog' || t.task_status === 'to_do')),
+      in_progress: tasks.filter(t => t && t.task_status === 'in_progress'),
+      review: tasks.filter(t => t && t.task_status === 'review'),
+      done: tasks.filter(t => t && t.task_status === 'done')
     };
   };
 
@@ -430,58 +424,6 @@ export default function SprintStoriesPage() {
     setSelectedExistingTask('');
   };
 
-  const handleCreateTaskForStory = async (taskData: any) => {
-    try {
-      // Create the task first
-      const result = await apiService.createTask(taskData);
-      if (result.success && result.data) {
-        const newTask = result.data;
-        
-        // Now associate this task with the story
-        const story = stories.find(s => s.id === taskData.story_id);
-        if (story) {
-          const updatedTasks = [
-            ...(story.tasks || []),
-            {
-              task_id: newTask.id,
-              title: newTask.title,
-              status: newTask.status,
-              assigned_to: newTask.assignee
-            }
-          ];
-          
-          // Update the story with the new task
-          const updateResult = await apiService.updateStory(story.id, {
-            ...story,
-            tasks: updatedTasks
-          });
-          
-          if (updateResult.success) {
-            // Reload tasks
-            const tasksRes = await apiService.getTasks();
-            if (tasksRes.success) {
-              setExistingTasks(tasksRes.data || []);
-            }
-            // Reload stories to get updated task associations
-            const storiesRes = await apiService.getStories();
-            if (storiesRes.success) {
-              setStories(storiesRes.data || []);
-            }
-            alert('Task created and associated with story successfully!');
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error creating task:', error);
-      alert('Failed to create task. Please try again.');
-    }
-  };
-
-  const openTaskCreationModal = (storyId: string, storyTitle: string) => {
-    setSelectedStoryForTask({ id: storyId, title: storyTitle });
-    setShowTaskCreationModal(true);
-  };
-
   const getProjectName = (projectId: string) => {
     const project = projects.find(p => p.id === projectId);
     return project?.name || projectId;
@@ -532,217 +474,141 @@ export default function SprintStoriesPage() {
     <AppLayout>
       <div className="h-screen flex bg-gray-50 dark:bg-gray-900">
         {/* Left Sidebar - Sprints List */}
-        <div className={`${isSidebarCollapsed ? 'w-16' : 'w-72'} bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col transition-all duration-300`}>
+        <div className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
           {/* Sidebar Header */}
-          <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-750">
-            <div className="flex items-center justify-between mb-3">
-              {!isSidebarCollapsed ? (
-                <>
-                  <div className="flex items-center space-x-2">
-                    <Activity className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                    <h2 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide">Sprints</h2>
-                  </div>
-                  <div className="flex items-center space-x-1">
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Sprints</h2>
               <button
-                      onClick={() => {
-                        resetSprintForm();
-                        setEditingSprint(null);
-                        setShowSprintForm(true);
-                      }}
-                      className="p-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
-                      title="Add Sprint"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-              </button>
-              <button
-                      onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                      className="p-1.5 hover:bg-blue-100 dark:hover:bg-gray-700 rounded-md transition-colors"
-                      title="Collapse Sidebar"
-                    >
-                      <ChevronLeft className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <button
-                  onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                  className="w-full p-1.5 hover:bg-blue-100 dark:hover:bg-gray-700 rounded-md transition-colors"
-                  title="Expand Sidebar"
-                >
-                  <ChevronRight className="w-4 h-4 text-gray-600 dark:text-gray-400 mx-auto" />
-                </button>
-              )}
-            </div>
-            {!isSidebarCollapsed && (
-              <button
-                onClick={() => setSelectedSprintId(null)}
-                className={`w-full text-left px-3 py-2 rounded-lg transition-all text-xs font-semibold ${
-                  !selectedSprintId
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
-                }`}
+                onClick={() => {
+                  resetSprintForm();
+                  setEditingSprint(null);
+                  setShowSprintForm(true);
+                }}
+                className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                title="Add Sprint"
               >
-                <div className="flex items-center space-x-2">
-                  <BarChart3 className="w-3.5 h-3.5" />
-                  <span>All Sprints</span>
-                </div>
+                <Plus className="w-4 h-4" />
               </button>
-            )}
             </div>
+            <button
+              onClick={() => setSelectedSprintId(null)}
+              className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
+                !selectedSprintId
+                  ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-medium'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
+            >
+              All Sprints
+            </button>
+          </div>
 
           {/* Sprints List */}
-          <div className="flex-1 overflow-y-auto p-3">
-            {sprints.length === 0 ? (
-              <div className="text-center py-8 text-gray-400 dark:text-gray-500">
-                {!isSidebarCollapsed ? (
-                  <>
-                    <Activity className="w-10 h-10 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">No sprints yet</p>
-                  </>
-                ) : (
-                  <Activity className="w-6 h-6 mx-auto opacity-50" />
-                )}
-          </div>
-            ) : (
-              <div className={isSidebarCollapsed ? 'space-y-2' : 'space-y-2'}>
-                {sprints.map((sprint, index) => (
-                  isSidebarCollapsed ? (
-                    // Collapsed view - just number badge
-                    <div
-                      key={sprint.id}
-                      onClick={() => setSelectedSprintId(sprint.sprint_id)}
-                      className={`w-10 h-10 mx-auto rounded-lg cursor-pointer transition-all flex items-center justify-center font-bold ${
-                        selectedSprintId === sprint.sprint_id
-                          ? 'bg-blue-600 text-white shadow-md'
-                          : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-blue-100 dark:hover:bg-gray-600'
-                      }`}
-                      title={sprint.name}
-                    >
-                      {index + 1}
-        </div>
-                  ) : (
-                    // Expanded view - full card
-                    <div
-                      key={sprint.id}
-                      onClick={() => setSelectedSprintId(sprint.sprint_id)}
-                      className={`p-3 rounded-lg cursor-pointer transition-all border ${
-                        selectedSprintId === sprint.sprint_id
-                          ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-500 shadow-sm'
-                          : 'bg-white dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-sm'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center space-x-2">
-                          <div className={`w-7 h-7 rounded-md flex items-center justify-center text-sm font-bold ${
-                            selectedSprintId === sprint.sprint_id
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
-                          }`}>
-                            {index + 1}
-      </div>
-                          <span className={`text-sm font-bold ${
-                            selectedSprintId === sprint.sprint_id
-                              ? 'text-blue-900 dark:text-blue-100'
-                              : 'text-gray-900 dark:text-white'
-                          }`}>
-                            {sprint.name}
-                          </span>
-                        </div>
-                        <span className={`text-xs px-2 py-0.5 rounded-md font-semibold uppercase ${getStatusColor(sprint.status)}`}>
-                          {sprint.status}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1 mb-2 ml-9">
-                        {sprint.goal}
-                      </p>
-                      <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 ml-9 pt-2 border-t border-gray-200 dark:border-gray-600">
-                        <div className="flex items-center space-x-1">
-                          <Calendar className="w-3.5 h-3.5" />
-                          <span>{new Date(sprint.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-                        </div>
-                        <div className="flex items-center space-x-1 px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">
-                          <ListTodo className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                          <span className="font-semibold text-blue-900 dark:text-blue-100">{getStoriesForSprint(sprint.sprint_id).length}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                ))}
+          <div className="flex-1 overflow-y-auto p-4 space-y-2">
+            {sprints.map((sprint, index) => (
+              <div
+                key={sprint.id}
+                onClick={() => setSelectedSprintId(sprint.sprint_id)}
+                className={`p-3 rounded-lg cursor-pointer transition-all ${
+                  selectedSprintId === sprint.sprint_id
+                    ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-600 shadow-sm'
+                    : 'hover:bg-gray-100 dark:hover:bg-gray-700 border-l-4 border-transparent'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                    Sprint {index + 1}
+                  </span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusColor(sprint.status)}`}>
+                    {sprint.status}
+                  </span>
+                </div>
+                <h3 className="font-medium text-gray-900 dark:text-white mb-1 text-sm">
+                  {sprint.name}
+                </h3>
+                <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 mb-2">
+                  {sprint.goal}
+                </p>
+                <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                  <div className="flex items-center space-x-1">
+                    <Calendar className="w-3 h-3" />
+                    <span>{new Date(sprint.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <Activity className="w-3 h-3" />
+                    <span>{getStoriesForSprint(sprint.sprint_id).length} stories</span>
+                  </div>
+                </div>
               </div>
-            )}
+            ))}
           </div>
-      </div>
+        </div>
 
         {/* Main Content Area */}
         <div className="flex-1 overflow-y-auto">
           {!selectedSprintId ? (
             /* All Sprints View */
-            <div className="p-8 bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 min-h-full">
-              <div className="flex items-center justify-between mb-8 pb-6 border-b-2 border-gray-200 dark:border-gray-700">
-                <div>
-                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">All Sprints</h1>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Manage and track your sprint progress
-                  </p>
-                </div>
-              <button
-                onClick={() => {
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">All Sprints</h1>
+                <button
+                  onClick={() => {
                     resetStoryForm();
                     setEditingStory(null);
                     setShowStoryForm(true);
                   }}
-                  className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded-xl transition-all shadow-md hover:shadow-lg"
-              >
-                <Plus className="w-5 h-5" />
-                  <span className="font-semibold">Add Story</span>
-              </button>
-            </div>
+                  className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Story</span>
+                </button>
+              </div>
 
-            <div className="grid gap-6">
+              <div className="grid gap-6">
                 {sprints.map((sprint, index) => {
-                const sprintStories = getStoriesForSprint(sprint.sprint_id);
-                
-                return (
+                  const sprintStories = getStoriesForSprint(sprint.sprint_id);
+                  
+                  return (
                     <div key={sprint.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-                    {/* Sprint Header */}
+                      {/* Sprint Header */}
                       <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-700 dark:to-gray-750">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-4">
                             <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
                               <span className="text-white font-bold text-lg">{index + 1}</span>
                             </div>
-                          <div>
+                            <div>
                               <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                              {sprint.name}
+                                {sprint.name}
                               </h2>
                               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                              {sprint.goal}
-                            </p>
+                                {sprint.goal}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-4">
+                            <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${getStatusColor(sprint.status)}`}>
+                              {sprint.status}
+                            </span>
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() => openEditSprint(sprint)}
+                                className="p-2 hover:bg-white/50 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                                title="Edit Sprint"
+                              >
+                                <Edit className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteSprint(sprint.id)}
+                                className="p-2 hover:bg-white/50 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                                title="Delete Sprint"
+                              >
+                                <Trash2 className="w-4 h-4 text-red-500" />
+                              </button>
+                            </div>
                           </div>
                         </div>
-                        <div className="flex items-center space-x-4">
-                            <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${getStatusColor(sprint.status)}`}>
-                            {sprint.status}
-                          </span>
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => openEditSprint(sprint)}
-                                className="p-2 hover:bg-white/50 dark:hover:bg-gray-600 rounded-lg transition-colors"
-                            title="Edit Sprint"
-                          >
-                                <Edit className="w-4 h-4 text-gray-600 dark:text-gray-300" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteSprint(sprint.id)}
-                                className="p-2 hover:bg-white/50 dark:hover:bg-gray-600 rounded-lg transition-colors"
-                            title="Delete Sprint"
-                          >
-                            <Trash2 className="w-4 h-4 text-red-500" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
+                        
                         <div className="flex items-center space-x-6 mt-4 text-sm text-gray-600 dark:text-gray-400">
                           <div className="flex items-center space-x-2">
                             <Calendar className="w-4 h-4" />
@@ -761,8 +627,8 @@ export default function SprintStoriesPage() {
                             <span>{sprintStories.length} stories</span>
                           </div>
                         </div>
-                        </div>
-                        
+                      </div>
+
                       {/* Sprint Stories Preview */}
                       <div className="p-6">
                         {sprintStories.length === 0 ? (
@@ -774,15 +640,15 @@ export default function SprintStoriesPage() {
                             {sprintStories.slice(0, 4).map((story) => (
                               <div key={story.id} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border-l-4 border-blue-500">
                                 <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-2">
-                                        {story.title}
+                                  {story.title}
                                 </h4>
                                 <div className="flex items-center justify-between">
                                   <span className={`text-xs px-2 py-1 rounded ${getStatusColor(story.status)}`}>
-                                      {story.status}
-                                    </span>
+                                    {story.status}
+                                  </span>
                                   <span className={`text-xs px-2 py-1 rounded ${getPriorityColor(story.priority)}`}>
-                                      {story.priority}
-                                    </span>
+                                    {story.priority}
+                                  </span>
                                 </div>
                               </div>
                             ))}
@@ -798,44 +664,39 @@ export default function SprintStoriesPage() {
                           </button>
                         )}
                       </div>
-                  </div>
-                );
+                    </div>
+                  );
                 })}
+              </div>
             </div>
-          </div>
           ) : (
             /* Selected Sprint View with Stories and Tasks */
-            <div className="h-full flex flex-col bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
+            <div className="h-full flex flex-col">
               {/* Sprint Header */}
-              <div className="flex-shrink-0 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-750 border-b-2 border-blue-200 dark:border-gray-700 px-8 py-6 shadow-sm">
+              <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-6">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="p-3 bg-blue-600 rounded-xl shadow-md">
-                      <Target className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                        {selectedSprint?.name}
-                      </h1>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1.5">
-                        {selectedSprint?.goal}
-                      </p>
-                    </div>
+                  <div>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {selectedSprint?.name}
+                    </h1>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      {selectedSprint?.goal}
+                    </p>
                   </div>
-              <button
-                onClick={() => {
-                  resetStoryForm();
+                  <button
+                    onClick={() => {
+                      resetStoryForm();
                       setStoryFormData(prev => ({ ...prev, sprint_id: selectedSprint?.sprint_id || '' }));
-                  setEditingStory(null);
-                  setShowStoryForm(true);
-                }}
-                    className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded-xl transition-all shadow-md hover:shadow-lg"
-              >
-                <Plus className="w-5 h-5" />
-                    <span className="font-semibold">Add Story</span>
-              </button>
-            </div>
+                      setEditingStory(null);
+                      setShowStoryForm(true);
+                    }}
+                    className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add Story</span>
+                  </button>
                 </div>
+              </div>
 
               {/* Stories with Tasks */}
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
@@ -844,208 +705,163 @@ export default function SprintStoriesPage() {
                   const tasksByStatus = getTasksByStatus(story);
                   const totalTasks = (story.tasks || []).length;
                   
-                return (
+                  return (
                     <div key={story.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
                       {/* Story Header */}
-                      <div className="p-5 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-750">
-                    <div className="flex items-center justify-between">
+                      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center justify-between">
                           <button
                             onClick={() => toggleStoryExpansion(story.id)}
-                            className="flex items-center space-x-3 flex-1 text-left group"
+                            className="flex items-center space-x-3 flex-1 text-left"
                           >
-                            <div className="p-1.5 rounded-lg bg-white dark:bg-gray-700 shadow-sm group-hover:shadow-md transition-shadow">
-                              {isExpanded ? (
-                                <ChevronDown className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                              ) : (
-                                <ChevronRight className="w-5 h-5 text-gray-400" />
-                              )}
-                            </div>
+                            {isExpanded ? (
+                              <ChevronDown className="w-5 h-5 text-gray-500" />
+                            ) : (
+                              <ChevronRight className="w-5 h-5 text-gray-500" />
+                            )}
                             <div className="flex-1">
-                              <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                            {story.title}
-                          </h3>
-                              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-1">
-                            {story.description}
-                          </p>
-                          </div>
+                              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                {story.title}
+                              </h3>
+                              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                {story.description}
+                              </p>
+                            </div>
                           </button>
                           
                           <div className="flex items-center space-x-3">
-                            <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wide ${getStatusColor(story.status)}`}>
-                              {story.status.replace('_', ' ')}
-                        </span>
-                            <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wide ${getPriorityColor(story.priority)}`}>
-                          {story.priority}
-                        </span>
-                            <div className="flex items-center space-x-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                              <ListTodo className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                              <span className="text-sm font-semibold text-blue-900 dark:text-blue-100">{totalTasks}</span>
+                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(story.status)}`}>
+                              {story.status}
+                            </span>
+                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getPriorityColor(story.priority)}`}>
+                              {story.priority}
+                            </span>
+                            <div className="flex items-center space-x-2 text-sm text-gray-500">
+                              <CheckCircle className="w-4 h-4" />
+                              <span>{totalTasks} tasks</span>
                             </div>
-                            <div className="h-8 w-px bg-gray-300 dark:bg-gray-600"></div>
-                            <button
-                              onClick={() => openTaskCreationModal(story.id, story.title)}
-                              className="flex items-center space-x-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors shadow-sm hover:shadow-md"
-                              title="Create Task"
-                            >
-                              <Plus className="w-4 h-4" />
-                              <span className="text-sm font-medium">Task</span>
-                            </button>
-                          <button
-                            onClick={() => openEditStory(story)}
-                              className="p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                            title="Edit Story"
-                          >
-                              <Edit className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteStory(story.id)}
-                              className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                            title="Delete Story"
-                          >
-                            <Trash2 className="w-4 h-4 text-red-500" />
-                          </button>
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() => openEditStory(story)}
+                                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                                title="Edit Story"
+                              >
+                                <Edit className="w-4 h-4 text-gray-500" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteStory(story.id)}
+                                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                                title="Delete Story"
+                              >
+                                <Trash2 className="w-4 h-4 text-red-500" />
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
                       {/* Tasks organized by status */}
                       {isExpanded && (
-                        <div className="p-6 bg-gray-50 dark:bg-gray-900/50">
-                          <div className="grid grid-cols-4 gap-5">
+                        <div className="p-4">
+                          <div className="grid grid-cols-4 gap-4">
                             {/* To Do Column */}
-                            <div className="space-y-3">
-                              <div className="flex items-center justify-between pb-3 border-b-2 border-gray-300 dark:border-gray-600">
-                                <div className="flex items-center space-x-2">
-                                  <div className="w-2 h-2 rounded-full bg-gray-500"></div>
-                                  <h4 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide">
-                                    To Do
-                                  </h4>
-                  </div>
-                                <span className="text-xs px-2.5 py-1 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-full font-bold">
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between mb-3">
+                                <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase">
+                                  To Do
+                                </h4>
+                                <span className="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-full">
                                   {tasksByStatus.todo.length}
                                 </span>
                               </div>
-                              {tasksByStatus.todo.length === 0 ? (
-                                <div className="text-center py-8 text-gray-400 dark:text-gray-500 text-sm">
-                                  No tasks
-                                </div>
-                              ) : (
-                                tasksByStatus.todo.map((task: any) => (
-                                  <div key={task.id} className="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow">
-                                    <h5 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">
-                                      {task.title}
-                                    </h5>
-                                    <div className="flex items-center justify-between mt-3">
-                                      <span className={`text-xs px-2.5 py-1 rounded-md font-medium ${task.priority ? getPriorityColor(task.priority) : 'bg-gray-200'}`}>
-                                        {task.priority || 'medium'}
-                                      </span>
-                                      <Circle className="w-4 h-4 text-gray-400" />
-                                    </div>
+                              {tasksByStatus.todo.map((task: any) => (
+                                <div key={task.id} className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border-l-4 border-gray-400">
+                                  <h5 className="text-sm font-medium text-gray-900 dark:text-white mb-1">
+                                    {task.title}
+                                  </h5>
+                                  <div className="flex items-center justify-between mt-2">
+                                    <span className={`text-xs px-2 py-0.5 rounded ${task.priority ? getPriorityColor(task.priority) : 'bg-gray-200'}`}>
+                                      {task.priority || 'medium'}
+                                    </span>
+                                    <Circle className="w-3 h-3 text-gray-400" />
                                   </div>
-                                ))
-              )}
-            </div>
+                                </div>
+                              ))}
+                            </div>
 
                             {/* In Progress Column */}
-                            <div className="space-y-3">
-                              <div className="flex items-center justify-between pb-3 border-b-2 border-blue-500">
-                                <div className="flex items-center space-x-2">
-                                  <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                                  <h4 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide">
-                                    In Progress
-                                  </h4>
-          </div>
-                                <span className="text-xs px-2.5 py-1 bg-blue-100 dark:bg-blue-900/40 text-blue-900 dark:text-blue-100 rounded-full font-bold">
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between mb-3">
+                                <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase">
+                                  In Progress
+                                </h4>
+                                <span className="text-xs px-2 py-1 bg-blue-200 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-full">
                                   {tasksByStatus.in_progress.length}
                                 </span>
                               </div>
-                              {tasksByStatus.in_progress.length === 0 ? (
-                                <div className="text-center py-8 text-gray-400 dark:text-gray-500 text-sm">
-                                  No tasks
-                                </div>
-                              ) : (
-                                tasksByStatus.in_progress.map((task: any) => (
-                                  <div key={task.id} className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl shadow-sm border border-blue-200 dark:border-blue-800 hover:shadow-md transition-shadow">
-                                    <h5 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">
-                                      {task.title}
-                                    </h5>
-                                    <div className="flex items-center justify-between mt-3">
-                                      <span className={`text-xs px-2.5 py-1 rounded-md font-medium ${task.priority ? getPriorityColor(task.priority) : 'bg-gray-200'}`}>
-                                        {task.priority || 'medium'}
-                                      </span>
-                                      <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                                    </div>
+                              {tasksByStatus.in_progress.map((task: any) => (
+                                <div key={task.id} className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-l-4 border-blue-500">
+                                  <h5 className="text-sm font-medium text-gray-900 dark:text-white mb-1">
+                                    {task.title}
+                                  </h5>
+                                  <div className="flex items-center justify-between mt-2">
+                                    <span className={`text-xs px-2 py-0.5 rounded ${task.priority ? getPriorityColor(task.priority) : 'bg-gray-200'}`}>
+                                      {task.priority || 'medium'}
+                                    </span>
+                                    <Clock className="w-3 h-3 text-blue-500" />
                                   </div>
-                                ))
-                              )}
+                                </div>
+                              ))}
                             </div>
 
-                            {/* Completed Column */}
-                            <div className="space-y-3">
-                              <div className="flex items-center justify-between pb-3 border-b-2 border-green-500">
-                                <div className="flex items-center space-x-2">
-                                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                                  <h4 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide">
-                                    Completed
-                                  </h4>
-                                </div>
-                                <span className="text-xs px-2.5 py-1 bg-green-100 dark:bg-green-900/40 text-green-900 dark:text-green-100 rounded-full font-bold">
-                                  {tasksByStatus.completed.length}
+                            {/* Review Column */}
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between mb-3">
+                                <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase">
+                                  Review
+                                </h4>
+                                <span className="text-xs px-2 py-1 bg-purple-200 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 rounded-full">
+                                  {tasksByStatus.review.length}
                                 </span>
                               </div>
-                              {tasksByStatus.completed.length === 0 ? (
-                                <div className="text-center py-8 text-gray-400 dark:text-gray-500 text-sm">
-                                  No tasks
-                                </div>
-                              ) : (
-                                tasksByStatus.completed.map((task: any) => (
-                                  <div key={task.id} className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl shadow-sm border border-green-200 dark:border-green-800 hover:shadow-md transition-shadow">
-                                    <h5 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 line-through">
-                                      {task.title}
-                                    </h5>
-                                    <div className="flex items-center justify-between mt-3">
-                                      <span className={`text-xs px-2.5 py-1 rounded-md font-medium ${task.priority ? getPriorityColor(task.priority) : 'bg-gray-200'}`}>
-                                        {task.priority || 'medium'}
-                                      </span>
-                                      <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                                    </div>
+                              {tasksByStatus.review.map((task: any) => (
+                                <div key={task.id} className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border-l-4 border-purple-500">
+                                  <h5 className="text-sm font-medium text-gray-900 dark:text-white mb-1">
+                                    {task.title}
+                                  </h5>
+                                  <div className="flex items-center justify-between mt-2">
+                                    <span className={`text-xs px-2 py-0.5 rounded ${task.priority ? getPriorityColor(task.priority) : 'bg-gray-200'}`}>
+                                      {task.priority || 'medium'}
+                                    </span>
+                                    <Eye className="w-3 h-3 text-purple-500" />
                                   </div>
-                                ))
-                              )}
+                                </div>
+                              ))}
                             </div>
 
-                            {/* Overdue Column */}
-                            <div className="space-y-3">
-                              <div className="flex items-center justify-between pb-3 border-b-2 border-red-500">
-                                <div className="flex items-center space-x-2">
-                                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
-                                  <h4 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide">
-                                    Overdue
-                                  </h4>
-                                </div>
-                                <span className="text-xs px-2.5 py-1 bg-red-100 dark:bg-red-900/40 text-red-900 dark:text-red-100 rounded-full font-bold">
-                                  {tasksByStatus.overdue.length}
+                            {/* Done Column */}
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between mb-3">
+                                <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase">
+                                  Done
+                                </h4>
+                                <span className="text-xs px-2 py-1 bg-green-200 dark:bg-green-900/40 text-green-700 dark:text-green-300 rounded-full">
+                                  {tasksByStatus.done.length}
                                 </span>
                               </div>
-                              {tasksByStatus.overdue.length === 0 ? (
-                                <div className="text-center py-8 text-gray-400 dark:text-gray-500 text-sm">
-                                  No tasks
-                                </div>
-                              ) : (
-                                tasksByStatus.overdue.map((task: any) => (
-                                  <div key={task.id} className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl shadow-sm border border-red-200 dark:border-red-800 hover:shadow-md transition-shadow">
-                                    <h5 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">
-                                      {task.title}
-                                    </h5>
-                                    <div className="flex items-center justify-between mt-3">
-                                      <span className={`text-xs px-2.5 py-1 rounded-md font-medium ${task.priority ? getPriorityColor(task.priority) : 'bg-gray-200'}`}>
-                                        {task.priority || 'medium'}
-                                      </span>
-                                      <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
-                                    </div>
+                              {tasksByStatus.done.map((task: any) => (
+                                <div key={task.id} className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border-l-4 border-green-500 opacity-75">
+                                  <h5 className="text-sm font-medium text-gray-900 dark:text-white mb-1 line-through">
+                                    {task.title}
+                                  </h5>
+                                  <div className="flex items-center justify-between mt-2">
+                                    <span className={`text-xs px-2 py-0.5 rounded ${task.priority ? getPriorityColor(task.priority) : 'bg-gray-200'}`}>
+                                      {task.priority || 'medium'}
+                                    </span>
+                                    <CheckCircle className="w-3 h-3 text-green-500" />
                                   </div>
-                                ))
-                              )}
+                                </div>
+                              ))}
                             </div>
                           </div>
                         </div>
@@ -1464,21 +1280,6 @@ export default function SprintStoriesPage() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Task Creation Modal */}
-      {showTaskCreationModal && selectedStoryForTask && (
-        <TaskCreationModal
-          isOpen={showTaskCreationModal}
-          onClose={() => {
-            setShowTaskCreationModal(false);
-            setSelectedStoryForTask(null);
-          }}
-          onCreateTask={handleCreateTaskForStory}
-          storyId={selectedStoryForTask.id}
-          storyTitle={selectedStoryForTask.title}
-          users={users}
-        />
       )}
     </AppLayout>
   );
