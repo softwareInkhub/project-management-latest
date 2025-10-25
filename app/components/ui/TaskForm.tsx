@@ -782,7 +782,7 @@ export function TaskForm({
       </div>
 
       {/* Sticky Form Actions */}
-      <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 sm:p-6 z-10 pb-20 sm:pb-6">
+      <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 sm:p-6 z-10 pb-24 sm:pb-6">
         <div className="flex justify-end space-x-3">
           <Button
             type="button"
