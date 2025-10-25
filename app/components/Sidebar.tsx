@@ -230,13 +230,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onMobile
       {/* Mobile Overlay */}
       {isMobileOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 bg-opacity-50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black/50 bg-opacity-50 z-[55] lg:hidden"
           onClick={toggleMobileSidebar}
         />
       )}
 
       {/* Mobile Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 shadow-lg transform transition-transform duration-300 ease-in-out lg:hidden ${
+      <div className={`fixed inset-y-0 left-0 z-[60] w-64 bg-white dark:bg-gray-800 shadow-lg transform transition-transform duration-300 ease-in-out lg:hidden ${
         isMobileOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
      

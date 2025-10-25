@@ -324,36 +324,27 @@ export function TaskForm({
         </div>
       )}
       
-      <div className="p-6 flex-1 overflow-y-auto">
+      <div className="p-4 sm:p-6 flex-1 overflow-y-auto">
         {/* Modern Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
-              <FileText className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">
-                {isEditing ? 'Edit Task' : isCreatingSubtask ? 'Create New Subtask' : 'Create New Task'}
-              </h2>
-              <p className="text-sm text-gray-600 mt-1">
-                {isEditing ? 'Update the task details below' : isCreatingSubtask ? 'This task will automatically be added as a subtask' : 'Fill in the details to create a new task'}
-              </p>
-            </div>
+        <div className="flex items-center gap-3 mb-4 sm:mb-6">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+            <FileText className="w-5 h-5 text-white" />
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onCancel}
-          >
-            <X className="w-5 h-5" />
-          </Button>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900 truncate">
+              {isEditing ? 'Edit Task' : isCreatingSubtask ? 'Create New Subtask' : 'Create New Task'}
+            </h2>
+            <p className="text-xs sm:text-sm text-gray-600 mt-1 break-words">
+              {isEditing ? 'Update the task details below' : isCreatingSubtask ? 'This task will automatically be added as a subtask' : 'Fill in the details to create a new task'}
+            </p>
+          </div>
         </div>
         
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
           {/* Basic Information */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="md:col-span-2">
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-6 shadow-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+              <div className="sm:col-span-2">
                 <label className="block text-sm font-semibold text-gray-800 mb-2">
                   Task Title *
                 </label>
@@ -371,7 +362,7 @@ export function TaskForm({
                 )}
               </div>
 
-              <div className="md:col-span-2">
+              <div className="sm:col-span-2">
                 <label className="block text-sm font-semibold text-gray-800 mb-2">
                   Description *
                 </label>
@@ -393,7 +384,7 @@ export function TaskForm({
           </div>
 
           {/* File Attachments */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-6 shadow-sm">
             <label className="block text-sm font-semibold text-gray-800 mb-4">
               File Attachments
             </label>
@@ -487,8 +478,70 @@ export function TaskForm({
           </div>
 
           {/* Project, Status and Priority */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-6 shadow-sm">
+            {/* Mobile: Project full width, Status+Priority on next line */}
+            <div className="block sm:hidden space-y-4">
+              {/* Project - Full Width on Mobile */}
+              <div className="w-full">
+                <label className="block text-sm font-semibold text-gray-800 mb-2">
+                  Project *
+                </label>
+                <Select
+                  value={formData.project || ''}
+                  onChange={(e) => handleInputChange('project', e.target.value)}
+                  options={[
+                    { value: '', label: 'Select Project' },
+                    ...projects.map(project => ({ value: project, label: project }))
+                  ]}
+                  className={`w-full h-12 text-base ${errors.project ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500 focus:border-blue-500'}`}
+                />
+                {errors.project && (
+                  <p className="text-red-500 text-sm mt-2 flex items-center gap-1">
+                    <span className="w-1 h-1 bg-red-500 rounded-full"></span>
+                    {errors.project}
+                  </p>
+                )}
+              </div>
+
+              {/* Status and Priority - Side by Side on Mobile */}
+              <div className="grid grid-cols-5 gap-25">
+                <div className="col-span-2">
+                  <label className="block text-sm font-semibold text-gray-800 mb-2">
+                    Status
+                  </label>
+                  <Select
+                    value={formData.status || 'To Do'}
+                    onChange={(e) => handleInputChange('status', e.target.value)}
+                    options={[
+                      { value: 'To Do', label: 'To Do' },
+                      { value: 'In Progress', label: 'In Progress' },
+                      { value: 'Completed', label: 'Completed' },
+                      { value: 'Overdue', label: 'Overdue' }
+                    ]}
+                    className="h-12 text-base focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+
+                <div className="col-span-3">
+                  <label className="block text-sm font-semibold text-gray-800 mb-2">
+                    Priority
+                  </label>
+                  <Select
+                    value={formData.priority || 'Medium'}
+                    onChange={(e) => handleInputChange('priority', e.target.value)}
+                    options={[
+                      { value: 'Low', label: 'Low' },
+                      { value: 'Medium', label: 'Medium' },
+                      { value: 'High', label: 'High' }
+                    ]}
+                    className="h-12 text-base focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Desktop: Original 3-column layout */}
+            <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               <div>
                 <label className="block text-sm font-semibold text-gray-800 mb-2">
                   Project *
@@ -546,7 +599,7 @@ export function TaskForm({
           </div>
 
           {/* Assignment Details */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-6 shadow-sm">
             {/* Assigned Users - Multi-select */}
             <div className="mb-6">
               <label className="block text-sm font-semibold text-gray-800 mb-2 flex items-center">
@@ -665,8 +718,8 @@ export function TaskForm({
           </div>
 
           {/* Dates and Time */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-6 shadow-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               <div>
                 <label className="block text-sm font-semibold text-gray-800 mb-2">
                   Start Date *
@@ -758,7 +811,7 @@ export function TaskForm({
           </div>
 
           {/* Tags */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-6 shadow-sm">
             <div>
               <label className="block text-sm font-semibold text-gray-800 mb-2">
                 Tags
@@ -782,12 +835,13 @@ export function TaskForm({
       </div>
 
       {/* Sticky Form Actions */}
-      <div className="sticky bottom-0 bg-white border-t border-gray-200 p-6">
+      <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 sm:p-6 z-10 pb-20 sm:pb-6">
         <div className="flex justify-end space-x-3">
           <Button
             type="button"
             variant="outline"
             onClick={onCancel}
+            className="flex-1 sm:flex-none"
           >
             Cancel
           </Button>
@@ -798,6 +852,7 @@ export function TaskForm({
               handleSubmit(e as any);
             }}
             disabled={isUploadingAll}
+            className="flex-1 sm:flex-none"
           >
             {isUploadingAll ? (
               <>
