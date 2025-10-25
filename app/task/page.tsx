@@ -214,7 +214,13 @@ const TasksPage = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [projectFilter, setProjectFilter] = useState('all');
-  const [viewMode, setViewMode] = useState<'list' | 'card'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'card'>(() => {
+    // Set card view as default for mobile, list view for desktop
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 640 ? 'card' : 'list';
+    }
+    return 'list'; // Default fallback
+  });
   const [activePredefinedFilter, setActivePredefinedFilter] = useState('all');
   const [advancedFilters, setAdvancedFilters] = useState<Record<string, string | string[]>>({});
   const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
@@ -2071,6 +2077,18 @@ const TasksPage = () => {
     };
   }, [isDragging]);
 
+  // Handle window resize to update view mode based on screen size
+  useEffect(() => {
+    const handleResize = () => {
+      const isMobile = window.innerWidth < 640;
+      const newViewMode = isMobile ? 'card' : 'list';
+      setViewMode(newViewMode);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   return (
     <AppLayout onCreateTask={handleCreateTask}>
       <div className="w-full px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8 overflow-x-hidden">
@@ -2121,7 +2139,7 @@ const TasksPage = () => {
         </div>
 
         {/* Analytics Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {/* Total Tasks */}
           <StatsCard
             title="Total Tasks"
@@ -2244,14 +2262,232 @@ const TasksPage = () => {
 
          {/* Tasks Table */}
          {!isLoading && !error && viewMode === 'list' ? (
-           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+           <>
+             {/* Mobile List View - Same as Desktop Table */}
+             <div className="block sm:hidden bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+               <div className="overflow-x-auto">
+                 {/* Mobile Table Header */}
+                 <div className="bg-gray-100 border-b border-gray-200 px-4 py-3">
+                   <div className="flex text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[900px]">
+                     {/* Task Name */}
+                     <div className="flex items-center border-r border-gray-200 pr-4 bg-gradient-to-r from-gray-100 to-gray-200" style={{ width: '160px' }}>
+                       <span className="whitespace-nowrap">Task Name</span>
+                     </div>
+                     
+                     {/* Project */}
+                     <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: '110px' }}>
+                       <span className="whitespace-nowrap">Project</span>
+                     </div>
+                     
+                     {/* Task Description */}
+                     <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: '140px' }}>
+                       <span className="whitespace-nowrap">Description</span>
+                     </div>
+                     
+                     {/* Status */}
+                     <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: '90px' }}>
+                       <span className="whitespace-nowrap">Status</span>
+                     </div>
+                     
+                     {/* Priority */}
+                     <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: '90px' }}>
+                       <span className="whitespace-nowrap">Priority</span>
+                     </div>
+                     
+                     {/* Time */}
+                     <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: '70px' }}>
+                       <span className="whitespace-nowrap">Time</span>
+                     </div>
+                     
+                     {/* Comments */}
+                     <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: '90px' }}>
+                       <span className="whitespace-nowrap">Comments</span>
+                     </div>
+                     
+                     {/* Subtasks */}
+                     <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: '90px' }}>
+                       <span className="whitespace-nowrap">Subtasks</span>
+                     </div>
+                     
+                     {/* Tags */}
+                     <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: '110px' }}>
+                       <span className="whitespace-nowrap">Tags</span>
+                     </div>
+                     
+                     {/* Due Date */}
+                     <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: '110px' }}>
+                       <span className="whitespace-nowrap">Due Date</span>
+                     </div>
+                     
+                     {/* Actions */}
+                     <div className="flex items-center pl-2" style={{ width: '90px' }}>
+                       <span className="whitespace-nowrap">Actions</span>
+                     </div>
+                   </div>
+                 </div>
+                 
+                 {/* Mobile Table Body */}
+                 <div className="divide-y divide-gray-50">
+                   {filteredTasks.map((task, index) => (
+                     <div key={task.id} className={`flex px-4 py-3 cursor-pointer transition-all duration-200 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 hover:shadow-sm ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} min-w-[900px]`} onClick={() => handleTaskClick(task)}>
+                       {/* Task Name */}
+                       <div className="flex items-center border-r border-gray-200 pr-4 min-w-0" style={{ width: '160px' }}>
+                         <h3 className={`text-sm font-semibold ${task.status === 'Completed' ? 'line-through text-gray-500' : 'text-gray-900'} truncate whitespace-nowrap`}>
+                           {task.title}
+                         </h3>
+                       </div>
+                       
+                       {/* Project */}
+                       <div className="flex items-center border-r border-gray-200 pr-4 min-w-0" style={{ width: '110px' }}>
+                         <span className="text-sm text-gray-900 truncate whitespace-nowrap">
+                           {task.project}
+                         </span>
+                       </div>
+                       
+                       {/* Task Description */}
+                       <div className="flex items-center border-r border-gray-200 pr-4 min-w-0" style={{ width: '140px' }}>
+                         <p className="text-sm text-gray-600 truncate whitespace-nowrap">
+                           {task.description}
+                         </p>
+                       </div>
+                       
+                       {/* Status */}
+                       <div className="flex items-center justify-center border-r border-gray-200 pr-4" style={{ width: '90px' }}>
+                         <Badge variant={getStatusConfig(task.status).color as any} size="sm" className="whitespace-nowrap">
+                           {getStatusConfig(task.status).label}
+                         </Badge>
+                       </div>
+                       
+                       {/* Priority */}
+                       <div className="flex items-center justify-center border-r border-gray-200 pr-4" style={{ width: '90px' }}>
+                         <Badge variant={getPriorityConfig(task.priority).color as any} size="sm" className="whitespace-nowrap">
+                           {getPriorityConfig(task.priority).label}
+                         </Badge>
+                       </div>
+                       
+                       {/* Time */}
+                       <div className="flex items-center justify-center border-r border-gray-200 pr-4" style={{ width: '70px' }}>
+                         <span className="text-sm text-gray-600 whitespace-nowrap">{task.estimatedHours}h</span>
+                       </div>
+                       
+                       {/* Comments */}
+                       <div className="flex items-center justify-center border-r border-gray-200 pr-4 min-w-0" style={{ width: '90px' }}>
+                         <span className="text-sm text-gray-600 whitespace-nowrap">
+                           {(() => {
+                             try {
+                               const commentsArray = JSON.parse(task.comments);
+                               return Array.isArray(commentsArray) ? commentsArray.length : parseInt(task.comments) || 0;
+                             } catch (e) {
+                               return parseInt(task.comments) || 0;
+                             }
+                           })()}
+                         </span>
+                       </div>
+                       
+                       {/* Subtasks */}
+                       <div className="flex items-center justify-center border-r border-gray-200 pr-4 min-w-0" style={{ width: '90px' }}>
+                         <span className="text-sm text-gray-600 whitespace-nowrap">
+                           {(() => {
+                             try {
+                               const subtasksArray = JSON.parse(task.subtasks);
+                               return Array.isArray(subtasksArray) ? subtasksArray.length : 0;
+                             } catch (e) {
+                               return 0;
+                             }
+                           })()}
+                         </span>
+                       </div>
+                       
+                       {/* Tags */}
+                       <div className="flex items-center justify-center border-r border-gray-200 pr-4 min-w-0" style={{ width: '110px' }}>
+                         <div className="flex items-center gap-1 overflow-hidden">
+                           {(task.tags || '').split(',').slice(0, 1).map((tag, index) => (
+                             <span key={index} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full whitespace-nowrap">
+                               {tag.trim()}
+                             </span>
+                           ))}
+                           {(task.tags || '').split(',').length > 1 && (
+                             <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full whitespace-nowrap">
+                               +{(task.tags || '').split(',').length - 1}
+                             </span>
+                           )}
+                         </div>
+                       </div>
+                       
+                       {/* Due Date */}
+                       <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: '110px' }}>
+                         <span className={`text-sm whitespace-nowrap ${isOverdue(task.dueDate) ? 'text-red-600 font-medium' : 'text-gray-600'}`}>
+                           {new Date(task.dueDate).toLocaleDateString()}
+                         </span>
+                       </div>
+                       
+                       {/* Actions */}
+                       <div className="flex items-center justify-end space-x-2 pl-2" style={{ width: '90px' }}>
+                         <Button 
+                           variant="ghost" 
+                           size="sm"
+                           title="Edit Task"
+                           className="p-2 h-9 w-9 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-all duration-200 hover:shadow-sm"
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             handleEditTask(task);
+                           }}
+                         >
+                           <Edit size={16} />
+                         </Button>
+                         <div className="relative">
+                           <Button 
+                             variant="ghost" 
+                             size="sm"
+                             title="More Options"
+                             className="p-2 h-9 w-9 hover:bg-gray-100 rounded-lg transition-all duration-200 hover:shadow-sm"
+                             onClick={(e) => {
+                               e.stopPropagation();
+                               setOpenDropdown(openDropdown === task.id ? null : task.id);
+                             }}
+                           >
+                             <MoreVertical size={16} />
+                           </Button>
+                           
+                           {/* Dropdown Menu */}
+                           {openDropdown === task.id && (
+                             <div 
+                               data-dropdown-menu
+                               className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
+                               onClick={(e) => e.stopPropagation()}
+                             >
+                               <div className="py-1">
+                                 <button
+                                   onClick={(e) => {
+                                     e.stopPropagation();
+                                     handleDeleteTask(task);
+                                     setOpenDropdown(null);
+                                   }}
+                                   className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center space-x-2"
+                                 >
+                                   <Trash2 className="w-4 h-4" />
+                                   <span>Delete Task</span>
+                                 </button>
+                               </div>
+                             </div>
+                           )}
+                         </div>
+                       </div>
+                     </div>
+                   ))}
+                 </div>
+               </div>
+             </div>
+
+             {/* Desktop Table View */}
+             <div className="hidden sm:block bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
              <div className="overflow-x-auto">
              {/* Table Header */}
              <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 px-4 py-3">
                <div className="flex text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
                  {/* Task Name */}
                  <div 
-                   className="flex items-center border-r border-gray-50 pr-2"
+                   className="flex items-center justify-center border-r border-gray-50 pr-2"
                    style={{ width: `${columnWidths.taskName}px` }}
                  >
                    <span className="whitespace-nowrap">Task Name</span>
@@ -2263,7 +2499,7 @@ const TasksPage = () => {
                  
                  {/* Project */}
                  <div 
-                   className="flex items-center border-r border-gray-50 pr-2"
+                   className="flex items-center justify-center border-r border-gray-50 pr-2"
                    style={{ width: `${columnWidths.project}px` }}
                  >
                    <span className="whitespace-nowrap">Project</span>
@@ -2275,7 +2511,7 @@ const TasksPage = () => {
                  
                  {/* Task Description */}
                  <div 
-                   className="flex items-center border-r border-gray-50 pr-2"
+                   className="flex items-center justify-center border-r border-gray-50 pr-2"
                    style={{ width: `${columnWidths.taskDescription}px` }}
                  >
                    <span className="whitespace-nowrap">Task Description</span>
@@ -2287,7 +2523,7 @@ const TasksPage = () => {
                    
                  {/* Status */}
                  <div 
-                   className="flex items-center border-r border-gray-50 pr-2"
+                   className="flex items-center justify-center border-r border-gray-50 pr-2"
                    style={{ width: `${columnWidths.status}px` }}
                  >
                    <span className="whitespace-nowrap">Status</span>
@@ -2299,7 +2535,7 @@ const TasksPage = () => {
                  
                  {/* Priority */}
                  <div 
-                   className="flex items-center border-r border-gray-50 pr-2"
+                   className="flex items-center justify-center border-r border-gray-50 pr-2"
                    style={{ width: `${columnWidths.priority}px` }}
                  >
                    <span className="whitespace-nowrap">Priority</span>
@@ -2311,7 +2547,7 @@ const TasksPage = () => {
                  
                  {/* Time */}
                  <div 
-                   className="flex items-center border-r border-gray-50 pr-2"
+                   className="flex items-center justify-center border-r border-gray-50 pr-2"
                    style={{ width: `${columnWidths.time}px` }}
                  >
                    <span className="whitespace-nowrap">Time</span>
@@ -2323,7 +2559,7 @@ const TasksPage = () => {
                  
                  {/* Comments */}
                  <div 
-                   className="flex items-center border-r border-gray-50 pr-3 min-w-0"
+                   className="flex items-center justify-center border-r border-gray-50 pr-3 min-w-0"
                    style={{ width: `${columnWidths.comments}px` }}
                  >
                    <span className="whitespace-nowrap">Comments</span>
@@ -2335,7 +2571,7 @@ const TasksPage = () => {
 
                  {/* Subtasks */}
                  <div 
-                   className="flex items-center border-r border-gray-50 pr-3 min-w-0"
+                   className="flex items-center justify-center border-r border-gray-50 pr-3 min-w-0"
                    style={{ width: `${columnWidths.subtasks}px` }}
                  >
                    <span className="whitespace-nowrap">Subtasks</span>
@@ -2347,7 +2583,7 @@ const TasksPage = () => {
                      
                  {/* Tags */}
                  <div 
-                   className="flex items-center border-r border-gray-50 pr-2 min-w-0"
+                   className="flex items-center justify-center border-r border-gray-50 pr-2 min-w-0"
                    style={{ width: `${columnWidths.tags}px` }}
                  >
                    <span className="whitespace-nowrap">Tags</span>
@@ -2360,7 +2596,7 @@ const TasksPage = () => {
                  
                  {/* Due Date */}
                  <div 
-                   className="flex items-center border-r border-gray-50 pr-2"
+                   className="flex items-center justify-center border-r border-gray-50 pr-2"
                    style={{ width: `${columnWidths.dueDate}px` }}
                  >
                    <span className="whitespace-nowrap">Due Date</span>
@@ -2372,7 +2608,7 @@ const TasksPage = () => {
                  
                  {/* Actions */}
                  <div 
-                   className="flex items-center"
+                   className="flex items-center justify-center"
                    style={{ width: `${columnWidths.actions}px` }}
                  >
                    <span className="whitespace-nowrap">Actions</span>
@@ -2386,7 +2622,7 @@ const TasksPage = () => {
                  <div key={task.id} className={`flex px-4 py-3 cursor-pointer transition-all duration-200 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 hover:shadow-sm ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`} onClick={() => handleTaskClick(task)}>
                    {/* Task Name */}
                    <div 
-                     className="flex items-center border-r border-gray-50 pr-2 min-w-0"
+                     className="flex items-center justify-center border-r border-gray-50 pr-2 min-w-0"
                      style={{ width: `${columnWidths.taskName}px` }}
                    >
                      <h3 className={`text-sm font-semibold ${task.status === 'Completed' ? 'line-through text-gray-500' : 'text-gray-900'} truncate whitespace-nowrap`}>
@@ -2396,7 +2632,7 @@ const TasksPage = () => {
                    
                    {/* Project */}
                    <div 
-                     className="flex items-center border-r border-gray-50 pr-2 min-w-0"
+                     className="flex items-center justify-center border-r border-gray-50 pr-2 min-w-0"
                      style={{ width: `${columnWidths.project}px` }}
                    >
                      <span className="text-sm text-gray-900 truncate whitespace-nowrap">
@@ -2406,7 +2642,7 @@ const TasksPage = () => {
                    
                    {/* Task Description */}
                    <div 
-                     className="flex items-center border-r border-gray-50 pr-2 min-w-0"
+                     className="flex items-center justify-center border-r border-gray-50 pr-2 min-w-0"
                      style={{ width: `${columnWidths.taskDescription}px` }}
                    >
                      <p className="text-sm text-gray-600 truncate whitespace-nowrap">
@@ -2416,7 +2652,7 @@ const TasksPage = () => {
                        
                    {/* Status */}
                    <div 
-                     className="flex items-center border-r border-gray-50 pr-2"
+                     className="flex items-center justify-center border-r border-gray-50 pr-2"
                      style={{ width: `${columnWidths.status}px` }}
                    >
                            <Badge variant={getStatusConfig(task.status).color as any} size="sm" className="whitespace-nowrap">
@@ -2426,7 +2662,7 @@ const TasksPage = () => {
                    
                    {/* Priority */}
                    <div 
-                     className="flex items-center border-r border-gray-50 pr-2"
+                     className="flex items-center justify-center border-r border-gray-50 pr-2"
                      style={{ width: `${columnWidths.priority}px` }}
                    >
                            <Badge variant={getPriorityConfig(task.priority).color as any} size="sm" className="whitespace-nowrap">
@@ -2436,7 +2672,7 @@ const TasksPage = () => {
                    
                    {/* Time */}
                    <div 
-                     className="flex items-center border-r border-gray-50 pr-2"
+                     className="flex items-center justify-center border-r border-gray-50 pr-2"
                      style={{ width: `${columnWidths.time}px` }}
                    >
                      <span className="text-sm text-gray-600 whitespace-nowrap">{task.estimatedHours}h</span>
@@ -2444,7 +2680,7 @@ const TasksPage = () => {
                    
                    {/* Comments */}
                    <div 
-                     className="flex items-center border-r border-gray-50 pr-3 min-w-0"
+                     className="flex items-center justify-center border-r border-gray-50 pr-3 min-w-0"
                      style={{ width: `${columnWidths.comments}px` }}
                    >
                      <span className="text-sm text-gray-600 whitespace-nowrap">
@@ -2461,7 +2697,7 @@ const TasksPage = () => {
                    
                    {/* Subtasks */}
                    <div 
-                     className="flex items-center border-r border-gray-50 pr-3 min-w-0"
+                     className="flex items-center justify-center border-r border-gray-50 pr-3 min-w-0"
                      style={{ width: `${columnWidths.subtasks}px` }}
                    >
                      <span className="text-sm text-gray-600 whitespace-nowrap">
@@ -2477,28 +2713,28 @@ const TasksPage = () => {
                  </div>
 
                    {/* Tags */}
-                  <div 
-                    className="flex items-center border-r border-gray-50 pr-2 min-w-0"
-                    style={{ width: `${columnWidths.tags}px` }}
-                  >
-                    <div className="flex items-center gap-1 overflow-hidden">
-                      {task.tags && task.tags.split(',').slice(0, 1).map((tag, index) => (
-                        <span key={index} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full whitespace-nowrap">
-                        {tag.trim()}
-                      </span>
-                    ))}
-                      {task.tags && task.tags.split(',').length > 1 && (
-                        <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full whitespace-nowrap">
-                          +{task.tags.split(',').length - 1}
-                      </span>
-                    )}
-                    </div>
-                  </div>
+                   <div 
+                     className="flex items-center justify-center border-r border-gray-50 pr-2 min-w-0"
+                     style={{ width: `${columnWidths.tags}px` }}
+                   >
+                     <div className="flex items-center gap-1 overflow-hidden">
+                       {(task.tags || '').split(',').slice(0, 1).map((tag, index) => (
+                         <span key={index} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full whitespace-nowrap">
+                         {tag.trim()}
+                       </span>
+                     ))}
+                       {(task.tags || '').split(',').length > 1 && (
+                         <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full whitespace-nowrap">
+                           +{(task.tags || '').split(',').length - 1}
+                       </span>
+                     )}
+                     </div>
+                   </div>
                    
                    
                    {/* Due Date */}
                    <div 
-                     className="flex items-center border-r border-gray-50 pr-2"
+                     className="flex items-center justify-center border-r border-gray-50 pr-2"
                      style={{ width: `${columnWidths.dueDate}px` }}
                    >
                      <span className={`text-sm whitespace-nowrap ${isOverdue(task.dueDate) ? 'text-red-600 font-medium' : 'text-gray-600'}`}>
@@ -2508,7 +2744,7 @@ const TasksPage = () => {
                    
                    {/* Actions */}
                    <div 
-                     className="flex items-center justify-end space-x-2"
+                     className="flex items-center justify-center space-x-2"
                      style={{ width: `${columnWidths.actions}px` }}
                    >
                      <Button 
@@ -2566,64 +2802,49 @@ const TasksPage = () => {
              </div>
              </div>
            </div>
+           </>
         ) : !isLoading && !error ? (
           /* Card View */
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
-            {filteredTasks.map((task) => (
-              <Card key={task.id} hover className="cursor-pointer" onClick={() => handleTaskClick(task)}>
-                <CardContent className="p-3 sm:p-4">
-                  <div className="space-y-2 sm:space-y-3">
-                    {/* Header with Project Icon and Title */}
-                    <div className="flex items-start space-x-2 sm:space-x-3">
-                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-xs sm:text-sm flex-shrink-0">
-                        {task.project.charAt(0)}
+          <div className="w-full">
+            {/* Mobile: Single Column with Simplified Cards */}
+            <div className="block sm:hidden space-y-3">
+              {filteredTasks.map((task) => (
+                <Card key={task.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleTaskClick(task)}>
+                  <CardContent className="p-4">
+                    {/* Mobile: Simplified Header */}
+                    <div className="flex items-start space-x-3 mb-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                        {(task.project || 'T').charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-gray-900 text-xs sm:text-sm leading-tight line-clamp-2">{task.title}</h4>
-                        <p className="text-xs text-gray-600 mt-1 line-clamp-1 hidden sm:block">{task.description}</p>
-                        {/* Labeled basics */}
-                        <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-                          <div className="truncate">
-                            <span className="text-[10px] uppercase text-gray-500 font-medium mr-1">Project:</span>
-                            <span className="text-gray-700 truncate inline-block align-middle">{task.project}</span>
-                          </div>
-                          <div className="truncate text-right sm:text-left">
-                            <span className="text-[10px] uppercase text-gray-500 font-medium mr-1">Due:</span>
-                            <span className={`inline-block align-middle ${isOverdue(task.dueDate) ? 'text-red-600 font-medium' : 'text-gray-700'}`}>{new Date(task.dueDate).toLocaleDateString()}</span>
-                          </div>
-                        </div>
+                        <h4 className="font-semibold text-gray-900 text-sm leading-tight line-clamp-2">
+                          {task.title}
+                        </h4>
+                        <p className="text-xs text-gray-500 mt-1">{task.project}</p>
                       </div>
                     </div>
                     
-                    {/* Status and Priority Badges - with labels (Priority hidden on mobile) */}
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
-                      <div className="flex items-center gap-1">
-                        <span className="text-[10px] uppercase text-gray-500 font-medium">Status:</span>
-                        <Badge variant={getStatusConfig(task.status).color as any} size="sm" className="text-xs">
-                          {getStatusIcon(task.status)}
-                          <span className="ml-1 text-xs">{getStatusConfig(task.status).label}</span>
+                    {/* Mobile: Key Info Only */}
+                    <div className="space-y-2">
+                      {/* Status Badge */}
+                      <div className="flex items-center justify-between">
+                        <Badge variant={getStatusConfig(task.status).color as any} size="sm">
+                          {getStatusConfig(task.status).label}
                         </Badge>
+                        <span className="text-xs text-gray-500">
+                          {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </span>
                       </div>
-                      <div className="hidden sm:flex items-center gap-1">
-                        <span className="text-[10px] uppercase text-gray-500 font-medium">Priority:</span>
-                        <Badge variant={getPriorityConfig(task.priority).color as any} size="sm" className="text-xs">
-                          {getPriorityIcon(task.priority)}
-                        </Badge>
-                      </div>
-                    </div>
                       
-                    {/* Meta Info - Minimal on mobile (with labels) */}
-                    <div className="flex items-center justify-between text-xs text-gray-600">
-                      <div className="flex items-center gap-1">
-                        <span className="text-[10px] uppercase text-gray-500 font-medium">Time:</span>
-                        <Clock size={8} className="sm:w-3 sm:h-3" />
-                        <span className="text-xs">{task.estimatedHours}h</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1">
-                          <span className="text-[10px] uppercase text-gray-500 font-medium">Comments:</span>
-                          <MessageSquare size={8} className="sm:w-3 sm:h-3" />
-                          <span className="text-xs">{(() => {
+                      {/* Time and Comments */}
+                      <div className="flex items-center justify-between text-xs text-gray-600">
+                        <div className="flex items-center space-x-1">
+                          <Clock size={12} />
+                          <span>{task.estimatedHours}h</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <MessageSquare size={12} />
+                          <span>{(() => {
                             try {
                               const commentsArray = JSON.parse(task.comments);
                               return Array.isArray(commentsArray) ? commentsArray.length : parseInt(task.comments) || 0;
@@ -2632,44 +2853,125 @@ const TasksPage = () => {
                             }
                           })()}</span>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-[10px] uppercase text-gray-500 font-medium">Subtasks:</span>
-                          <CheckSquare size={8} className="sm:w-3 sm:h-3" />
-                          <span className="text-xs">{(() => {
-                            try {
-                              const subtasksArray = JSON.parse(task.subtasks);
-                              return Array.isArray(subtasksArray) ? subtasksArray.length : 0;
-                            } catch (e) {
-                              return 0;
-                            }
-                          })()}</span>
-                        </div>
                       </div>
-                    </div>
                       
-                    {/* Tags - Show only first tag on mobile */}
-                    <div className="flex flex-wrap gap-1">
-                      {task.tags && task.tags.split(',').slice(0, 1).map((tag, index) => (
-                        <span key={index} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                          {tag.trim()}
-                        </span>
-                      ))}
-                      {task.tags && task.tags.split(',').length > 1 && (
-                        <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                          +{task.tags.split(',').length - 1}
-                        </span>
+                      {/* Tags */}
+                      {task.tags && (
+                        <div className="flex flex-wrap gap-1">
+                          {(task.tags || '').split(',').slice(0, 1).map((tag, index) => (
+                            <span key={index} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
+                              {tag.trim()}
+                            </span>
+                          ))}
+                          {(task.tags || '').split(',').length > 1 && (
+                            <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
+                              +{(task.tags || '').split(',').length - 1}
+                            </span>
+                          )}
+                        </div>
                       )}
                     </div>
-                      
-                    {/* Assignee and Due Date - Minimal on mobile */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-1 sm:space-x-2">
-                        <Avatar name={task.assignee} size="sm" />
-                        <span className="text-xs text-gray-500 hidden sm:inline">{task.assignee}</span>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Desktop: Improved Multi-Column Grid */}
+            <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6">
+            {filteredTasks.map((task) => (
+              <Card key={task.id} hover className="cursor-pointer h-fit" onClick={() => handleTaskClick(task)}>
+                <CardContent className="p-4">
+                  <div className="space-y-2">
+                    {/* Header with Project Icon and Title */}
+                    <div className="flex items-start space-x-3">
+                      <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                        {(task.project || 'T').charAt(0).toUpperCase()}
                       </div>
-                      <div className="flex items-center space-x-1 text-xs">
-                        <Calendar size={8} className="sm:w-3 sm:h-3" />
-                        <span className={`text-xs ${isOverdue(task.dueDate) ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-gray-900 text-sm leading-tight line-clamp-1">{task.title}</h4>
+                        <p className="text-xs text-gray-600 line-clamp-1 mt-1">{task.description}</p>
+                      </div>
+                    </div>
+                    
+                    {/* Project and Due Date - Same Line */}
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-700">Project: {task.project}</span>
+                      <span className={`${isOverdue(task.dueDate) ? 'text-red-600 font-medium' : 'text-gray-700'}`}>
+                        Due: {new Date(task.dueDate).toLocaleDateString()}
+                      </span>
+                    </div>
+                    
+                    {/* Status and Priority - Same Line */}
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1">
+                        <span className="text-gray-500">Status:</span>
+                        <Badge variant={getStatusConfig(task.status).color as any} size="sm" className="text-xs">
+                          {getStatusConfig(task.status).label}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-gray-500">Priority:</span>
+                        <Badge variant={getPriorityConfig(task.priority).color as any} size="sm" className="text-xs">
+                          {getPriorityConfig(task.priority).label}
+                        </Badge>
+                      </div>
+                    </div>
+                      
+                    {/* Meta Info Row */}
+                    <div className="flex items-center justify-between text-xs text-gray-600 bg-gray-50 rounded px-3 py-2">
+                      <div className="flex items-center gap-1">
+                        <Clock size={12} />
+                        <span>{task.estimatedHours}h</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <MessageSquare size={12} />
+                        <span>{(() => {
+                          try {
+                            const commentsArray = JSON.parse(task.comments);
+                            return Array.isArray(commentsArray) ? commentsArray.length : parseInt(task.comments) || 0;
+                          } catch (e) {
+                            return parseInt(task.comments) || 0;
+                          }
+                        })()}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <CheckSquare size={12} />
+                        <span>{(() => {
+                          try {
+                            const subtasksArray = JSON.parse(task.subtasks);
+                            return Array.isArray(subtasksArray) ? subtasksArray.length : 0;
+                          } catch (e) {
+                            return 0;
+                          }
+                        })()}</span>
+                      </div>
+                    </div>
+                      
+                    {/* Tags */}
+                    {task.tags && task.tags.trim() && (
+                      <div className="flex flex-wrap gap-1">
+                        {(task.tags || '').split(',').slice(0, 2).map((tag, index) => (
+                          <span key={index} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
+                            {tag.trim()}
+                          </span>
+                        ))}
+                        {(task.tags || '').split(',').length > 2 && (
+                          <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
+                            +{(task.tags || '').split(',').length - 2}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                      
+                    {/* Bottom Section - Assignee and Date */}
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center space-x-1">
+                        <Avatar name={task.assignee} size="sm" />
+                        <span className="text-gray-500">{task.assignee}</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <Calendar size={12} />
+                        <span className={`${isOverdue(task.dueDate) ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
                           {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         </span>
                       </div>
@@ -2678,6 +2980,7 @@ const TasksPage = () => {
                 </CardContent>
               </Card>
             ))}
+            </div>
           </div>
         ) : null}
 
@@ -2711,9 +3014,9 @@ const TasksPage = () => {
             ref={taskFormRef}
             className={`bg-white rounded-t-2xl shadow-2xl w-full transform transition-all duration-300 ease-out ${
               isFormAnimating ? 'translate-y-full' : 'translate-y-0'
-            } ${isCollapsed ? 'lg:ml-16' : 'lg:ml-64'}`}
+            } w-full sm:w-full lg:${isCollapsed ? 'ml-16' : 'ml-64'} lg:w-auto`}
               style={{ 
-              width: `calc(100% - ${isCollapsed ? '4rem' : '16rem'})`,
+              width: '100%',
                 height: `${formHeight}vh`,
                 boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
               }}
@@ -2748,16 +3051,16 @@ const TasksPage = () => {
             data-task-preview
             className={`transform transition-all duration-300 ease-out ${
               isPreviewAnimating ? 'translate-y-full' : 'translate-y-0'
-            } ${isCollapsed ? 'lg:ml-16' : 'lg:ml-64'}`}
+            } w-full sm:w-full lg:${isCollapsed ? 'ml-16' : 'ml-64'} lg:w-auto`}
             style={{ 
-              width: `calc(100% - ${isCollapsed ? '4rem' : '16rem'})`,
+              width: '100%',
               height: `${formHeight}vh`,
               boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
             }}
           >
             <div 
               data-task-preview-content
-              className="bg-white dark:bg-gray-800 rounded-t-2xl shadow-2xl overflow-y-auto"
+              className="bg-white dark:bg-gray-800 rounded-t-2xl shadow-2xl overflow-y-auto w-full pb-20 sm:pb-6"
               style={{ 
                 height: `${formHeight}vh`,
                 boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
@@ -2771,9 +3074,9 @@ const TasksPage = () => {
                 <div className="w-12 h-1 bg-gray-400 dark:bg-gray-500 rounded-full"></div>
               </div>
               
-              <div className="p-6">
+              <div className="p-4 sm:p-6">
                 {/* Task Preview Header */}
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center justify-between mb-4 sm:mb-6">
                   <div className="flex items-center space-x-3">
                     {/* Back Button (always visible) */}
                     <button
@@ -2784,63 +3087,56 @@ const TasksPage = () => {
                       <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-300 group-hover:text-gray-800 dark:group-hover:text-white" />
                     </button>
                     
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
-                      <CheckSquare className="w-6 h-6 text-white" />
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                      <CheckSquare className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                     </div>
-                    <div>
-                      <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{selectedTask.title}</h2>
-                      <p className="text-gray-500 dark:text-gray-400 text-sm">
+                    <div className="flex-1 min-w-0">
+                      <h2 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white truncate">{selectedTask.title}</h2>
+                      <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm">
                         Task Details
                       </p>
                     </div>
                   </div>
-                  <div className="flex space-x-2">
-                    <Button
-                      variant="outline"
-                      onClick={closeTaskPreview}
-                      className="px-4 py-2"
-                    >
-                      Close
-                    </Button>
-                    <Button
-                      variant="primary"
+                  <div className="flex-shrink-0">
+                    <button
                       onClick={() => handleEditTask(selectedTask)}
-                      className="px-4 py-2"
+                      className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-xl flex items-center justify-center shadow-lg transition-all group"
+                      title="Edit Task"
                     >
-                      Edit Task
-                    </Button>
+                      <Edit className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                    </button>
                   </div>
                 </div>
 
                 {/* Task Details */}
-                <div className="space-y-6">
+                <div className="space-y-4 sm:space-y-6">
                   {/* Basic Info */}
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 shadow-sm">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      <div>
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 sm:p-6 shadow-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                      <div className="sm:col-span-2">
                         <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Description</label>
-                        <p className="text-gray-600 dark:text-gray-300">{selectedTask.description}</p>
+                        <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base break-words">{selectedTask.description}</p>
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Project</label>
-                        <p className="text-gray-600 dark:text-gray-300">{selectedTask.project}</p>
+                        <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">{selectedTask.project}</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Status and Priority */}
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 shadow-sm">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 sm:p-6 shadow-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                       <div>
                         <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Status</label>
-                        <Badge variant={getStatusConfig(selectedTask.status).color as any} size="md">
+                        <Badge variant={getStatusConfig(selectedTask.status).color as any} size="md" className="text-xs sm:text-sm">
                           {getStatusIcon(selectedTask.status)}
                           <span className="ml-2">{getStatusConfig(selectedTask.status).label}</span>
                         </Badge>
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Priority</label>
-                        <Badge variant={getPriorityConfig(selectedTask.priority).color as any} size="md">
+                        <Badge variant={getPriorityConfig(selectedTask.priority).color as any} size="md" className="text-xs sm:text-sm">
                           {getPriorityIcon(selectedTask.priority)}
                           <span className="ml-2">{getPriorityConfig(selectedTask.priority).label}</span>
                         </Badge>
@@ -2849,28 +3145,28 @@ const TasksPage = () => {
                   </div>
 
                   {/* Dates and Time */}
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 shadow-sm">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 sm:p-6 shadow-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                       <div>
                         <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Start Date</label>
-                        <p className="text-gray-600 dark:text-gray-300">{new Date(selectedTask.startDate).toLocaleDateString()}</p>
+                        <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">{new Date(selectedTask.startDate).toLocaleDateString()}</p>
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Due Date</label>
-                        <p className={`${isOverdue(selectedTask.dueDate) ? 'text-red-600 dark:text-red-400 font-medium' : 'text-gray-600 dark:text-gray-300'}`}>
+                        <p className={`text-sm sm:text-base ${isOverdue(selectedTask.dueDate) ? 'text-red-600 dark:text-red-400 font-medium' : 'text-gray-600 dark:text-gray-300'}`}>
                           {new Date(selectedTask.dueDate).toLocaleDateString()}
                         </p>
                       </div>
-                      <div>
+                      <div className="sm:col-span-2 lg:col-span-1">
                         <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Estimated Time</label>
-                        <p className="text-gray-600 dark:text-gray-300">{selectedTask.estimatedHours} hours</p>
+                        <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">{selectedTask.estimatedHours} hours</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Assignment */}
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 shadow-sm">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 sm:p-6 shadow-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                       {/* Assigned Users */}
                       <div>
                         <div className="flex items-center justify-between mb-4">
@@ -3186,15 +3482,11 @@ const TasksPage = () => {
                     <div>
                       <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Tags</label>
                         <div className="flex flex-wrap gap-2">
-                          {selectedTask.tags ? (
-                            selectedTask.tags.split(',').map((tag, index) => (
-                              <span key={index} className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm rounded-full">
-                                {tag.trim()}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="text-sm text-gray-500 dark:text-gray-400">No tags</span>
-                          )}
+                          {(selectedTask.tags || '').split(',').map((tag, index) => (
+                            <span key={index} className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm rounded-full">
+                              {tag.trim()}
+                            </span>
+                          ))}
                         </div>
                       </div>
                   </div>
@@ -3447,15 +3739,16 @@ const TasksPage = () => {
 
                     {/* Add Comment Input */}
                     <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-                      <div className="flex items-center space-x-3">
+                      <div className="flex items-start space-x-3">
                         <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
                           {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
                         </div>
-                        <div className="flex-1 flex items-center space-x-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-2">
                           <input
                             type="text"
                             placeholder="Write a comment..."
-                            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                             value={newComment}
                             onChange={(e) => setNewComment(e.target.value)}
                             onKeyDown={(e) => {
@@ -3465,28 +3758,21 @@ const TasksPage = () => {
                               }
                             }}
                           />
-                          <Button
-                            variant="primary"
-                            size="sm"
+                            <button
                             onClick={handleAddComment}
                             disabled={!newComment.trim() || isPostingComment}
-                            className="flex items-center space-x-1 px-3 py-2"
+                              className="w-10 h-10 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-lg flex items-center justify-center transition-colors flex-shrink-0"
+                              title="Post comment"
                           >
                             {isPostingComment ? (
-                              <>
                                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                <span className="hidden sm:inline">Posting...</span>
-                              </>
                             ) : (
-                              <>
-                                <MessageSquare className="w-4 h-4" />
-                                <span className="hidden sm:inline">Post</span>
-                              </>
+                                <MessageSquare className="w-4 h-4 text-white" />
                             )}
-                          </Button>
+                            </button>
                         </div>
                       </div>
-                     
+                      </div>
                     </div>
 
                     <div className="space-y-4 max-h-64 overflow-y-auto">
@@ -3579,7 +3865,7 @@ const TasksPage = () => {
                               className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 transition-colors cursor-pointer"
                               onClick={() => openFilePreview(file)}
                             >
-                              <div className="flex items-center space-x-3 flex-1">
+                              <div className="flex items-center space-x-3 flex-1 min-w-0">
                                 {isImage && preview && preview !== 'placeholder' ? (
                                   <div className="w-12 h-12 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 flex-shrink-0">
                                     <img 
@@ -3601,16 +3887,16 @@ const TasksPage = () => {
                                     <Paperclip className="w-5 h-5 text-gray-500 dark:text-gray-400" />
                                   </div>
                                 )}
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                <div className="flex-1 min-w-0 pr-2">
+                                  <p className="text-sm font-medium text-gray-900 dark:text-white break-words line-clamp-2">
                                     {file.name}
                                   </p>
-                                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                     {(file.size / 1024 / 1024).toFixed(2)} MB • {new Date(file.createdAt).toLocaleDateString()}
                                   </p>
                                 </div>
                               </div>
-                              <div className="flex items-center space-x-2">
+                              <div className="flex items-center space-x-2 flex-shrink-0">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();

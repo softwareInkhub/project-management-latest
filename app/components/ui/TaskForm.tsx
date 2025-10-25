@@ -324,36 +324,29 @@ export function TaskForm({
         </div>
       )}
       
-      <div className="p-6 flex-1 overflow-y-auto">
+      <div className="p-4 sm:p-6 flex-1 overflow-y-auto">
         {/* Modern Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
-              <FileText className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">
-                {isEditing ? 'Edit Task' : isCreatingSubtask ? 'Create New Subtask' : 'Create New Task'}
-              </h2>
-              <p className="text-sm text-gray-600 mt-1">
-                {isEditing ? 'Update the task details below' : isCreatingSubtask ? 'This task will automatically be added as a subtask' : 'Fill in the details to create a new task'}
-              </p>
-            </div>
+        <div className="flex items-center gap-3 mb-4 sm:mb-6">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+            <FileText className="w-5 h-5 text-white" />
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onCancel}
-          >
-            <X className="w-5 h-5" />
-          </Button>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900 truncate">
+              {isEditing ? 'Edit Task' : isCreatingSubtask ? 'Create New Subtask' : 'Create New Task'}
+            </h2>
+            <p className="text-xs sm:text-sm text-gray-600 mt-1 break-words">
+              {isEditing ? 'Update the task details below' : isCreatingSubtask ? 'This task will automatically be added as a subtask' : 'Fill in the details to create a new task'}
+            </p>
+          </div>
         </div>
         
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Basic Information */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="md:col-span-2">
+        <form onSubmit={handleSubmit}>
+          {/* All Form Fields in Single Layout */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-6 shadow-sm space-y-6">
+            {/* Row 1: Task Title, Project, Status, Priority */}
+            <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 sm:gap-25">
+              {/* Task Title */}
+              <div className="sm:col-span-2">
                 <label className="block text-sm font-semibold text-gray-800 mb-2">
                   Task Title *
                 </label>
@@ -371,32 +364,330 @@ export function TaskForm({
                 )}
               </div>
 
-              <div className="md:col-span-2">
+              {/* Project and Status - Side by side on mobile */}
+              <div className="grid grid-cols-2 gap-4 sm:contents">
+                {/* Project */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-800 mb-2">
+                    Project *
+                  </label>
+                  <Select
+                    value={formData.project || ''}
+                    onChange={(e) => handleInputChange('project', e.target.value)}
+                    options={[
+                      { value: '', label: 'Select Project' },
+                      ...projects.map(project => ({ value: project, label: project }))
+                    ]}
+                    className={`h-12 text-base ${errors.project ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500 focus:border-blue-500'}`}
+                  />
+                  {errors.project && (
+                    <p className="text-red-500 text-sm mt-2 flex items-center gap-1">
+                      <span className="w-1 h-1 bg-red-500 rounded-full"></span>
+                      {errors.project}
+                    </p>
+                  )}
+                </div>
+
+                {/* Status */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-800 mb-2">
+                    Status
+                  </label>
+                  <Select
+                    value={formData.status || 'To Do'}
+                    onChange={(e) => handleInputChange('status', e.target.value)}
+                    options={[
+                      { value: 'To Do', label: 'To Do' },
+                      { value: 'In Progress', label: 'In Progress' },
+                      { value: 'Completed', label: 'Completed' },
+                      { value: 'Overdue', label: 'Overdue' }
+                    ]}
+                    className="h-12 text-base focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* Priority and Estimated Time (Mobile Only) */}
+              <div className="grid grid-cols-2 gap-4 sm:contents">
+                {/* Priority */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-800 mb-2">
+                    Priority
+                  </label>
+                  <Select
+                    value={formData.priority || 'Medium'}
+                    onChange={(e) => handleInputChange('priority', e.target.value)}
+                    options={[
+                      { value: 'Low', label: 'Low' },
+                      { value: 'Medium', label: 'Medium' },
+                      { value: 'High', label: 'High' }
+                    ]}
+                    className="h-12 text-base focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                {/* Estimated Time (Mobile Only) */}
+                <div className="sm:hidden">
+                  <label className="block text-sm font-semibold text-gray-800 mb-2">
+                    Estimated Time
+                  </label>
+                  <Select
+                    value={getHoursFromEstimatedHours(formData.estimatedHours || 0).toString()}
+                    onChange={(e) => {
+                      const hours = parseInt(e.target.value);
+                      handleInputChange('estimatedHours', hours);
+                    }}
+                    options={Array.from({ length: 25 }, (_, i) => ({
+                      value: i.toString(),
+                      label: `${i} ${i === 1 ? 'hour' : 'hours'}`
+                    }))}
+                    placeholder="Hours"
+                    className={`h-12 text-base ${errors.estimatedHours ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500 focus:border-blue-500'}`}
+                  />
+                  {errors.estimatedHours && (
+                    <p className="text-red-500 text-sm mt-2 flex items-center gap-1">
+                      <span className="w-1 h-1 bg-red-500 rounded-full"></span>
+                      {errors.estimatedHours}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+            </div>
+
+            {/* Row 2: Start Date, Due Date, and Estimated Time */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 sm:gap-5">
+              <div>
                 <label className="block text-sm font-semibold text-gray-800 mb-2">
-                  Description *
+                  Start Date *
                 </label>
-                <textarea
-                  value={formData.description || ''}
-                  onChange={(e) => handleInputChange('description', e.target.value)}
-                  placeholder="Provide detailed information about the task..."
-                  rows={4}
-                  className={`w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white resize-none text-base ${errors.description ? 'border-red-500 focus:ring-red-500' : ''}`}
-                />
-                {errors.description && (
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-3.5 h-3.5 hidden sm:block" />
+                  <Input
+                    type="date"
+                    value={formData.startDate || ''}
+                    onChange={(e) => handleInputChange('startDate', e.target.value)}
+                    className={`h-12 pl-4 pr-3 sm:pl-10 text-sm ${errors.startDate ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500 focus:border-blue-500'}`}
+                  />
+                </div>
+                {errors.startDate && (
                   <p className="text-red-500 text-sm mt-2 flex items-center gap-1">
                     <span className="w-1 h-1 bg-red-500 rounded-full"></span>
-                    {errors.description}
+                    {errors.startDate}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-800 mb-2">
+                  Due Date *
+                </label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-3.5 h-3.5 hidden sm:block" />
+                  <Input
+                    type="date"
+                    value={formData.dueDate || ''}
+                    onChange={(e) => handleInputChange('dueDate', e.target.value)}
+                    className={`h-12 pl-4 pr-3 sm:pl-10 text-sm ${errors.dueDate ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500 focus:border-blue-500'}`}
+                  />
+                </div>
+                {errors.dueDate && (
+                  <p className="text-red-500 text-sm mt-2 flex items-center gap-1">
+                    <span className="w-1 h-1 bg-red-500 rounded-full"></span>
+                    {errors.dueDate}
+                  </p>
+                )}
+              </div>
+
+              {/* Estimated Time (Desktop Only) */}
+              <div className="hidden sm:block">
+                <label className="block text-sm font-semibold text-gray-800 mb-2">
+                  Estimated Time
+                </label>
+                <Select
+                  value={getHoursFromEstimatedHours(formData.estimatedHours || 0).toString()}
+                  onChange={(e) => {
+                    const hours = parseInt(e.target.value);
+                    handleInputChange('estimatedHours', hours);
+                  }}
+                  options={Array.from({ length: 25 }, (_, i) => ({
+                    value: i.toString(),
+                    label: `${i} ${i === 1 ? 'hour' : 'hours'}`
+                  }))}
+                  placeholder="Hours"
+                  className={`h-12 text-base ${errors.estimatedHours ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500 focus:border-blue-500'}`}
+                />
+                {errors.estimatedHours && (
+                  <p className="text-red-500 text-sm mt-2 flex items-center gap-1">
+                    <span className="w-1 h-1 bg-red-500 rounded-full"></span>
+                    {errors.estimatedHours}
                   </p>
                 )}
               </div>
             </div>
-          </div>
 
-          {/* File Attachments */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-            <label className="block text-sm font-semibold text-gray-800 mb-4">
-              File Attachments
-            </label>
+            {/* Row 3: Assignment Details */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+              {/* Assigned Users - Multi-select */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-800 mb-2 flex items-center">
+                  <User className="w-4 h-4 mr-2 text-blue-600" />
+                  Assigned Users
+                </label>
+              <div className="relative">
+                <select
+                  className="w-full px-4 py-3 h-12 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  onChange={(e) => {
+                    const selectedUser = e.target.value;
+                    if (selectedUser && !(formData.assignedUsers || []).includes(selectedUser)) {
+                      handleInputChange('assignedUsers', [...(formData.assignedUsers || []), selectedUser]);
+                    }
+                    e.target.value = ''; // Reset dropdown
+                  }}
+                  disabled={isLoadingUsers}
+                >
+                  <option value="">{isLoadingUsers ? 'Loading users...' : 'Select users to assign...'}</option>
+                  {users
+                    .filter(user => !(formData.assignedUsers || []).includes(user.id || user.userId))
+                    .map((user, index) => (
+                      <option key={user.id || user.userId || `user-${index}`} value={user.id || user.userId}>
+                        {user.name || user.username || user.email}
+                      </option>
+                    ))
+                  }
+                </select>
+              </div>
+              
+              {/* Selected Users Display */}
+              {(formData.assignedUsers || []).length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {(formData.assignedUsers || []).map((userId, index) => {
+                    const user = users.find(u => (u.id || u.userId) === userId);
+                    return (
+                      <div
+                        key={`selected-user-${index}`}
+                        className="flex items-center space-x-2 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-sm font-medium"
+                      >
+                        <User className="w-3 h-3" />
+                        <span>{user?.name || user?.username || user?.email || userId}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleInputChange('assignedUsers', (formData.assignedUsers || []).filter(u => u !== userId));
+                          }}
+                          className="hover:bg-blue-100 rounded-full p-0.5 transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+              {/* Assigned Teams - Multi-select */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-800 mb-2 flex items-center">
+                  <Users className="w-4 h-4 mr-2 text-purple-600" />
+                  Assigned Teams
+                </label>
+              <div className="relative">
+                <select
+                  className="w-full px-4 py-3 h-12 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  onChange={(e) => {
+                    const selectedTeam = e.target.value;
+                    if (selectedTeam && !(formData.assignedTeams || []).includes(selectedTeam)) {
+                      handleInputChange('assignedTeams', [...(formData.assignedTeams || []), selectedTeam]);
+                    }
+                    e.target.value = ''; // Reset dropdown
+                  }}
+                  disabled={isLoadingTeams}
+                >
+                  <option value="">{isLoadingTeams ? 'Loading teams...' : 'Select teams to assign...'}</option>
+                  {teams
+                    .filter(team => !(formData.assignedTeams || []).includes(team.id))
+                    .map((team, index) => (
+                      <option key={team.id || `team-${index}`} value={team.id}>
+                        {team.name}
+                      </option>
+                    ))
+                  }
+                </select>
+              </div>
+              
+              {/* Selected Teams Display */}
+              {(formData.assignedTeams || []).length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {(formData.assignedTeams || []).map((teamId, index) => {
+                    const team = teams.find(t => t.id === teamId);
+                    return (
+                      <div
+                        key={`selected-team-${index}`}
+                        className="flex items-center space-x-2 bg-purple-50 text-purple-700 px-3 py-1.5 rounded-full text-sm font-medium"
+                      >
+                        <Users className="w-3 h-3" />
+                        <span>{team?.name || teamId}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleInputChange('assignedTeams', (formData.assignedTeams || []).filter(t => t !== teamId));
+                          }}
+                          className="hover:bg-purple-100 rounded-full p-0.5 transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              </div>
+            </div>
+
+            {/* Row 4: Tags */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-800 mb-2">
+                Tags
+              </label>
+              <div className="relative">
+                <Tag className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  value={formData.tags || ''}
+                  onChange={(e) => handleInputChange('tags', e.target.value)}
+                  placeholder="Enter tags separated by commas"
+                  className="h-12 pl-12 text-base focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <p className="text-sm text-gray-500 mt-2">
+                Separate multiple tags with commas (e.g., design, frontend, ui)
+              </p>
+            </div>
+
+            {/* Row 5: Description - Full Width */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-800 mb-2">
+                Description *
+              </label>
+              <textarea
+                value={formData.description || ''}
+                onChange={(e) => handleInputChange('description', e.target.value)}
+                placeholder="Provide detailed information about the task..."
+                rows={4}
+                className={`w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white resize-none text-base ${errors.description ? 'border-red-500 focus:ring-red-500' : ''}`}
+              />
+              {errors.description && (
+                <p className="text-red-500 text-sm mt-2 flex items-center gap-1">
+                  <span className="w-1 h-1 bg-red-500 rounded-full"></span>
+                  {errors.description}
+                </p>
+              )}
+            </div>
+
+            {/* Row 6: File Attachments */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-800 mb-4">
+                File Attachments
+              </label>
             
             {/* File Upload Area */}
             <div
@@ -484,297 +775,6 @@ export function TaskForm({
                 </div>
               </div>
             )}
-          </div>
-
-          {/* Project, Status and Priority */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-2">
-                  Project *
-                </label>
-                <Select
-                  value={formData.project || ''}
-                  onChange={(e) => handleInputChange('project', e.target.value)}
-                  options={[
-                    { value: '', label: 'Select Project' },
-                    ...projects.map(project => ({ value: project, label: project }))
-                  ]}
-                  className={`h-12 text-base ${errors.project ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500 focus:border-blue-500'}`}
-                />
-                {errors.project && (
-                  <p className="text-red-500 text-sm mt-2 flex items-center gap-1">
-                    <span className="w-1 h-1 bg-red-500 rounded-full"></span>
-                    {errors.project}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-2">
-                  Status
-                </label>
-                <Select
-                  value={formData.status || 'To Do'}
-                  onChange={(e) => handleInputChange('status', e.target.value)}
-                  options={[
-                    { value: 'To Do', label: 'To Do' },
-                    { value: 'In Progress', label: 'In Progress' },
-                    { value: 'Completed', label: 'Completed' },
-                    { value: 'Overdue', label: 'Overdue' }
-                  ]}
-                  className="h-12 text-base focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-2">
-                  Priority
-                </label>
-                <Select
-                  value={formData.priority || 'Medium'}
-                  onChange={(e) => handleInputChange('priority', e.target.value)}
-                  options={[
-                    { value: 'Low', label: 'Low' },
-                    { value: 'Medium', label: 'Medium' },
-                    { value: 'High', label: 'High' }
-                  ]}
-                  className="h-12 text-base focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Assignment Details */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-            {/* Assigned Users - Multi-select */}
-            <div className="mb-6">
-              <label className="block text-sm font-semibold text-gray-800 mb-2 flex items-center">
-                <User className="w-4 h-4 mr-2 text-blue-600" />
-                Assigned Users
-              </label>
-              <div className="relative">
-                <select
-                  className="w-full px-4 py-3 h-12 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                  onChange={(e) => {
-                    const selectedUser = e.target.value;
-                    if (selectedUser && !(formData.assignedUsers || []).includes(selectedUser)) {
-                      handleInputChange('assignedUsers', [...(formData.assignedUsers || []), selectedUser]);
-                    }
-                    e.target.value = ''; // Reset dropdown
-                  }}
-                  disabled={isLoadingUsers}
-                >
-                  <option value="">{isLoadingUsers ? 'Loading users...' : 'Select users to assign...'}</option>
-                  {users
-                    .filter(user => !(formData.assignedUsers || []).includes(user.id || user.userId))
-                    .map((user, index) => (
-                      <option key={user.id || user.userId || `user-${index}`} value={user.id || user.userId}>
-                        {user.name || user.username || user.email}
-                      </option>
-                    ))
-                  }
-                </select>
-              </div>
-              
-              {/* Selected Users Display */}
-              {(formData.assignedUsers || []).length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {(formData.assignedUsers || []).map((userId, index) => {
-                    const user = users.find(u => (u.id || u.userId) === userId);
-                    return (
-                      <div
-                        key={`selected-user-${index}`}
-                        className="flex items-center space-x-2 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-sm font-medium"
-                      >
-                        <User className="w-3 h-3" />
-                        <span>{user?.name || user?.username || user?.email || userId}</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            handleInputChange('assignedUsers', (formData.assignedUsers || []).filter(u => u !== userId));
-                          }}
-                          className="hover:bg-blue-100 rounded-full p-0.5 transition-colors"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Assigned Teams - Multi-select */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-800 mb-2 flex items-center">
-                <Users className="w-4 h-4 mr-2 text-purple-600" />
-                Assigned Teams
-              </label>
-              <div className="relative">
-                <select
-                  className="w-full px-4 py-3 h-12 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                  onChange={(e) => {
-                    const selectedTeam = e.target.value;
-                    if (selectedTeam && !(formData.assignedTeams || []).includes(selectedTeam)) {
-                      handleInputChange('assignedTeams', [...(formData.assignedTeams || []), selectedTeam]);
-                    }
-                    e.target.value = ''; // Reset dropdown
-                  }}
-                  disabled={isLoadingTeams}
-                >
-                  <option value="">{isLoadingTeams ? 'Loading teams...' : 'Select teams to assign...'}</option>
-                  {teams
-                    .filter(team => !(formData.assignedTeams || []).includes(team.id))
-                    .map((team, index) => (
-                      <option key={team.id || `team-${index}`} value={team.id}>
-                        {team.name}
-                      </option>
-                    ))
-                  }
-                </select>
-              </div>
-              
-              {/* Selected Teams Display */}
-              {(formData.assignedTeams || []).length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {(formData.assignedTeams || []).map((teamId, index) => {
-                    const team = teams.find(t => t.id === teamId);
-                    return (
-                      <div
-                        key={`selected-team-${index}`}
-                        className="flex items-center space-x-2 bg-purple-50 text-purple-700 px-3 py-1.5 rounded-full text-sm font-medium"
-                      >
-                        <Users className="w-3 h-3" />
-                        <span>{team?.name || teamId}</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            handleInputChange('assignedTeams', (formData.assignedTeams || []).filter(t => t !== teamId));
-                          }}
-                          className="hover:bg-purple-100 rounded-full p-0.5 transition-colors"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Dates and Time */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-2">
-                  Start Date *
-                </label>
-                <div className="relative">
-                  <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    type="date"
-                    value={formData.startDate || ''}
-                    onChange={(e) => handleInputChange('startDate', e.target.value)}
-                    className={`h-12 pl-12 text-base ${errors.startDate ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500 focus:border-blue-500'}`}
-                  />
-                </div>
-                {errors.startDate && (
-                  <p className="text-red-500 text-sm mt-2 flex items-center gap-1">
-                    <span className="w-1 h-1 bg-red-500 rounded-full"></span>
-                    {errors.startDate}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-2">
-                  Due Date *
-                </label>
-                <div className="relative">
-                  <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    type="date"
-                    value={formData.dueDate || ''}
-                    onChange={(e) => handleInputChange('dueDate', e.target.value)}
-                    className={`h-12 pl-12 text-base ${errors.dueDate ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500 focus:border-blue-500'}`}
-                  />
-                </div>
-                {errors.dueDate && (
-                  <p className="text-red-500 text-sm mt-2 flex items-center gap-1">
-                    <span className="w-1 h-1 bg-red-500 rounded-full"></span>
-                    {errors.dueDate}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-2">
-                  Estimated Time
-                </label>
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <Select
-                      value={getHoursFromEstimatedHours(formData.estimatedHours || 0).toString()}
-                      onChange={(e) => {
-                        const hours = parseInt(e.target.value);
-                        const minutes = getMinutesFromEstimatedHours(formData.estimatedHours || 0);
-                        handleInputChange('estimatedHours', convertToEstimatedHours(hours, minutes));
-                      }}
-                      options={Array.from({ length: 25 }, (_, i) => ({
-                        value: i.toString(),
-                        label: `${i} ${i === 1 ? 'hour' : 'hours'}`
-                      }))}
-                      placeholder="Hours"
-                      className={`h-12 text-base ${errors.estimatedHours ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500 focus:border-blue-500'}`}
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <Select
-                      value={getMinutesFromEstimatedHours(formData.estimatedHours || 0).toString()}
-                      onChange={(e) => {
-                        const minutes = parseInt(e.target.value);
-                        const hours = getHoursFromEstimatedHours(formData.estimatedHours || 0);
-                        handleInputChange('estimatedHours', convertToEstimatedHours(hours, minutes));
-                      }}
-                      options={[0, 15, 30, 45].map((minutes) => ({
-                        value: minutes.toString(),
-                        label: `${minutes} min`
-                      }))}
-                      placeholder="Minutes"
-                      className={`h-12 text-base ${errors.estimatedHours ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500 focus:border-blue-500'}`}
-                    />
-                  </div>
-                </div>
-                {errors.estimatedHours && (
-                  <p className="text-red-500 text-sm mt-2 flex items-center gap-1">
-                    <span className="w-1 h-1 bg-red-500 rounded-full"></span>
-                    {errors.estimatedHours}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Tags */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-            <div>
-              <label className="block text-sm font-semibold text-gray-800 mb-2">
-                Tags
-              </label>
-              <div className="relative">
-                <Tag className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input
-                  value={formData.tags || ''}
-                  onChange={(e) => handleInputChange('tags', e.target.value)}
-                  placeholder="Enter tags separated by commas"
-                  className="h-12 pl-12 text-base focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              <p className="text-sm text-gray-500 mt-2">
-                Separate multiple tags with commas (e.g., design, frontend, ui)
-              </p>
             </div>
           </div>
 
@@ -782,12 +782,13 @@ export function TaskForm({
       </div>
 
       {/* Sticky Form Actions */}
-      <div className="sticky bottom-0 bg-white border-t border-gray-200 p-6">
+      <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 sm:p-6 z-10 pb-20 sm:pb-6">
         <div className="flex justify-end space-x-3">
           <Button
             type="button"
             variant="outline"
             onClick={onCancel}
+            className="flex-1 sm:flex-none"
           >
             Cancel
           </Button>
@@ -798,6 +799,7 @@ export function TaskForm({
               handleSubmit(e as any);
             }}
             disabled={isUploadingAll}
+            className="flex-1 sm:flex-none"
           >
             {isUploadingAll ? (
               <>
