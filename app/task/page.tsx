@@ -24,7 +24,14 @@ import {
   X,
   Search,
   Link,
-  Upload
+  Upload,
+  Filter,
+  FolderOpen,
+  BarChart3,
+  Tag,
+  Settings,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -35,11 +42,41 @@ import { SearchFilterSection } from '../components/ui/SearchFilterSection';
 import { ViewToggle } from '../components/ui/ViewToggle';
 import { AppLayout } from '../components/AppLayout';
 import { TaskForm } from '../components/ui/TaskForm';
+import { AdvancedFilterModal } from '../components/ui/AdvancedFilterModal';
 import { useTabs } from '../hooks/useTabs';
 import { useSidebar } from '../components/AppLayout';
 import { useAuth } from '../hooks/useAuth';
 import { apiService, Task } from '../services/api';
 import { driveService, FileItem } from '../services/drive';
+
+// Advanced Filter Interfaces
+interface DateRange {
+  from: string;
+  to: string;
+}
+
+interface NumberRange {
+  min: number;
+  max: number;
+}
+
+interface AdvancedFilters {
+  taskScope: string[];
+  status: string[];
+  priority: string[];
+  assignee: string[];
+  project: string[];
+  tags: string[];
+  dueDateRange: DateRange;
+  timeEstimateRange: NumberRange;
+  createdDateRange: DateRange;
+  additionalFilters: string[];
+}
+
+interface SortOption {
+  field: string;
+  direction: 'asc' | 'desc';
+}
 
 // Mock data for tasks (fallback when API fails)
 const mockTasks: Task[] = [
@@ -223,6 +260,44 @@ const TasksPage = () => {
   });
   const [activePredefinedFilter, setActivePredefinedFilter] = useState('all');
   const [advancedFilters, setAdvancedFilters] = useState<Record<string, string | string[]>>({});
+  
+  // Advanced Filter State
+  const [advancedFilterState, setAdvancedFilterState] = useState<AdvancedFilters>({
+    taskScope: [],
+    status: [],
+    priority: [],
+    assignee: [],
+    project: [],
+    tags: [],
+    dueDateRange: { from: '', to: '' },
+    timeEstimateRange: { min: 0, max: 1000 },
+    createdDateRange: { from: '', to: '' },
+    additionalFilters: []
+  });
+  const [isAdvancedFilterModalOpen, setIsAdvancedFilterModalOpen] = useState(false);
+  const [visibleFilterColumns, setVisibleFilterColumns] = useState<string[]>([
+    'taskScope', 'status', 'priority', 'project', 'dueDateRange'
+  ]);
+
+  // Available filter columns with icons
+  const availableFilterColumns = [
+    { key: 'taskScope', label: 'Tasks', icon: <CheckCircle className="w-4 h-4 text-blue-500" /> },
+    { key: 'status', label: 'Task Status', icon: <CheckCircle className="w-4 h-4 text-blue-500" /> },
+    { key: 'priority', label: 'Priority Level', icon: <Flag className="w-4 h-4 text-green-500" /> },
+    { key: 'project', label: 'Project', icon: <FolderOpen className="w-4 h-4 text-orange-500" /> },
+    { key: 'dueDateRange', label: 'Due Date Range', icon: <Calendar className="w-4 h-4 text-blue-500" /> },
+    { key: 'timeEstimateRange', label: 'Time Estimates', icon: <Clock className="w-4 h-4 text-purple-500" /> },
+    { key: 'tags', label: 'Tags', icon: <Tag className="w-4 h-4 text-orange-500" /> },
+    { key: 'createdDateRange', label: 'Created Date Range', icon: <Calendar className="w-4 h-4 text-blue-500" /> },
+    { key: 'additionalFilters', label: 'Additional Filters', icon: <Filter className="w-4 h-4 text-green-500" /> }
+  ];
+  const [sortOption, setSortOption] = useState<SortOption>({ field: 'dueDate', direction: 'asc' });
+  
+  // Column sorting and filtering state
+  const [columnSorts, setColumnSorts] = useState<{[key: string]: 'asc' | 'desc' | null}>({});
+  const [columnFilters, setColumnFilters] = useState<{[key: string]: string}>({});
+  const [openFilterDropdown, setOpenFilterDropdown] = useState<string | null>(null);
+  
   const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
   const [isFormAnimating, setIsFormAnimating] = useState(false);
   const [formHeight, setFormHeight] = useState(80); // Default 80vh
@@ -641,12 +716,178 @@ const TasksPage = () => {
     return new Date(dueDate) < new Date() && task?.status !== 'Completed';
   };
 
-  const filteredTasks = tasks.filter(task => {
+  // Advanced filtering and sorting logic
+  const applyAdvancedFilters = (task: Task): boolean => {
+    const filters = advancedFilterState;
+    
+    // Task scope filter (My Tasks vs All Tasks)
+    if (filters.taskScope.length > 0) {
+      const currentUserId = user?.userId || user?.email;
+      const isMyTask = filters.taskScope.includes('myTasks') && currentUserId && (
+        task.assignee === currentUserId || 
+        task.assignedUsers?.includes(currentUserId) ||
+        task.assignedTeams?.some((teamId: string) => 
+          allTeams.find(team => team.id === teamId)?.members?.includes(currentUserId)
+        )
+      );
+      const isAllTasks = filters.taskScope.includes('allTasks');
+      if (!isMyTask && !isAllTasks) {
+        return false;
+      }
+    }
+    
+    // Status filter
+    if (filters.status.length > 0 && !filters.status.includes(task.status)) {
+      return false;
+    }
+    
+    // Priority filter
+    if (filters.priority.length > 0 && !filters.priority.includes(task.priority)) {
+      return false;
+    }
+    
+    // Assignee filter
+    if (filters.assignee.length > 0) {
+      const isUnassigned = filters.assignee.includes('unassigned') && (!task.assignee || task.assignee === '');
+      const isAssignedToUser = filters.assignee.includes(task.assignee);
+      if (!isUnassigned && !isAssignedToUser) {
+        return false;
+      }
+    }
+    
+    // Project filter
+    if (filters.project.length > 0 && !filters.project.includes(task.project)) {
+      return false;
+    }
+    
+    // Tags filter
+    if (filters.tags.length > 0) {
+      const taskTags = task.tags ? task.tags.split(',').map(tag => tag.trim()) : [];
+      const hasMatchingTag = filters.tags.some(filterTag => 
+        taskTags.some(taskTag => taskTag.toLowerCase().includes(filterTag.toLowerCase()))
+      );
+      if (!hasMatchingTag) {
+        return false;
+      }
+    }
+    
+    // Due date range filter
+    if (filters.dueDateRange.from || filters.dueDateRange.to) {
+      const dueDate = new Date(task.dueDate);
+      if (filters.dueDateRange.from) {
+        const fromDate = new Date(filters.dueDateRange.from);
+        if (dueDate < fromDate) return false;
+      }
+      if (filters.dueDateRange.to) {
+        const toDate = new Date(filters.dueDateRange.to);
+        if (dueDate > toDate) return false;
+      }
+    }
+    
+    // Time estimate range filter
+    if (task.estimatedHours < filters.timeEstimateRange.min || task.estimatedHours > filters.timeEstimateRange.max) {
+      return false;
+    }
+    
+    // Created date range filter
+    if (filters.createdDateRange.from || filters.createdDateRange.to) {
+      const createdDate = new Date(task.createdAt);
+      if (filters.createdDateRange.from) {
+        const fromDate = new Date(filters.createdDateRange.from);
+        if (createdDate < fromDate) return false;
+      }
+      if (filters.createdDateRange.to) {
+        const toDate = new Date(filters.createdDateRange.to);
+        if (createdDate > toDate) return false;
+      }
+    }
+    
+    // Additional filters
+    for (const additionalFilter of filters.additionalFilters) {
+      switch (additionalFilter) {
+        case 'hasAttachments':
+          if (!task.attachments || task.attachments === '[]') return false;
+          break;
+        case 'hasSubtasks':
+          if (!task.subtasks || task.subtasks === '[]') return false;
+          break;
+        case 'hasComments':
+          if (parseInt(task.comments) === 0) return false;
+          break;
+        case 'overdue':
+          const dueDate = new Date(task.dueDate);
+          const today = new Date();
+          if (dueDate >= today || task.status === 'Completed') return false;
+          break;
+      }
+    }
+    
+    return true;
+  };
+
+  const sortTasks = (tasks: Task[]): Task[] => {
+    return [...tasks].sort((a, b) => {
+      let aValue: any, bValue: any;
+      
+      switch (sortOption.field) {
+        case 'title':
+          aValue = a.title.toLowerCase();
+          bValue = b.title.toLowerCase();
+          break;
+        case 'status':
+          const statusOrder = { 'To Do': 1, 'In Progress': 2, 'Completed': 3, 'Overdue': 4 };
+          aValue = statusOrder[a.status as keyof typeof statusOrder] || 5;
+          bValue = statusOrder[b.status as keyof typeof statusOrder] || 5;
+          break;
+        case 'priority':
+          const priorityOrder = { 'High': 1, 'Medium': 2, 'Low': 3 };
+          aValue = priorityOrder[a.priority as keyof typeof priorityOrder] || 4;
+          bValue = priorityOrder[b.priority as keyof typeof priorityOrder] || 4;
+          break;
+        case 'dueDate':
+          aValue = new Date(a.dueDate).getTime();
+          bValue = new Date(b.dueDate).getTime();
+          break;
+        case 'createdAt':
+          aValue = new Date(a.createdAt).getTime();
+          bValue = new Date(b.createdAt).getTime();
+          break;
+        case 'updatedAt':
+          aValue = new Date(a.updatedAt).getTime();
+          bValue = new Date(b.updatedAt).getTime();
+          break;
+        case 'progress':
+          aValue = a.progress;
+          bValue = b.progress;
+          break;
+        case 'estimatedHours':
+          aValue = a.estimatedHours;
+          bValue = b.estimatedHours;
+          break;
+        case 'assignee':
+          aValue = a.assignee || '';
+          bValue = b.assignee || '';
+          break;
+        case 'project':
+          aValue = a.project || '';
+          bValue = b.project || '';
+          break;
+        default:
+          aValue = a.title.toLowerCase();
+          bValue = b.title.toLowerCase();
+      }
+      
+      if (aValue < bValue) return sortOption.direction === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortOption.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  };
+
+  const filteredTasks = sortTasks(tasks.filter(task => {
+    // Basic search filter
     const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         task.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
-    const matchesPriority = priorityFilter === 'all' || task.priority === priorityFilter;
-    const matchesProject = projectFilter === 'all' || task.project === projectFilter;
+                         task.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         task.project.toLowerCase().includes(searchTerm.toLowerCase());
     
     // Apply predefined filters
     let matchesPredefined = true;
@@ -662,39 +903,45 @@ const TasksPage = () => {
       matchesPredefined = task.priority === 'High';
     } else if (activePredefinedFilter === 'my-tasks') {
       // Filter tasks assigned to the current user
-      const currentUserId = user?.userId || user?.email || user?.name;
+      const currentUserId = user?.userId || user?.email;
       if (!currentUserId) {
         matchesPredefined = false;
       } else {
-        const assignedUsers = task.assignedUsers || [];
-        const assignedTeams = task.assignedTeams || [];
-        matchesPredefined = assignedUsers.includes(currentUserId) || 
-                          assignedTeams.some(team => {
-                            // Check if the current user is a member of this team
-                            const teamMembers = allTeams.find(t => t.name === team)?.members || [];
-                            return teamMembers.some((member: any) => 
-                              member.name === currentUserId || 
-                              member.email === currentUserId || 
-                              member.id === currentUserId
-                            );
-                          });
+        matchesPredefined = (task.assignee === currentUserId) || 
+                           (task.assignedUsers?.includes(currentUserId) || false) ||
+                           (task.assignedTeams?.some((teamId: string) => 
+                             allTeams.find(team => team.id === teamId)?.members?.includes(currentUserId)
+                           ) || false);
       }
     }
     
     // Apply advanced filters
-    let matchesAdvanced = true;
-    Object.entries(advancedFilters).forEach(([key, value]) => {
-      if (Array.isArray(value)) {
-        if (value.length > 0) {
-          matchesAdvanced = matchesAdvanced && value.includes(task[key as keyof typeof task] as string);
-        }
-      } else if (value && value !== 'all') {
-        matchesAdvanced = matchesAdvanced && task[key as keyof typeof task] === value;
+    const matchesAdvancedFilters = applyAdvancedFilters(task);
+    
+    // Apply column filters
+    const matchesColumnFilters = Object.entries(columnFilters).every(([column, filterValue]) => {
+      if (!filterValue) return true;
+      
+      switch (column) {
+        case 'title':
+          return task.title.toLowerCase().includes(filterValue.toLowerCase());
+        case 'project':
+          return task.project.toLowerCase().includes(filterValue.toLowerCase());
+        case 'status':
+          return task.status.toLowerCase().includes(filterValue.toLowerCase());
+        case 'priority':
+          return task.priority.toLowerCase().includes(filterValue.toLowerCase());
+        case 'assignee':
+          return task.assignee.toLowerCase().includes(filterValue.toLowerCase());
+        case 'tags':
+          return task.tags?.toLowerCase().includes(filterValue.toLowerCase()) || false;
+        default:
+          return true;
       }
     });
     
-    return matchesSearch && matchesStatus && matchesPriority && matchesProject && matchesPredefined && matchesAdvanced;
-  });
+    return matchesSearch && matchesPredefined && matchesAdvancedFilters && matchesColumnFilters;
+  }));
 
   const getStatusIcon = (status: string) => {
     const config = getStatusConfig(status);
@@ -719,22 +966,15 @@ const TasksPage = () => {
       if (filterKey === 'high-priority') return task.priority === 'High';
       if (filterKey === 'my-tasks') {
         // Count tasks assigned to the current user
-        const currentUserId = user?.userId || user?.email || user?.name;
+        const currentUserId = user?.userId || user?.email;
         if (!currentUserId) {
           return false;
         }
-        const assignedUsers = task.assignedUsers || [];
-        const assignedTeams = task.assignedTeams || [];
-        return assignedUsers.includes(currentUserId) || 
-               assignedTeams.some(team => {
-                 // Check if the current user is a member of this team
-                 const teamMembers = allTeams.find(t => t.name === team)?.members || [];
-                 return teamMembers.some((member: any) => 
-                   member.name === currentUserId || 
-                   member.email === currentUserId || 
-                   member.id === currentUserId
-                 );
-               });
+        return task.assignee === currentUserId || 
+               task.assignedUsers?.includes(currentUserId) ||
+               task.assignedTeams?.some((teamId: string) => 
+                 allTeams.find(team => team.id === teamId)?.members?.includes(currentUserId)
+               );
       }
       return false;
     }).length;
@@ -808,6 +1048,195 @@ const TasksPage = () => {
 
   const handleClearAdvancedFilters = () => {
     setAdvancedFilters({});
+  };
+
+  // New advanced filter handlers
+  const handleAdvancedFilterStateChange = (filters: AdvancedFilters) => {
+    setAdvancedFilterState(filters);
+  };
+
+  const handleClearAdvancedFilterState = () => {
+    setAdvancedFilterState({
+      taskScope: [],
+      status: [],
+      priority: [],
+      assignee: [],
+      project: [],
+      tags: [],
+      dueDateRange: { from: '', to: '' },
+      timeEstimateRange: { min: 0, max: 1000 },
+      createdDateRange: { from: '', to: '' },
+      additionalFilters: []
+    });
+  };
+
+  const handleSortChange = (field: string, direction: 'asc' | 'desc') => {
+    setSortOption({ field, direction });
+  };
+
+  // Column sorting handlers
+  const handleColumnSort = (column: string) => {
+    const currentSort = columnSorts[column];
+    let newSort: 'asc' | 'desc' | null = 'asc';
+    
+    if (currentSort === 'asc') {
+      newSort = 'desc';
+    } else if (currentSort === 'desc') {
+      newSort = null;
+    }
+    
+    setColumnSorts(prev => ({
+      ...prev,
+      [column]: newSort
+    }));
+    
+    // Update main sort option
+    if (newSort) {
+      setSortOption({ field: column, direction: newSort });
+    }
+  };
+
+  // Column filtering handlers
+  const handleColumnFilter = (column: string, value: string) => {
+    setColumnFilters(prev => ({
+      ...prev,
+      [column]: value
+    }));
+    setOpenFilterDropdown(null);
+  };
+
+  const clearColumnFilter = (column: string) => {
+    setColumnFilters(prev => {
+      const newFilters = { ...prev };
+      delete newFilters[column];
+      return newFilters;
+    });
+  };
+
+  // Close filter dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (openFilterDropdown) {
+        setOpenFilterDropdown(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [openFilterDropdown]);
+
+  // Column header component
+  const ColumnHeader = ({ 
+    column, 
+    title, 
+    width, 
+    sortable = true, 
+    filterable = true,
+    filterOptions = []
+  }: {
+    column: string;
+    title: string;
+    width: number;
+    sortable?: boolean;
+    filterable?: boolean;
+    filterOptions?: { value: string; label: string }[];
+  }) => {
+    const currentSort = columnSorts[column];
+    const currentFilter = columnFilters[column];
+    const isFilterOpen = openFilterDropdown === column;
+
+    return (
+      <div 
+        className="flex items-center justify-between border-r border-gray-200 px-4 py-4"
+        style={{ width: `${width}px` }}
+      >
+        <div className="flex items-center space-x-1">
+          <span className="text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+            {title}
+          </span>
+          
+          {/* Sort Icons */}
+          {sortable && (
+            <div className="flex flex-col">
+              <button
+                onClick={() => handleColumnSort(column)}
+                className={`p-0.5 hover:bg-gray-200 rounded ${
+                  currentSort === 'asc' ? 'text-blue-600' : 'text-gray-400'
+                }`}
+              >
+                <ChevronUp className="w-3 h-3" />
+              </button>
+              <button
+                onClick={() => handleColumnSort(column)}
+                className={`p-0.5 hover:bg-gray-200 rounded ${
+                  currentSort === 'desc' ? 'text-blue-600' : 'text-gray-400'
+                }`}
+              >
+                <ChevronDown className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Filter Icon */}
+        {filterable && (
+          <div className="relative">
+            <button
+              onClick={() => setOpenFilterDropdown(isFilterOpen ? null : column)}
+              className={`p-1 hover:bg-gray-200 rounded ${
+                currentFilter ? 'text-blue-600' : 'text-gray-400'
+              }`}
+            >
+              <Filter className="w-3 h-3" />
+            </button>
+
+            {/* Filter Dropdown */}
+            {isFilterOpen && (
+              <div className="absolute top-full left-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                <div className="p-3">
+                  <div className="mb-2">
+                    <input
+                      type="text"
+                      placeholder={`Filter ${title.toLowerCase()}...`}
+                      value={currentFilter || ''}
+                      onChange={(e) => handleColumnFilter(column, e.target.value)}
+                      className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                  
+                  {/* Quick filter options */}
+                  {filterOptions.length > 0 && (
+                    <div className="space-y-1">
+                      {filterOptions.map((option) => (
+                        <button
+                          key={option.value}
+                          onClick={() => handleColumnFilter(column, option.value)}
+                          className="w-full text-left px-2 py-1 text-xs hover:bg-gray-100 rounded"
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Clear filter */}
+                  {currentFilter && (
+                    <button
+                      onClick={() => clearColumnFilter(column)}
+                      className="w-full text-left px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded mt-2"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
   };
 
   // Task form handlers
@@ -2189,6 +2618,18 @@ const TasksPage = () => {
           onApplyAdvancedFilters={handleApplyAdvancedFilters}
           onClearAdvancedFilters={handleClearAdvancedFilters}
           advancedFilters={advancedFilters}
+          showInlineAdvancedFilters={true}
+          onInlineAdvancedFiltersChange={handleAdvancedFilterStateChange}
+          onClearInlineAdvancedFilters={handleClearAdvancedFilterState}
+          inlineAdvancedFilters={advancedFilterState}
+          tasks={tasks}
+          users={allUsers}
+          teams={allTeams}
+          projects={allProjects}
+          currentUser={user}
+          availableFilterColumns={availableFilterColumns}
+          visibleFilterColumns={visibleFilterColumns}
+          onFilterColumnsChange={setVisibleFilterColumns}
           filters={[
             {
               key: 'status',
@@ -2231,6 +2672,8 @@ const TasksPage = () => {
           ]}
         />
 
+
+
          {/* Loading State */}
          {isLoading && (
            <div className="flex items-center justify-center py-12">
@@ -2264,89 +2707,89 @@ const TasksPage = () => {
          {!isLoading && !error && viewMode === 'list' ? (
            <>
              {/* Mobile List View - Same as Desktop Table */}
-             <div className="block sm:hidden bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+             <div className="block sm:hidden bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
                <div className="overflow-x-auto">
                  {/* Mobile Table Header */}
-                 <div className="bg-gray-100 border-b border-gray-200 px-4 py-3">
+                 <div className="bg-gray-50 border-b border-gray-200 px-4 py-4">
                    <div className="flex text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[900px]">
                      {/* Task Name */}
-                     <div className="flex items-center border-r border-gray-200 pr-4 bg-gradient-to-r from-gray-100 to-gray-200" style={{ width: '160px' }}>
-                       <span className="whitespace-nowrap">Task Name</span>
+                     <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: '160px' }}>
+                       <span className="whitespace-nowrap">TASK NAME</span>
                      </div>
                      
                      {/* Project */}
                      <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: '110px' }}>
-                       <span className="whitespace-nowrap">Project</span>
+                       <span className="whitespace-nowrap">PROJECT</span>
                      </div>
                      
                      {/* Task Description */}
                      <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: '140px' }}>
-                       <span className="whitespace-nowrap">Description</span>
+                       <span className="whitespace-nowrap">TASK DESCRIPTION</span>
                      </div>
                      
                      {/* Status */}
                      <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: '90px' }}>
-                       <span className="whitespace-nowrap">Status</span>
+                       <span className="whitespace-nowrap">STATUS</span>
                      </div>
                      
                      {/* Priority */}
                      <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: '90px' }}>
-                       <span className="whitespace-nowrap">Priority</span>
+                       <span className="whitespace-nowrap">PRIORITY</span>
                      </div>
                      
                      {/* Time */}
                      <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: '70px' }}>
-                       <span className="whitespace-nowrap">Time</span>
+                       <span className="whitespace-nowrap">TIME</span>
                      </div>
                      
                      {/* Comments */}
                      <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: '90px' }}>
-                       <span className="whitespace-nowrap">Comments</span>
+                       <span className="whitespace-nowrap">COMMENTS</span>
                      </div>
                      
                      {/* Subtasks */}
                      <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: '90px' }}>
-                       <span className="whitespace-nowrap">Subtasks</span>
+                       <span className="whitespace-nowrap">SUBTASKS</span>
                      </div>
                      
                      {/* Tags */}
                      <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: '110px' }}>
-                       <span className="whitespace-nowrap">Tags</span>
+                       <span className="whitespace-nowrap">TAGS</span>
                      </div>
                      
                      {/* Due Date */}
                      <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: '110px' }}>
-                       <span className="whitespace-nowrap">Due Date</span>
+                       <span className="whitespace-nowrap">DUE DATE</span>
                      </div>
                      
                      {/* Actions */}
                      <div className="flex items-center pl-2" style={{ width: '90px' }}>
-                       <span className="whitespace-nowrap">Actions</span>
+                       <span className="whitespace-nowrap">ACTIONS</span>
                      </div>
                    </div>
                  </div>
                  
                  {/* Mobile Table Body */}
-                 <div className="divide-y divide-gray-50">
+                 <div className="divide-y divide-gray-100">
                    {filteredTasks.map((task, index) => (
-                     <div key={task.id} className={`flex px-4 py-3 cursor-pointer transition-all duration-200 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 hover:shadow-sm ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} min-w-[900px]`} onClick={() => handleTaskClick(task)}>
+                     <div key={task.id} className={`flex px-4 py-4 cursor-pointer transition-all duration-200 hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/20'} min-w-[900px]`} onClick={() => handleTaskClick(task)}>
                        {/* Task Name */}
                        <div className="flex items-center border-r border-gray-200 pr-4 min-w-0" style={{ width: '160px' }}>
-                         <h3 className={`text-sm font-semibold ${task.status === 'Completed' ? 'line-through text-gray-500' : 'text-gray-900'} truncate whitespace-nowrap`}>
+                         <h3 className={`text-sm font-medium ${task.status === 'Completed' ? 'line-through text-gray-500' : 'text-gray-900'} truncate`}>
                            {task.title}
                          </h3>
                        </div>
                        
                        {/* Project */}
                        <div className="flex items-center border-r border-gray-200 pr-4 min-w-0" style={{ width: '110px' }}>
-                         <span className="text-sm text-gray-900 truncate whitespace-nowrap">
+                         <span className="text-sm text-gray-700 truncate">
                            {task.project}
                          </span>
                        </div>
                        
                        {/* Task Description */}
                        <div className="flex items-center border-r border-gray-200 pr-4 min-w-0" style={{ width: '140px' }}>
-                         <p className="text-sm text-gray-600 truncate whitespace-nowrap">
+                         <p className="text-sm text-gray-600 truncate">
                            {task.description}
                          </p>
                        </div>
@@ -2480,179 +2923,152 @@ const TasksPage = () => {
              </div>
 
              {/* Desktop Table View */}
-             <div className="hidden sm:block bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+             <div className="hidden sm:block bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
              <div className="overflow-x-auto">
              {/* Table Header */}
-             <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 px-4 py-3">
+                 <div className="bg-gray-50 border-b border-gray-200">
                <div className="flex text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
                  {/* Task Name */}
-                 <div 
-                   className="flex items-center justify-center border-r border-gray-50 pr-2"
-                   style={{ width: `${columnWidths.taskName}px` }}
-                 >
-                   <span className="whitespace-nowrap">Task Name</span>
-                   <div 
-                     className="ml-auto w-1 h-4 bg-gray-400 hover:bg-gray-600 cursor-col-resize"
-                     onMouseDown={(e) => handleColumnResizeStart(e, 'taskName')}
-                   />
-                 </div>
+                 <ColumnHeader
+                   column="title"
+                   title="TASK NAME"
+                   width={columnWidths.taskName}
+                   filterOptions={[]}
+                 />
                  
                  {/* Project */}
-                 <div 
-                   className="flex items-center justify-center border-r border-gray-50 pr-2"
-                   style={{ width: `${columnWidths.project}px` }}
-                 >
-                   <span className="whitespace-nowrap">Project</span>
-                   <div 
-                     className="ml-auto w-1 h-4 bg-gray-400 hover:bg-gray-600 cursor-col-resize"
-                     onMouseDown={(e) => handleColumnResizeStart(e, 'project')}
-                   />
-                 </div>
+                 <ColumnHeader
+                   column="project"
+                   title="PROJECT"
+                   width={columnWidths.project}
+                   filterOptions={allProjects.map(p => ({ value: p, label: p }))}
+                 />
                  
                  {/* Task Description */}
-                 <div 
-                   className="flex items-center justify-center border-r border-gray-50 pr-2"
-                   style={{ width: `${columnWidths.taskDescription}px` }}
-                 >
-                   <span className="whitespace-nowrap">Task Description</span>
-                   <div 
-                     className="ml-auto w-1 h-4 bg-gray-400 hover:bg-gray-600 cursor-col-resize"
-                     onMouseDown={(e) => handleColumnResizeStart(e, 'taskDescription')}
-                   />
-                   </div>
+                 <ColumnHeader
+                   column="description"
+                   title="TASK DESCRIPTION"
+                   width={columnWidths.taskDescription}
+                   filterOptions={[]}
+                 />
                    
                  {/* Status */}
-                 <div 
-                   className="flex items-center justify-center border-r border-gray-50 pr-2"
-                   style={{ width: `${columnWidths.status}px` }}
-                 >
-                   <span className="whitespace-nowrap">Status</span>
-                   <div 
-                     className="ml-auto w-1 h-4 bg-gray-400 hover:bg-gray-600 cursor-col-resize"
-                     onMouseDown={(e) => handleColumnResizeStart(e, 'status')}
-                   />
-                     </div>
+                 <ColumnHeader
+                   column="status"
+                   title="STATUS"
+                   width={columnWidths.status}
+                   filterOptions={[
+                     { value: 'To Do', label: 'To Do' },
+                     { value: 'In Progress', label: 'In Progress' },
+                     { value: 'Completed', label: 'Completed' },
+                     { value: 'Overdue', label: 'Overdue' }
+                   ]}
+                 />
                  
                  {/* Priority */}
-                 <div 
-                   className="flex items-center justify-center border-r border-gray-50 pr-2"
-                   style={{ width: `${columnWidths.priority}px` }}
-                 >
-                   <span className="whitespace-nowrap">Priority</span>
-                   <div 
-                     className="ml-auto w-1 h-4 bg-gray-400 hover:bg-gray-600 cursor-col-resize"
-                     onMouseDown={(e) => handleColumnResizeStart(e, 'priority')}
-                   />
-                     </div>
+                 <ColumnHeader
+                   column="priority"
+                   title="PRIORITY"
+                   width={columnWidths.priority}
+                   filterOptions={[
+                     { value: 'Low', label: 'Low' },
+                     { value: 'Medium', label: 'Medium' },
+                     { value: 'High', label: 'High' }
+                   ]}
+                 />
                  
                  {/* Time */}
-                 <div 
-                   className="flex items-center justify-center border-r border-gray-50 pr-2"
-                   style={{ width: `${columnWidths.time}px` }}
-                 >
-                   <span className="whitespace-nowrap">Time</span>
-                   <div 
-                     className="ml-auto w-1 h-4 bg-gray-400 hover:bg-gray-600 cursor-col-resize"
-                     onMouseDown={(e) => handleColumnResizeStart(e, 'time')}
-                   />
-                   </div>
+                 <ColumnHeader
+                   column="time"
+                   title="TIME"
+                   width={columnWidths.time}
+                   sortable={false}
+                   filterable={false}
+                 />
                  
                  {/* Comments */}
-                 <div 
-                   className="flex items-center justify-center border-r border-gray-50 pr-3 min-w-0"
-                   style={{ width: `${columnWidths.comments}px` }}
-                 >
-                   <span className="whitespace-nowrap">Comments</span>
-                   <div 
-                     className="ml-auto w-1 h-4 bg-gray-400 hover:bg-gray-600 cursor-col-resize"
-                     onMouseDown={(e) => handleColumnResizeStart(e, 'comments')}
-                   />
-                 </div>
+                 <ColumnHeader
+                   column="comments"
+                   title="COMMENTS"
+                   width={columnWidths.comments}
+                   sortable={false}
+                   filterable={false}
+                 />
 
                  {/* Subtasks */}
-                 <div 
-                   className="flex items-center justify-center border-r border-gray-50 pr-3 min-w-0"
-                   style={{ width: `${columnWidths.subtasks}px` }}
-                 >
-                   <span className="whitespace-nowrap">Subtasks</span>
-                   <div 
-                     className="ml-auto w-1 h-4 bg-gray-400 hover:bg-gray-600 cursor-col-resize"
-                     onMouseDown={(e) => handleColumnResizeStart(e, 'subtasks')}
-                   />
-                     </div>
+                 <ColumnHeader
+                   column="subtasks"
+                   title="SUBTASKS"
+                   width={columnWidths.subtasks}
+                   sortable={false}
+                   filterable={false}
+                 />
                      
                  {/* Tags */}
-                 <div 
-                   className="flex items-center justify-center border-r border-gray-50 pr-2 min-w-0"
-                   style={{ width: `${columnWidths.tags}px` }}
-                 >
-                   <span className="whitespace-nowrap">Tags</span>
-                   <div 
-                     className="ml-auto w-1 h-4 bg-gray-400 hover:bg-gray-600 cursor-col-resize"
-                     onMouseDown={(e) => handleColumnResizeStart(e, 'tags')}
-                   />
-                 </div>
-                 
+                 <ColumnHeader
+                   column="tags"
+                   title="TAGS"
+                   width={columnWidths.tags}
+                   filterOptions={[]}
+                 />
                  
                  {/* Due Date */}
-                 <div 
-                   className="flex items-center justify-center border-r border-gray-50 pr-2"
-                   style={{ width: `${columnWidths.dueDate}px` }}
-                 >
-                   <span className="whitespace-nowrap">Due Date</span>
-                   <div 
-                     className="ml-auto w-1 h-4 bg-gray-400 hover:bg-gray-600 cursor-col-resize"
-                     onMouseDown={(e) => handleColumnResizeStart(e, 'dueDate')}
-                   />
-                 </div>
+                 <ColumnHeader
+                   column="dueDate"
+                   title="DUE DATE"
+                   width={columnWidths.dueDate}
+                   filterOptions={[]}
+                 />
                  
                  {/* Actions */}
                  <div 
-                   className="flex items-center justify-center"
+                   className="flex items-center justify-center px-4 py-4"
                    style={{ width: `${columnWidths.actions}px` }}
                  >
-                   <span className="whitespace-nowrap">Actions</span>
+                   <span className="text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                     ACTIONS
+                   </span>
                  </div>
                </div>
              </div>
              
              {/* Table Body */}
-             <div className="divide-y divide-gray-50">
+             <div className="divide-y divide-gray-100">
                {filteredTasks.map((task, index) => (
-                 <div key={task.id} className={`flex px-4 py-3 cursor-pointer transition-all duration-200 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 hover:shadow-sm ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`} onClick={() => handleTaskClick(task)}>
+                 <div key={task.id} className={`flex px-4 py-4 cursor-pointer transition-all duration-200 hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/20'}`} onClick={() => handleTaskClick(task)}>
                    {/* Task Name */}
                    <div 
-                     className="flex items-center justify-center border-r border-gray-50 pr-2 min-w-0"
+                     className="flex items-center border-r border-gray-200 pr-4 min-w-0"
                      style={{ width: `${columnWidths.taskName}px` }}
                    >
-                     <h3 className={`text-sm font-semibold ${task.status === 'Completed' ? 'line-through text-gray-500' : 'text-gray-900'} truncate whitespace-nowrap`}>
+                     <h3 className={`text-sm font-medium ${task.status === 'Completed' ? 'line-through text-gray-500' : 'text-gray-900'} truncate`}>
                            {task.title}
                          </h3>
                    </div>
                    
                    {/* Project */}
                    <div 
-                     className="flex items-center justify-center border-r border-gray-50 pr-2 min-w-0"
+                     className="flex items-center border-r border-gray-200 pr-4 min-w-0"
                      style={{ width: `${columnWidths.project}px` }}
                    >
-                     <span className="text-sm text-gray-900 truncate whitespace-nowrap">
+                     <span className="text-sm text-gray-700 truncate">
                        {task.project}
                      </span>
                    </div>
                    
                    {/* Task Description */}
                    <div 
-                     className="flex items-center justify-center border-r border-gray-50 pr-2 min-w-0"
+                     className="flex items-center border-r border-gray-200 pr-4 min-w-0"
                      style={{ width: `${columnWidths.taskDescription}px` }}
                    >
-                     <p className="text-sm text-gray-600 truncate whitespace-nowrap">
+                     <p className="text-sm text-gray-600 truncate">
                            {task.description}
                          </p>
                        </div>
                        
                    {/* Status */}
                    <div 
-                     className="flex items-center justify-center border-r border-gray-50 pr-2"
+                     className="flex items-center justify-center border-r border-gray-200 pr-4"
                      style={{ width: `${columnWidths.status}px` }}
                    >
                            <Badge variant={getStatusConfig(task.status).color as any} size="sm" className="whitespace-nowrap">
@@ -2662,7 +3078,7 @@ const TasksPage = () => {
                    
                    {/* Priority */}
                    <div 
-                     className="flex items-center justify-center border-r border-gray-50 pr-2"
+                     className="flex items-center justify-center border-r border-gray-200 pr-4"
                      style={{ width: `${columnWidths.priority}px` }}
                    >
                            <Badge variant={getPriorityConfig(task.priority).color as any} size="sm" className="whitespace-nowrap">
@@ -2672,7 +3088,7 @@ const TasksPage = () => {
                    
                    {/* Time */}
                    <div 
-                     className="flex items-center justify-center border-r border-gray-50 pr-2"
+                     className="flex items-center justify-center border-r border-gray-200 pr-4"
                      style={{ width: `${columnWidths.time}px` }}
                    >
                      <span className="text-sm text-gray-600 whitespace-nowrap">{task.estimatedHours}h</span>
@@ -2680,7 +3096,7 @@ const TasksPage = () => {
                    
                    {/* Comments */}
                    <div 
-                     className="flex items-center justify-center border-r border-gray-50 pr-3 min-w-0"
+                     className="flex items-center justify-center border-r border-gray-200 pr-4 min-w-0"
                      style={{ width: `${columnWidths.comments}px` }}
                    >
                      <span className="text-sm text-gray-600 whitespace-nowrap">
@@ -2697,7 +3113,7 @@ const TasksPage = () => {
                    
                    {/* Subtasks */}
                    <div 
-                     className="flex items-center justify-center border-r border-gray-50 pr-3 min-w-0"
+                     className="flex items-center justify-center border-r border-gray-200 pr-4 min-w-0"
                      style={{ width: `${columnWidths.subtasks}px` }}
                    >
                      <span className="text-sm text-gray-600 whitespace-nowrap">
@@ -2714,7 +3130,7 @@ const TasksPage = () => {
 
                    {/* Tags */}
                    <div 
-                     className="flex items-center justify-center border-r border-gray-50 pr-2 min-w-0"
+                     className="flex items-center justify-center border-r border-gray-200 pr-4 min-w-0"
                      style={{ width: `${columnWidths.tags}px` }}
                    >
                      <div className="flex items-center gap-1 overflow-hidden">
@@ -2724,27 +3140,26 @@ const TasksPage = () => {
                        </span>
                      ))}
                        {(task.tags || '').split(',').length > 1 && (
-                         <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full whitespace-nowrap">
+                         <span className="px-2 py-1 bg-gray-200 text-gray-500 text-xs rounded-full">
                            +{(task.tags || '').split(',').length - 1}
                        </span>
                      )}
                      </div>
                    </div>
                    
-                   
                    {/* Due Date */}
                    <div 
-                     className="flex items-center justify-center border-r border-gray-50 pr-2"
+                     className="flex items-center justify-center border-r border-gray-200 pr-4"
                      style={{ width: `${columnWidths.dueDate}px` }}
                    >
                      <span className={`text-sm whitespace-nowrap ${isOverdue(task.dueDate) ? 'text-red-600 font-medium' : 'text-gray-600'}`}>
-                           {new Date(task.dueDate).toLocaleDateString()}
+                       {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No date'}
                          </span>
                        </div>
                    
                    {/* Actions */}
                    <div 
-                     className="flex items-center justify-center space-x-2"
+                     className="flex items-center justify-center space-x-2 px-4"
                      style={{ width: `${columnWidths.actions}px` }}
                    >
                      <Button 

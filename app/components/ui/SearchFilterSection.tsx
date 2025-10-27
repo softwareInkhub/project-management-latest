@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Filter, Search } from 'lucide-react';
+import { Filter, Search, Settings, ChevronDown } from 'lucide-react';
 import { Input } from './Input';
 import { Select } from './Select';
 import { ViewToggle } from './ViewToggle';
 import { FilterDropdown } from './FilterDropdown';
 import { FilterChip } from './FilterChip';
+import InlineAdvancedFilters from './InlineAdvancedFilters';
 
 interface FilterOption {
   value: string;
@@ -42,6 +43,21 @@ interface SearchFilterSectionProps<T extends string = string> {
   onApplyAdvancedFilters?: () => void;
   onClearAdvancedFilters?: () => void;
   advancedFilters?: Record<string, string | string[]>;
+  onOpenAdvancedFilterModal?: () => void;
+  // Inline advanced filter props
+  showInlineAdvancedFilters?: boolean;
+  onInlineAdvancedFiltersChange?: (filters: any) => void;
+  onClearInlineAdvancedFilters?: () => void;
+  inlineAdvancedFilters?: any;
+  tasks?: any[];
+  users?: any[];
+  teams?: any[];
+  projects?: any[];
+  currentUser?: any;
+  // Column settings props
+  availableFilterColumns?: Array<{key: string, label: string, icon: React.ReactNode}>;
+  visibleFilterColumns?: string[];
+  onFilterColumnsChange?: (columns: string[]) => void;
   viewToggle?: {
     currentView: T;
     views: ViewOption<T>[];
@@ -62,38 +78,62 @@ export const SearchFilterSection = <T extends string = string>({
   onApplyAdvancedFilters,
   onClearAdvancedFilters,
   advancedFilters = {},
+  onOpenAdvancedFilterModal,
+  showInlineAdvancedFilters = false,
+  onInlineAdvancedFiltersChange,
+  onClearInlineAdvancedFilters,
+  inlineAdvancedFilters,
+  tasks = [],
+  users = [],
+  teams = [],
+  projects = [],
+  currentUser,
+  availableFilterColumns = [],
+  visibleFilterColumns = [],
+  onFilterColumnsChange,
   viewToggle,
   variant = 'modern',
   showActiveFilters = true,
   className = ''
 }: SearchFilterSectionProps<T>) => {
   const [isAdvancedFilterOpen, setIsAdvancedFilterOpen] = useState(false);
+  const [isSettingsDropdownOpen, setIsSettingsDropdownOpen] = useState(false);
   const advancedFilterRef = useRef<HTMLDivElement>(null);
   const filterButtonRef = useRef<HTMLButtonElement>(null);
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
+  const settingsDropdownRef = useRef<HTMLDivElement>(null);
   const activeFilters = filters.filter(filter => filter.value !== 'all' && filter.value !== '');
 
-  // Close advanced filters when clicking outside
+  // Close advanced filters and settings dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
       
-      // Don't close if clicking on the filter button or inside the advanced filter area
+      // Close advanced filters
       if (advancedFilterRef.current && 
           !advancedFilterRef.current.contains(target) && 
           filterButtonRef.current && 
           !filterButtonRef.current.contains(target)) {
         setIsAdvancedFilterOpen(false);
       }
+      
+      // Close settings dropdown
+      if (settingsDropdownRef.current && 
+          !settingsDropdownRef.current.contains(target) && 
+          settingsButtonRef.current && 
+          !settingsButtonRef.current.contains(target)) {
+        setIsSettingsDropdownOpen(false);
+      }
     };
 
-    if (isAdvancedFilterOpen) {
+    if (isAdvancedFilterOpen || isSettingsDropdownOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isAdvancedFilterOpen]);
+  }, [isAdvancedFilterOpen, isSettingsDropdownOpen]);
 
   const getFilterLabel = (filter: any) => {
     const option = filter.options.find((opt: any) => opt.value === filter.value);
@@ -116,6 +156,16 @@ export const SearchFilterSection = <T extends string = string>({
     }
   };
 
+  const handleColumnToggle = (columnKey: string) => {
+    if (onFilterColumnsChange) {
+      const currentColumns = visibleFilterColumns || [];
+      const newColumns = currentColumns.includes(columnKey)
+        ? currentColumns.filter(col => col !== columnKey)
+        : [...currentColumns, columnKey];
+      onFilterColumnsChange(newColumns);
+    }
+  };
+
   // Convert filters to advanced filter format
   const advancedFilterGroups = filters.map(filter => ({
     key: filter.key,
@@ -128,8 +178,8 @@ export const SearchFilterSection = <T extends string = string>({
     <div className={`${className}`}>
       {/* Mobile-First Layout - Exact Match to Reference */}
       <div className="space-y-4 mb-1">
-        {/* Search Bar with Filter Icon - Full Width */}
-        <div className="relative w-full">
+        {/* Search Bar with Filter and Settings Icons - Fixed Width Search */}
+        <div className="flex items-center space-x-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
@@ -137,22 +187,94 @@ export const SearchFilterSection = <T extends string = string>({
               placeholder={searchPlaceholder}
               value={searchValue}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full pl-10 pr-12 py-3 bg-gray-100 border-0 rounded-2xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
+              className="w-80 pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-2xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
             />
-            <button 
-              ref={filterButtonRef}
-              onClick={() => setIsAdvancedFilterOpen(!isAdvancedFilterOpen)}
-              className={`absolute right-3 top-1/2 transform -translate-y-1/2 transition-colors ${
-                isAdvancedFilterOpen ? 'text-blue-700' : 'text-blue-600 hover:text-blue-700'
-              }`}
-            >
-              <Filter className="w-5 h-5" />
-            </button>
+          </div>
+          
+          {/* Spacer to push icons to the right */}
+          <div className="flex-1"></div>
+          
+          {/* Settings and Filter Buttons - Positioned at End */}
+          <div className="flex items-center space-x-2">
+              {/* Settings Button */}
+              <div className="relative">
+                <button 
+                  ref={settingsButtonRef}
+                  onClick={() => setIsSettingsDropdownOpen(!isSettingsDropdownOpen)}
+                  className={`p-2 rounded-lg transition-colors ${
+                    isSettingsDropdownOpen ? 'text-blue-700 bg-blue-50' : 'text-gray-600 hover:text-blue-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <Settings className="w-5 h-5" />
+                </button>
+                
+                {/* Settings Dropdown */}
+                {isSettingsDropdownOpen && (
+                  <div ref={settingsDropdownRef} className="absolute right-0 top-full mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                    <div className="p-4">
+                      <h3 className="text-sm font-medium text-gray-900 mb-3">Filter Columns</h3>
+                      <div className="space-y-2">
+                        {availableFilterColumns.map((column) => (
+                          <label key={column.key} className="flex items-center space-x-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={visibleFilterColumns.includes(column.key)}
+                              onChange={() => handleColumnToggle(column.key)}
+                              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <div className="flex items-center space-x-2">
+                              {column.icon}
+                              <span className="text-sm text-gray-700">{column.label}</span>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* Filter Button */}
+              <button 
+                ref={filterButtonRef}
+                onClick={() => {
+                  if (showInlineAdvancedFilters) {
+                    setIsAdvancedFilterOpen(!isAdvancedFilterOpen);
+                  } else if (onOpenAdvancedFilterModal) {
+                    onOpenAdvancedFilterModal();
+                  } else {
+                    setIsAdvancedFilterOpen(!isAdvancedFilterOpen);
+                  }
+                }}
+                className={`p-2 rounded-lg transition-colors ${
+                  isAdvancedFilterOpen ? 'text-blue-700 bg-blue-50' : 'text-blue-600 hover:text-blue-700 hover:bg-gray-50'
+                }`}
+              >
+                <Filter className="w-5 h-5" />
+              </button>
           </div>
         </div>
 
+
         {/* Advanced Filters - Inline */}
-        {isAdvancedFilterOpen && (
+        {isAdvancedFilterOpen && showInlineAdvancedFilters && (
+          <InlineAdvancedFilters
+            isOpen={isAdvancedFilterOpen}
+            onClose={() => setIsAdvancedFilterOpen(false)}
+            filters={inlineAdvancedFilters}
+            onFiltersChange={onInlineAdvancedFiltersChange || (() => {})}
+            onClearAll={onClearInlineAdvancedFilters || (() => {})}
+            tasks={tasks}
+            users={users}
+            teams={teams}
+            projects={projects}
+            visibleColumns={visibleFilterColumns}
+            currentUser={currentUser}
+          />
+        )}
+
+        {/* Legacy Advanced Filters - Inline */}
+        {isAdvancedFilterOpen && !showInlineAdvancedFilters && !onOpenAdvancedFilterModal && (
           <div ref={advancedFilterRef} className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
             <div className="space-y-4">
               {advancedFilterGroups.map((filterGroup) => (
@@ -165,7 +287,7 @@ export const SearchFilterSection = <T extends string = string>({
                       
                       return (
                         <button
-                          key={option.value}
+                          key={`${filterGroup.key}-${option.value}`}
                           onClick={() => handleAdvancedFilterChange(filterGroup.key, option.value)}
                           className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
                             isActive
