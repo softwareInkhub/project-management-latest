@@ -67,13 +67,12 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
     endDate: '',
     team: [],
     assignee: '',
-    description: '',
-    progress: 0
+    description: ''
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   // Removed newTeamMember state - no longer needed
-  const [formHeight, setFormHeight] = useState(80); // Default 80vh
+  const [formHeight, setFormHeight] = useState<number | string>('auto'); // Auto height
   const [isDragging, setIsDragging] = useState(false);
   
   // Removed team member and team selection - no longer needed
@@ -96,12 +95,11 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
         endDate: '',
         team: [], // Removed team assignment
         assignee: user?.userId || '',
-        description: '',
-        progress: 0
+        description: ''
       });
     }
     setErrors({});
-    setFormHeight(80); // Reset form height when opening
+    setFormHeight('auto'); // Reset form height when opening
   }, [project, isOpen]);
 
   // Drag handlers for resizing
@@ -183,8 +181,7 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
       endDate: String(formData.endDate || ''),
       team: [], // Removed team assignment
       assignee: String(assignee).trim(), // Automatically set from logged-in user
-      description: String(formData.description || '').trim(),
-      progress: Number(formData.progress || 0)
+      description: String(formData.description || '').trim()
     };
 
     console.log('🧹 Cleaned form data:', cleanFormData);
@@ -205,35 +202,27 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-end"
+      className="fixed inset-0 z-50 flex items-end lg:items-center justify-center bg-black/70 bg-opacity-50"
+      style={{ backdropFilter: 'blur(2px)' }}
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onCancel();
         }
       }}
     >
-      <div 
-        className={`bg-white rounded-t-2xl w-full overflow-y-auto shadow-2xl ${
-          isCollapsed ? 'lg:ml-16' : 'lg:ml-64'
-        }`}
-        style={{ 
-          width: `calc(100% - ${isCollapsed ? '4rem' : '16rem'})`,
-          height: `${formHeight}vh`,
-          boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
-        }}
-      >
-        {/* Drag Handle - Sticky */}
-        <div 
-          className={`sticky top-0 z-20 w-full h-6 flex items-center justify-center cursor-row-resize hover:bg-gray-50 transition-colors ${isDragging ? 'bg-gray-100' : ''}`}
-          onMouseDown={handleMouseDown}
-        >
-          <div className="w-12 h-1 bg-gray-400 rounded-full"></div>
-        </div>
+       <div 
+         className="bg-white rounded-t-2xl lg:rounded-2xl w-full lg:w-auto lg:max-w-2xl shadow-2xl"
+         style={{ 
+           width: '100%',
+           maxHeight: '90vh',
+           boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+         }}
+       >
 
-        <div className="flex flex-col h-full">
-          <div className="p-6 flex-1 overflow-y-auto">
+         <div className="flex flex-col h-full">
+           <div className="p-4 lg:p-6 flex-1 overflow-y-auto">
             {/* Header */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-4 lg:mb-6">
               <div>
                 <h2 className="text-xl font-bold text-gray-900">
                   {project ? 'Edit Project' : 'Create New Project'}
@@ -251,35 +240,40 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
               </Button>
             </div>
 
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Project Name */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-800 mb-2">
-              Project Name *
-            </label>
-            <Input
-              value={formData.name || ''}
-              onChange={(e) => handleInputChange('name', e.target.value)}
-              placeholder="Enter project name"
-              className={errors.name ? 'border-red-500' : ''}
-            />
-            {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
+             {/* Form */}
+             <form onSubmit={handleSubmit} className="space-y-3 lg:space-y-4">
+          {/* Project Name & Company */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-800 mb-2">
+                Project Name *
+              </label>
+              <Input
+                value={formData.name || ''}
+                onChange={(e) => handleInputChange('name', e.target.value)}
+                placeholder="Enter project name"
+                className={errors.name ? 'border-red-500' : ''}
+              />
+              {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-800 mb-2">
+                Company *
+              </label>
+              <Input
+                value={formData.company || ''}
+                onChange={(e) => handleInputChange('company', e.target.value)}
+                placeholder="Enter company name"
+                className={errors.company ? 'border-red-500' : ''}
+              />
+              {errors.company && <p className="text-red-500 text-sm mt-1">{errors.company}</p>}
+            </div>
           </div>
 
-          {/* Company */}
+          {/* Auto-assignment info */}
           <div>
-            <label className="block text-sm font-semibold text-gray-800 mb-2">
-              Company *
-            </label>
-            <Input
-              value={formData.company || ''}
-              onChange={(e) => handleInputChange('company', e.target.value)}
-              placeholder="Enter company name"
-              className={errors.company ? 'border-red-500' : ''}
-            />
-            {errors.company && <p className="text-red-500 text-sm mt-1">{errors.company}</p>}
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-gray-500">
               Project will be automatically assigned to: <span className="font-semibold">{user?.name || user?.email || 'Current User'}</span>
             </p>
           </div>
@@ -298,108 +292,114 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
             />
           </div>
 
-          {/* Dates */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-800 mb-2">
-                <Calendar className="w-4 h-4 inline mr-1" />
-                Start Date *
-              </label>
-              <Input
-                type="date"
-                value={formData.startDate || ''}
-                onChange={(e) => handleInputChange('startDate', e.target.value)}
-                className={errors.startDate ? 'border-red-500' : ''}
-              />
-              {errors.startDate && <p className="text-red-500 text-sm mt-1">{errors.startDate}</p>}
-            </div>
+           {/* Date Fields - Mobile: 2 columns, Desktop: 4 columns */}
+           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+             <div>
+               <label className="block text-sm font-semibold text-gray-800 mb-2">
+                 <Calendar className="w-4 h-4 inline mr-1" />
+                 Start Date *
+               </label>
+               <Input
+                 type="date"
+                 value={formData.startDate || ''}
+                 onChange={(e) => handleInputChange('startDate', e.target.value)}
+                 className={errors.startDate ? 'border-red-500' : ''}
+               />
+               {errors.startDate && <p className="text-red-500 text-xs mt-1">{errors.startDate}</p>}
+             </div>
 
-            <div>
-              <label className="block text-sm font-semibold text-gray-800 mb-2">
-                <Calendar className="w-4 h-4 inline mr-1" />
-                End Date *
-              </label>
-              <Input
-                type="date"
-                value={formData.endDate || ''}
-                onChange={(e) => handleInputChange('endDate', e.target.value)}
-                className={errors.endDate ? 'border-red-500' : ''}
-              />
-              {errors.endDate && <p className="text-red-500 text-sm mt-1">{errors.endDate}</p>}
-            </div>
-          </div>
+             <div>
+               <label className="block text-sm font-semibold text-gray-800 mb-2">
+                 <Calendar className="w-4 h-4 inline mr-1" />
+                 End Date *
+               </label>
+               <Input
+                 type="date"
+                 value={formData.endDate || ''}
+                 onChange={(e) => handleInputChange('endDate', e.target.value)}
+                 className={errors.endDate ? 'border-red-500' : ''}
+               />
+               {errors.endDate && <p className="text-red-500 text-xs mt-1">{errors.endDate}</p>}
+             </div>
 
-          {/* Status & Priority */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-800 mb-2">
-                Status
-              </label>
-              <Select
-                value={formData.status || 'Planning'}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleInputChange('status', e.target.value)}
-                options={statusOptions}
-              />
-            </div>
+             <div className="hidden sm:block">
+               <label className="block text-sm font-semibold text-gray-800 mb-2">
+                 Status
+               </label>
+               <Select
+                 value={formData.status || 'Planning'}
+                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleInputChange('status', e.target.value)}
+                 options={statusOptions}
+               />
+             </div>
 
-            <div>
-              <label className="block text-sm font-semibold text-gray-800 mb-2">
-                Priority
-              </label>
-              <Select
-                value={formData.priority || 'Medium'}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleInputChange('priority', e.target.value)}
-                options={priorityOptions}
-              />
-            </div>
-          </div>
+             <div className="hidden sm:block">
+               <label className="block text-sm font-semibold text-gray-800 mb-2">
+                 Priority
+               </label>
+               <Select
+                 value={formData.priority || 'Medium'}
+                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleInputChange('priority', e.target.value)}
+                 options={priorityOptions}
+               />
+             </div>
 
-          {/* Progress */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-800 mb-2">
-                Progress (%)
-              </label>
-              <Input
-                value={formData.progress || 0}
-                onChange={(e) => handleInputChange('progress', e.target.value)}
-                placeholder="0"
-                type="number"
-                min="0"
-                max="100"
-              />
-            </div>
-            <div>
-              {/* Empty div to maintain consistent layout */}
-            </div>
-          </div>
+           </div>
+
+           {/* Status, Priority - Mobile only row */}
+           <div className="grid grid-cols-2 gap-3 sm:hidden">
+             <div>
+               <label className="block text-sm font-semibold text-gray-800 mb-2">
+                 Status
+               </label>
+               <Select
+                 value={formData.status || 'Planning'}
+                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleInputChange('status', e.target.value)}
+                 options={statusOptions}
+               />
+             </div>
+
+             <div>
+               <label className="block text-sm font-semibold text-gray-800 mb-2">
+                 Priority
+               </label>
+               <Select
+                 value={formData.priority || 'Medium'}
+                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleInputChange('priority', e.target.value)}
+                 options={priorityOptions}
+               />
+             </div>
+
+           </div>
 
           {/* Team Members section completely removed */}
 
             </form>
           </div>
 
-          {/* Sticky Form Actions */}
-          <div className="sticky bottom-0 bg-white border-t border-gray-200 p-6">
-            <div className="flex justify-end space-x-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onCancel}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleSubmit(e as any);
-                }}
-              >
-                {project ? 'Update Project' : 'Create Project'}
-              </Button>
-            </div>
-          </div>
+           {/* Form Actions */}
+           <div className="sticky bottom-0 bg-white border-t border-gray-300 p-4 sm:p-6 z-10 pb-24 sm:pb-6">
+             <div className="flex justify-end space-x-3">
+               <Button
+                 type="button"
+                 variant="outline"
+                 onClick={onCancel}
+                 className="flex-1 sm:flex-none"
+               >
+                 Cancel
+               </Button>
+               <Button
+                 type="submit"
+                 onClick={(e) => {
+                   e.preventDefault();
+                   handleSubmit(e as any);
+                 }}
+                 className="flex-1 sm:flex-none"
+               >
+                 {project ? 'Update Project' : 'Create Project'}
+               </Button>
+             </div>
+           </div>
         </div>
       </div>
     </div>

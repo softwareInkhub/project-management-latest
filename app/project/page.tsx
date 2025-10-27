@@ -21,7 +21,8 @@ import {
   Search,
   Filter,
   Crown,
-  User
+  User,
+  X
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -457,12 +458,12 @@ const ProjectsPage = () => {
           )}
 
           {/* Filter Pills */}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-nowrap gap-2 overflow-x-auto pb-2 scrollbar-hide pr-4">
             {predefinedFilters.map((filter) => (
               <button
                 key={filter.id}
                 onClick={() => setActivePredefinedFilter(filter.id)}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 ${
                   activePredefinedFilter === filter.id
                     ? 'bg-blue-500 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -478,7 +479,7 @@ const ProjectsPage = () => {
         {viewMode === 'list' ? (
           <div className="space-y-3">
             {filteredProjects.map((project) => (
-              <div key={project.id} className="relative p-3 sm:p-4 bg-white rounded-lg border border-gray-100 hover:border-gray-200 transition-colors min-h-[120px] sm:min-h-[140px] flex flex-col sm:flex-row sm:items-center cursor-pointer" onClick={() => handleProjectClick(project)}>
+              <div key={project.id} className="relative p-3 sm:p-4 bg-white rounded-lg border border-gray-300 hover:border-gray-400 transition-colors min-h-[120px] sm:min-h-[140px] flex flex-col sm:flex-row sm:items-center cursor-pointer shadow-sm" onClick={() => handleProjectClick(project)}>
                 {/* Action Buttons - Top Right Corner */}
                 <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex flex-col items-end space-y-2 z-20">
                   <div className="flex items-center space-x-1">
@@ -555,14 +556,14 @@ const ProjectsPage = () => {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 lg:gap-4">
             {filteredProjects.map((project) => (
               <Card key={project.id} hover className="relative cursor-pointer" onClick={() => handleProjectClick(project)}>
-                <CardContent className="p-3 sm:p-4">
-                  <div className="space-y-2 sm:space-y-3">
+                <CardContent className="p-2 sm:p-3">
+                  <div className="space-y-1 sm:space-y-2">
                     {/* Header with Project Icon and Title */}
-                    <div className="flex items-start space-x-2 sm:space-x-3">
-                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-xs sm:text-sm flex-shrink-0">
+                    <div className="flex items-start space-x-1 sm:space-x-2">
+                      <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
                         {(project.name || project.title || 'P').charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -666,69 +667,77 @@ const ProjectsPage = () => {
 
       </div>
 
-      {/* Project Preview - Slides up from bottom */}
+      {/* Floating Action Button for Mobile */}
+      <div className="fixed bottom-25 right-4 z-40 lg:hidden">
+        <button
+          onClick={handleCreateProject}
+          className="w-16 h-16 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        >
+          <Plus size={36} className="text-white" />
+        </button>
+      </div>
+
+      {/* Project Preview - Mobile: slides up from bottom, Desktop: centered modal */}
       {isProjectPreviewOpen && selectedProject && (
-        <div className={`fixed inset-0 z-50 flex items-end transition-opacity duration-300 ${
-          isPreviewAnimating ? 'bg-opacity-0' : 'bg-opacity-30'
-        }`}>
+        <div className={`fixed inset-0 z-50 flex items-end lg:items-center justify-center transition-opacity duration-300 ${
+          isPreviewAnimating ? 'bg-opacity-0' : 'bg-black/70 bg-opacity-50'
+        }`} style={{ backdropFilter: 'blur(2px)' }}>
           <div 
             ref={projectPreviewRef}
-            className={`transform transition-all duration-300 ease-out ${
-              isPreviewAnimating ? 'translate-y-full' : 'translate-y-0'
-            } ${isCollapsed ? 'lg:ml-16' : 'lg:ml-64'}`}
+            className={`transform transition-all duration-300 ease-out w-full lg:w-auto lg:max-w-2xl ${
+              isPreviewAnimating ? 'translate-y-full lg:translate-y-0 lg:scale-95' : 'translate-y-0 lg:scale-100'
+            }`}
             style={{ 
-              width: `calc(100% - ${isCollapsed ? '4rem' : '16rem'})`,
-              height: '80vh',
+              width: '100%',
+              maxHeight: '80vh',
               boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
             }}
           >
             <div 
-              className="bg-white rounded-t-2xl shadow-2xl overflow-y-auto"
+              className="bg-white rounded-t-2xl lg:rounded-2xl shadow-2xl overflow-y-auto"
               style={{ 
-                height: '80vh',
+                maxHeight: '80vh',
                 boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
                 backgroundColor: 'white'
               }}
             >
-              <div className="p-6">
+              <div className="p-4 lg:p-6">
                 {/* Project Preview Header */}
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center justify-between mb-4 lg:mb-6">
                   <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
-                      <FolderKanban className="w-6 h-6 text-white" />
+                    <button
+                      onClick={closeProjectPreview}
+                      className="w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center transition-colors"
+                    >
+                      <X className="w-5 h-5 text-gray-600" />
+                    </button>
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-lg">
+                      <FolderKanban className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <h2 className="text-2xl font-bold text-gray-900">{selectedProject.name || selectedProject.title || 'Untitled Project'}</h2>
+                      <h2 className="text-xl font-bold text-gray-900">{selectedProject.name || selectedProject.title || 'Untitled Project'}</h2>
                       <p className="text-gray-500 text-sm">Project Details</p>
                     </div>
                   </div>
-                  <div className="flex space-x-2">
-                    <Button
-                      variant="outline"
-                      onClick={closeProjectPreview}
-                      className="px-4 py-2"
-                    >
-                      Close
-                    </Button>
-                    <Button
-                      variant="primary"
-                      onClick={() => handleEditProject(selectedProject)}
-                      className="px-4 py-2"
-                    >
-                      Edit Project
-                    </Button>
-                  </div>
+                  <button
+                    onClick={() => handleEditProject(selectedProject)}
+                    className="w-10 h-10 bg-blue-500 hover:bg-blue-600 rounded-lg flex items-center justify-center transition-colors"
+                  >
+                    <Edit className="w-5 h-5 text-white" />
+                  </button>
                 </div>
 
-                {/* Project Details */}
-                <div className="space-y-6">
-                  {/* Basic Info */}
-                  <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-800 mb-2">Description</label>
-                        <p className="text-gray-600">{selectedProject.description || 'No description available'}</p>
-                      </div>
+                {/* Project Details - Single Card */}
+                <div className="bg-white rounded-2xl border border-gray-100 p-4 lg:p-6 shadow-sm">
+                  <div className="space-y-6">
+                    {/* Description */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-800 mb-2">Description</label>
+                      <p className="text-gray-600">{selectedProject.description || 'No description available'}</p>
+                    </div>
+
+                    {/* Status, Priority, Progress */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-sm font-semibold text-gray-800 mb-2">Status</label>
                         <Badge variant={statusColors[selectedProject.status as keyof typeof statusColors] as any} size="md">
@@ -736,12 +745,13 @@ const ProjectsPage = () => {
                           <span className="ml-2 capitalize">{selectedProject.status || 'Unknown'}</span>
                         </Badge>
                       </div>
-                    </div>
-                  </div>
-
-                  {/* Progress and Priority */}
-                  <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-800 mb-2">Priority</label>
+                        <Badge variant={priorityColors[selectedProject.priority as keyof typeof priorityColors] as any} size="md">
+                          {getPriorityIcon(selectedProject.priority)}
+                          <span className="ml-2">{selectedProject.priority} priority</span>
+                        </Badge>
+                      </div>
                       <div>
                         <label className="block text-sm font-semibold text-gray-800 mb-2">Progress</label>
                         <div className="space-y-2">
@@ -757,19 +767,10 @@ const ProjectsPage = () => {
                           </div>
                         </div>
                       </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-800 mb-2">Priority</label>
-                        <Badge variant={priorityColors[selectedProject.priority as keyof typeof priorityColors] as any} size="md">
-                          {getPriorityIcon(selectedProject.priority)}
-                          <span className="ml-2">{selectedProject.priority} priority</span>
-                        </Badge>
-                      </div>
                     </div>
-                  </div>
 
-                  {/* Timeline */}
-                  <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Start Date & End Date */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-semibold text-gray-800 mb-2">Start Date</label>
                         <p className="text-gray-600">{new Date(selectedProject.startDate).toLocaleDateString()}</p>
@@ -779,11 +780,9 @@ const ProjectsPage = () => {
                         <p className="text-gray-600">{new Date(selectedProject.endDate).toLocaleDateString()}</p>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Assignment */}
-                  <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Assignee & Company */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-semibold text-gray-800 mb-2">Assignee</label>
                         <p className="text-gray-600">{selectedProject.assignee || 'Not assigned'}</p>
@@ -793,12 +792,10 @@ const ProjectsPage = () => {
                         <p className="text-gray-600">{selectedProject.company || 'N/A'}</p>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Tasks and Tags */}
-                  {(selectedProject.tasks || selectedProject.tags) && (
-                    <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Tasks and Tags */}
+                    {(selectedProject.tasks || selectedProject.tags) && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {selectedProject.tasks && (
                           <div>
                             <label className="block text-sm font-semibold text-gray-800 mb-2">Tasks</label>
@@ -820,16 +817,16 @@ const ProjectsPage = () => {
                           </div>
                         )}
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* Notes */}
-                  {selectedProject.notes && (
-                    <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                      <label className="block text-sm font-semibold text-gray-800 mb-2">Notes</label>
-                      <p className="text-gray-600 whitespace-pre-wrap">{selectedProject.notes}</p>
-                    </div>
-                  )}
+                    {/* Notes */}
+                    {selectedProject.notes && (
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-800 mb-2">Notes</label>
+                        <p className="text-gray-600 whitespace-pre-wrap">{selectedProject.notes}</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
