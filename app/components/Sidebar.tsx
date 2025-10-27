@@ -60,7 +60,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onMobile
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className={`flex items-center justify-between border-b border-gray-200 dark:border-gray-700 transition-all duration-300 h-17 ${
+      <div className={`flex items-center justify-between border-b border-gray-300 dark:border-gray-700 transition-all duration-300 h-21 ${
         isCollapsed ? 'p-4' : 'p-6'
       }`}>
         {!isCollapsed && (
@@ -138,7 +138,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onMobile
       </nav>
 
       {/* Secondary Navigation */}
-      <div className={`border-t border-gray-200 dark:border-gray-700 space-y-2 transition-all duration-300 ${
+      <div className={`border-t border-gray-300 dark:border-gray-700 space-y-2 transition-all duration-300 ${
         isCollapsed ? 'p-2' : 'p-4'
       }`}>
         {secondaryNavigation.map((item) => {
@@ -176,7 +176,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onMobile
       </div>
 
       {/* User Profile */}
-      <div className={`border-t border-gray-200 dark:border-gray-700 transition-all duration-300 ${
+      <div className={`border-t border-gray-300 dark:border-gray-700 transition-all duration-300 ${
         isCollapsed ? 'p-2' : 'p-4'
       }`}>
         <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'space-x-3'}`}>
@@ -197,7 +197,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onMobile
         </div>
         
         {!isCollapsed && (
-          <div className="mt-3 flex space-x-2 border-t border-gray-200 dark:border-gray-700 pt-3">
+          <div className="mt-3 flex space-x-2 border-t border-gray-300 dark:border-gray-700 pt-3">
             <Button
               size="sm"
               onClick={logout}
@@ -246,7 +246,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onMobile
       </div>
 
       {/* Desktop Sidebar */}
-      <div className={`hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:z-40 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 ${
+      <div className={`hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:z-40 bg-white dark:bg-gray-800 border-r border-gray-300 dark:border-gray-700 transition-all duration-300 ${
         isCollapsed ? 'lg:w-16' : 'lg:w-64'
       }`}>
         <div className="h-full overflow-y-auto overflow-x-hidden">

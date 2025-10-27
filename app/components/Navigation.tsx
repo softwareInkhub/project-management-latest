@@ -3,11 +3,13 @@ import React from 'react';
 import { 
   Menu,
   Bell,
-  Search
+  Search,
+  TrendingUp
 } from 'lucide-react';
 import { Avatar } from './ui/Avatar';
 import { Button } from './ui/Button';
 import { useAuth } from '../hooks/useAuth';
+import { usePathname } from 'next/navigation';
 
 interface NavigationProps {
   onMobileMenuClick: () => void;
@@ -15,18 +17,37 @@ interface NavigationProps {
 
 export const Navigation: React.FC<NavigationProps> = ({ onMobileMenuClick }) => {
   const { user } = useAuth();
+  const pathname = usePathname();
+  const isDashboard = pathname === '/Dashboard' || pathname === '/';
 
   return (
-    <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-3 sm:px-4 lg:px-6 py-3 sm:py-4 w-full sticky top-0 z-30">
+    <nav className="bg-white dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700 px-3 sm:px-4 lg:px-6 py-3 sm:py-4 w-full sticky top-0 z-30">
       <div className="flex items-center justify-between w-full">
-        {/* Mobile Menu Button */}
-        <div className="flex items-center min-w-0">
+        {/* Left Side - Mobile Menu + Dashboard Title */}
+        <div className="flex items-center min-w-0 flex-1">
           <button
             onClick={onMobileMenuClick}
-            className="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
+            className="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex-shrink-0 mr-2"
           >
             <Menu className="w-5 h-5 text-gray-600 dark:text-gray-300" />
           </button>
+          
+          {/* Dashboard Title and Welcome Message */}
+          {isDashboard && (
+            <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
+                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white truncate">
+                  Dashboard
+                </h1>
+                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 truncate">
+                  Welcome back, <span className="font-semibold text-blue-600 dark:text-blue-400">{user?.name || user?.username || user?.email?.split('@')[0] || 'User'}</span>!
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right Side */}

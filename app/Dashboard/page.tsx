@@ -142,6 +142,18 @@ const Dashboard = () => {
     console.log('[Dashboard] 👤 User:', user?.email);
     console.log('[Dashboard] 🔐 isAuthenticated:', isAuthenticated);
   }, []);
+
+  // Check if desktop view
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsDesktop(window.innerWidth >= 640);
+    };
+    
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
   
   useEffect(() => {
     console.log('[Dashboard] 🔄 State changed:', { user: user?.email, isAuthenticated });
@@ -178,6 +190,7 @@ const Dashboard = () => {
   });
   const [showFilters, setShowFilters] = useState(false);
   const [upcomingTasksFilter, setUpcomingTasksFilter] = useState('due'); // 'due' or 'starting'
+  const [isDesktop, setIsDesktop] = useState(false);
 
   // Fetch dashboard data
   const fetchDashboardData = async () => {
@@ -618,92 +631,6 @@ const Dashboard = () => {
   return (
     <AppLayout>
       <div className="w-full px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8 overflow-x-hidden bg-gradient-to-br from-gray-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 min-h-screen">
-        {/* Modern Header with Gradient */}
-        <div className="relative mb-4 sm:mb-6 lg:mb-8">
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 rounded-2xl sm:rounded-3xl opacity-10"></div>
-          <div className="relative bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 border border-white/20 dark:border-gray-700 shadow-xl">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
-              <div className="flex items-center justify-between lg:justify-start">
-                <div className="flex items-center space-x-2 sm:space-x-3">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
-                    <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
-                      Dashboard
-                    </h1>
-                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 mt-1 truncate">
-                      Welcome back, <span className="font-semibold text-blue-600 dark:text-blue-400">{user?.name || user?.username || user?.email?.split('@')[0] || 'User'}</span>!
-                    </p>
-                  </div>
-                </div>
-                
-                {/* Filter and Refresh buttons positioned opposite to title */}
-                <div className="flex items-center gap-2 lg:hidden">
-                  <Button 
-                    onClick={() => setShowFilters(!showFilters)}
-                    variant="outline"
-                    size="sm"
-                    className="border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm p-2"
-                  >
-                    <Filter className="w-4 h-4" />
-                  </Button>
-                  
-                  <Button 
-                    onClick={fetchDashboardData}
-                    disabled={refreshing}
-                    size="sm"
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 p-2"
-                  >
-                    {refreshing ? (
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <RefreshCw className="w-4 h-4" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-              
-              <div className="flex flex-wrap gap-2 sm:gap-3">
-                {/* Desktop Filter and Refresh buttons */}
-                <div className="hidden lg:flex items-center gap-2">
-                  <Button 
-                    onClick={() => setShowFilters(!showFilters)}
-                    variant="outline"
-                    size="sm"
-                    className="border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm"
-                  >
-                    <Filter className="w-4 h-4 mr-2" />
-                    Filters {Object.values(filters).filter(f => f !== 'all').length > 0 && `(${Object.values(filters).filter(f => f !== 'all').length})`}
-                  </Button>
-                  
-                  <Button 
-                    onClick={fetchDashboardData}
-                    disabled={refreshing}
-                    size="sm"
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50"
-                  >
-                    {refreshing ? (
-                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <RefreshCw className="w-4 h-4 mr-2" />
-                    )}
-                    Refresh
-                  </Button>
-                </div>
-                
-                <Button 
-                  onClick={() => router.push('/project')}
-                  size="sm"
-                  className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 w-full sm:w-auto"
-                >
-                  <Plus size={16} className="sm:w-4 sm:h-4" />
-                  <span className="hidden sm:inline ml-2 text-sm">New Project</span>
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
 
         {/* Filter Panel */}
         {showFilters && (
@@ -834,17 +761,17 @@ const Dashboard = () => {
           <div className="group relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105">
             <div className="absolute top-0 right-0 w-16 h-16 sm:w-20 sm:h-20 bg-white/10 rounded-full -translate-y-10 translate-x-10"></div>
             <div className="relative z-10">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 sm:mb-4">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-white/20 rounded-lg sm:rounded-xl flex items-center justify-center mb-2 sm:mb-0">
+              <div className="flex items-center justify-between mb-2 sm:mb-4">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-white/20 rounded-lg sm:rounded-xl flex items-center justify-center">
                   <FolderKanban className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-white" />
                 </div>
-                <div className="text-left sm:text-right">
+                <div className="text-right">
                   <div className="text-xl sm:text-2xl font-bold text-white">
                     {dashboardData.stats.totalProjects}
                   </div>
                   <div className="text-blue-100 text-xs sm:text-sm">
                     {dashboardData.stats.totalProjects > 0 ? (
-                      <span className="flex items-center">
+                      <span className="flex items-center justify-end">
                         <ArrowUp className="w-2 h-2 sm:w-3 sm:h-3 mr-1" />
                         <span className="text-xs">+{dashboardData.stats.projectGrowth || 0}%</span>
                       </span>
@@ -862,17 +789,17 @@ const Dashboard = () => {
           <div className="group relative overflow-hidden bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105">
             <div className="absolute top-0 right-0 w-16 h-16 sm:w-20 sm:h-20 bg-white/10 rounded-full -translate-y-10 translate-x-10"></div>
             <div className="relative z-10">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 sm:mb-4">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-white/20 rounded-lg sm:rounded-xl flex items-center justify-center mb-2 sm:mb-0">
+              <div className="flex items-center justify-between mb-2 sm:mb-4">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-white/20 rounded-lg sm:rounded-xl flex items-center justify-center">
                   <CheckSquare className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-white" />
                 </div>
-                <div className="text-left sm:text-right">
+                <div className="text-right">
                   <div className="text-xl sm:text-2xl font-bold text-white">
                     {dashboardData.stats.activeTasks}
                   </div>
                   <div className="text-emerald-100 text-xs sm:text-sm">
                     {dashboardData.stats.activeTasks > 0 ? (
-                      <span className="flex items-center">
+                      <span className="flex items-center justify-end">
                         <ArrowUp className="w-2 h-2 sm:w-3 sm:h-3 mr-1" />
                         <span className="text-xs">+{dashboardData.stats.taskGrowth || 0} today</span>
                       </span>
@@ -890,17 +817,17 @@ const Dashboard = () => {
           <div className="group relative overflow-hidden bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105">
             <div className="absolute top-0 right-0 w-16 h-16 sm:w-20 sm:h-20 bg-white/10 rounded-full -translate-y-10 translate-x-10"></div>
             <div className="relative z-10">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 sm:mb-4">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-white/20 rounded-lg sm:rounded-xl flex items-center justify-center mb-2 sm:mb-0">
+              <div className="flex items-center justify-between mb-2 sm:mb-4">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-white/20 rounded-lg sm:rounded-xl flex items-center justify-center">
                   <Users className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-white" />
                 </div>
-                <div className="text-left sm:text-right">
+                <div className="text-right">
                   <div className="text-xl sm:text-2xl font-bold text-white">
                     {dashboardData.stats.teamMembers}
                   </div>
                   <div className="text-purple-100 text-xs sm:text-sm">
                     {dashboardData.stats.teamMembers > 0 ? (
-                      <span className="flex items-center">
+                      <span className="flex items-center justify-end">
                         <ArrowUp className="w-2 h-2 sm:w-3 sm:h-3 mr-1" />
                         <span className="text-xs">+{dashboardData.stats.userGrowth || 0} new</span>
                       </span>
@@ -918,17 +845,17 @@ const Dashboard = () => {
           <div className="group relative overflow-hidden bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105">
             <div className="absolute top-0 right-0 w-16 h-16 sm:w-20 sm:h-20 bg-white/10 rounded-full -translate-y-10 translate-x-10"></div>
             <div className="relative z-10">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 sm:mb-4">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-white/20 rounded-lg sm:rounded-xl flex items-center justify-center mb-2 sm:mb-0">
+              <div className="flex items-center justify-between mb-2 sm:mb-4">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-white/20 rounded-lg sm:rounded-xl flex items-center justify-center">
                   <Target className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-white" />
                 </div>
-                <div className="text-left sm:text-right">
+                <div className="text-right">
                   <div className="text-xl sm:text-2xl font-bold text-white">
                     {dashboardData.stats.completionRate}%
                   </div>
                   <div className="text-orange-100 text-xs sm:text-sm">
                     {dashboardData.stats.completionRate > 0 ? (
-                      <span className="flex items-center">
+                      <span className="flex items-center justify-end">
                         {dashboardData.stats.completionRate >= 80 ? (
                           <ArrowUp className="w-2 h-2 sm:w-3 sm:h-3 mr-1" />
                         ) : (
@@ -952,8 +879,8 @@ const Dashboard = () => {
               {/* Project Progress Chart */}
               <div className="lg:col-span-2">
                 <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-white/20 dark:border-gray-700">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6">
-                    <div className="flex items-center space-x-2 sm:space-x-3 mb-3 sm:mb-0">
+                  <div className="flex items-center justify-between mb-4 sm:mb-6">
+                    <div className="flex items-center space-x-2 sm:space-x-3">
                       <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg sm:rounded-xl flex items-center justify-center">
                         <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                       </div>
@@ -965,9 +892,9 @@ const Dashboard = () => {
                       <div className="w-2 h-2 sm:w-3 sm:h-3 bg-orange-500 rounded-full"></div>
                     </div>
                   </div>
-                  <div className="h-64 sm:h-72 lg:h-80">
+                  <div className="h-64 sm:h-72 lg:h-80 -ml-6 -mr-2">
                     <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={chartData}>
+                      <AreaChart data={chartData} margin={{ left: 0, right: 0, top: 10, bottom: 10 }}>
                         <defs>
                           <linearGradient id="colorCompleted" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
@@ -993,7 +920,14 @@ const Dashboard = () => {
                             color: '#f9fafb'
                           }}
                         />
-                        <Legend />
+                        <Legend 
+                          wrapperStyle={{
+                            display: 'flex',
+                            justifyContent: 'center',
+                            paddingTop: '10px',
+                            gap: '32px'
+                          }}
+                        />
                         <Area
                           type="monotone"
                           dataKey="completed"
@@ -1033,9 +967,9 @@ const Dashboard = () => {
                     </div>
                     <h2 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 dark:text-white">Task Status</h2>
                   </div>
-                  <div className="h-64 sm:h-72 lg:h-80">
+                  <div className="h-64 sm:h-72 lg:h-80 -mx-3 sm:mx-0 [&_.recharts-pie-label]:text-xs sm:[&_.recharts-pie-label]:text-sm">
                     <ResponsiveContainer width="100%" height="100%">
-                      <RechartsPieChart>
+                      <RechartsPieChart margin={{ top: 15, right: 30, bottom: 50, left: 30 }}>
                         <Pie
                           data={taskStatusData}
                           cx="50%"
@@ -1045,8 +979,8 @@ const Dashboard = () => {
                             const percentage = ((percent as number) * 100).toFixed(0);
                             return percentage !== '0' ? `${name} ${percentage}%` : '';
                           }}
-                          outerRadius={100}
-                          innerRadius={20}
+                          outerRadius={isDesktop ? 90 : 65}
+                          innerRadius={isDesktop ? 30 : 20}
                           fill="#8884d8"
                           dataKey="value"
                         >
@@ -1056,19 +990,25 @@ const Dashboard = () => {
                         </Pie>
                         <Tooltip 
                           contentStyle={{
-                            backgroundColor: '#1f2937',
-                            border: 'none',
+                            backgroundColor: 'white',
+                            border: '1px solid #e5e7eb',
                             borderRadius: '8px',
-                            color: '#f9fafb'
+                            color: '#374151',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
                           }}
+                          formatter={(value: any, name: any) => [
+                            `${value} tasks`,
+                            name
+                          ]}
+                          labelFormatter={(label: any) => `Status: ${label}`}
                         />
                         <Legend 
                           verticalAlign="bottom" 
                           height={36}
                           iconType="circle"
                           wrapperStyle={{
-                            fontSize: '12px',
-                            paddingTop: '10px'
+                            fontSize: isDesktop ? '17px' : '15px',
+                            paddingTop: '25px'
                           }}
                         />
                       </RechartsPieChart>
