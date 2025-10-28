@@ -83,6 +83,13 @@ const parseMembers = (members: TeamMember[] | string | undefined): TeamMember[] 
   return [];
 };
 
+// Return a stable unique identifier for a user coming from various backends
+// Prefers canonical ids, falls back to unique contact fields
+const getStableUserId = (user: any): string => {
+  const id = user?.id || user?.userId || user?._id || user?.email || user?.username || user?.name;
+  return String(id || '');
+};
+
   const parseTags = (tags: string[] | string | undefined): string[] => {
     if (!tags) return [];
     if (Array.isArray(tags)) return tags;
@@ -407,12 +414,14 @@ const TeamsPage = () => {
 
   // Add member
   const addMember = (user: any) => {
-    const userName = user.name || user.username || user.email;
-    const alreadyAdded = teamForm.members.some(m => m.name === userName);
+  const userName = user.name || user.username || user.email;
+  const memberId = getStableUserId(user);
+  if (!memberId) return; // cannot add without a stable id
+  const alreadyAdded = teamForm.members.some(m => m.id === memberId);
     if (alreadyAdded) return;
 
     const member: TeamMember = {
-      id: user.id,
+    id: memberId,
       name: userName,
       email: user.email,
       role: 'member'
@@ -435,19 +444,20 @@ const TeamsPage = () => {
   };
 
   // Filter users for dropdown
-  const filteredUsers = allUsers.filter(user => {
-    const userName = user.name || user.username || user.email;
-    const query = usersSearch.trim().toLowerCase();
-    
-    // Exclude already selected members
-    const isAlreadySelected = teamForm.members.some(m => m.name === userName);
-    if (isAlreadySelected) return false;
-    
-    // Apply search filter
-    if (!query) return true;
-    const searchString = `${user.name || ''} ${user.username || ''} ${user.email || ''}`.toLowerCase();
-    return searchString.includes(query);
-  });
+const filteredUsers = allUsers.filter(user => {
+  const userName = user.name || user.username || user.email;
+  const query = usersSearch.trim().toLowerCase();
+  
+  // Exclude already selected members by stable id
+  const candidateId = getStableUserId(user);
+  const isAlreadySelected = teamForm.members.some(m => m.id === candidateId);
+  if (isAlreadySelected) return false;
+  
+  // Apply search filter
+  if (!query) return true;
+  const searchString = `${user.name || ''} ${user.username || ''} ${user.email || ''}`.toLowerCase();
+  return searchString.includes(query);
+});
 
   // Debug: Log users when they change
   useEffect(() => {
@@ -508,79 +518,64 @@ const TeamsPage = () => {
 
   return (
     <AppLayout>
-      <div className="w-full px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8 overflow-x-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Teams</h1>
-          <div className="flex items-center space-x-4">
-            <ViewToggle
-              currentView={viewMode}
-              views={[
-                {
-                  value: 'list',
-                  label: 'List',
-                  icon: (
-                    <div className="w-3 h-3 flex flex-col space-y-0.5">
-                      <div className="w-full h-0.5 rounded-sm bg-current"></div>
-                      <div className="w-full h-0.5 rounded-sm bg-current"></div>
-                      <div className="w-full h-0.5 rounded-sm bg-current"></div>
-          </div>
-                  )
-                },
-              {
-                value: 'grid',
-                label: 'Grid',
-                icon: (
-                  <div className="w-3 h-3 grid grid-cols-2 gap-0.5">
-                    <div className="w-1 h-1 rounded-sm bg-current"></div>
-                    <div className="w-1 h-1 rounded-sm bg-current"></div>
-                    <div className="w-1 h-1 rounded-sm bg-current"></div>
-                    <div className="w-1 h-1 rounded-sm bg-current"></div>
-                  </div>
-                )
-                }
-              ]}
-              onChange={(view: 'list' | 'grid') => setViewMode(view)}
-            />
-            <Button 
-              className="flex items-center justify-center space-x-2 w-full sm:w-auto"
-              onClick={handleOpenCreateTeam}
-            >
-              <Plus size={16} className="sm:w-4 sm:h-4" />
-              <span className="text-sm sm:text-base">New Team</span>
-            </Button>
-                      </div>
-                    </div>
-
-        {/* Search and Filter */}
-        <div className="mb-6">
-          <div className="flex flex-col sm:flex-row gap-4 mb-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <Input
-                  type="text"
-                  placeholder="Search teams..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-                      </div>
-                      </div>
-            <div className="flex gap-2">
-              <Select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                options={[
-                  { value: 'All', label: 'All Teams' },
-                  { value: 'My Teams', label: 'My Teams' },
-                  { value: 'Active', label: 'Active' },
-                  { value: 'Archived', label: 'Archived' }
-                ]}
-                className="min-w-[120px]"
-              />
-                      </div>
-                    </div>
+      <div className="w-full px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 overflow-x-hidden">
+         {/* Search and Filter */}
+         <div className="mb-6">
+           <div className="flex flex-row gap-2 mb-4">
+            <div className="flex-1 min-w-0 lg:flex-none lg:w-[420px]">
+               <div className="relative">
+                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                 <input
+                   type="text"
+                   placeholder="Search teams..."
+                   value={searchTerm}
+                   onChange={(e) => setSearchTerm(e.target.value)}
+                   className="w-full px-4 py-3 pl-10 text-base border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50 placeholder-gray-400"
+                 />
+                       </div>
+                       </div>
+            <div className="flex items-center gap-1 flex-shrink-0 lg:ml-auto">
+               <ViewToggle
+                 currentView={viewMode}
+                 views={[
+                   {
+                     value: 'list',
+                     label: 'List',
+                     icon: (
+                       <div className="w-3 h-3 flex flex-col space-y-0.5">
+                         <div className="w-full h-0.5 rounded-sm bg-current"></div>
+                         <div className="w-full h-0.5 rounded-sm bg-current"></div>
+                         <div className="w-full h-0.5 rounded-sm bg-current"></div>
+                       </div>
+                     )
+                   },
+                   {
+                     value: 'grid',
+                     label: 'Grid',
+                     icon: (
+                       <div className="w-3 h-3 grid grid-cols-2 gap-0.5">
+                         <div className="w-1 h-1 rounded-sm bg-current"></div>
+                         <div className="w-1 h-1 rounded-sm bg-current"></div>
+                         <div className="w-1 h-1 rounded-sm bg-current"></div>
+                         <div className="w-1 h-1 rounded-sm bg-current"></div>
+                       </div>
+                     )
+                   }
+                 ]}
+                 onChange={(view: 'list' | 'grid') => setViewMode(view)}
+                 className="sm:px-3 sm:py-2 px-4 py-3"
+               />
+              <div className="hidden sm:flex">
+                <Button 
+                  className="flex items-center justify-center space-x-2 px-4 py-2 text-sm sm:px-5 sm:py-2.5"
+                  onClick={handleOpenCreateTeam}
+                >
+                  <Plus size={16} className="w-4 h-4" />
+                  <span className="text-sm">New Team</span>
+                </Button>
+              </div>
+                       </div>
+                     </div>
 
           {/* Status Pills */}
           <div className="flex flex-wrap gap-2">
@@ -604,87 +599,107 @@ const TeamsPage = () => {
         {viewMode === 'list' ? (
           <div className="space-y-3">
             {filteredTeams.map((team, index) => (
-              <Card key={team.id || `team-${index}`} hover className="cursor-pointer" onClick={() => handleTeamMenu(team)}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                        <Users className="w-6 h-6 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900">{team.name}</h3>
-                        <p className="text-sm text-gray-600">{team.memberCount} members</p>
-                        {team.description && (
-                          <p className="text-sm text-gray-500 mt-1">{team.description}</p>
-                        )}
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        {/* Member Avatars - Right Side */}
-                        {team.members && Array.isArray(team.members) && team.members.length > 0 && (
-                          <MemberAvatars members={team.members} maxVisible={2} />
-                        )}
-                        <Badge variant={getStatusColor(team.archived || false)} size="sm">
-                          {team.archived ? 'Archived' : 'Active'}
-                        </Badge>
-                          <Button 
-                          variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                            handleTeamMenu(team);
-                            }}
-                          >
-                          <MoreVertical className="w-4 h-4" />
-                          </Button>
-                    </div>
+              <div key={team.id || `team-${index}`} className="relative p-3 sm:p-4 bg-white rounded-lg border border-gray-300 hover:border-gray-400 transition-colors min-h-[120px] sm:min-h-[140px] flex flex-col sm:flex-row sm:items-center cursor-pointer shadow-sm" onClick={() => handleTeamMenu(team)}>
+                {/* Action Buttons - Top Right Corner */}
+                <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex flex-col items-end space-y-2 z-20">
+                  <div className="flex items-center space-x-1">
+                    <Button 
+                      variant="ghost"
+                      size="sm"
+                      title="More Options"
+                      className="p-1.5 h-7 w-7 sm:p-2 sm:h-9 sm:w-9"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleTeamMenu(team);
+                      }}
+                    >
+                      <MoreVertical size={14} className="sm:w-[18px] sm:h-[18px]" />
+                    </Button>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredTeams.map((team, index) => (
-              <Card key={team.id || `team-${index}`} hover className="cursor-pointer" onClick={() => handleTeamMenu(team)}>
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                      <Users className="w-5 h-5 text-white" />
+                </div>
+
+                {/* Team Info */}
+                <div className="flex items-start space-x-3 sm:space-x-4 flex-1 min-w-0 pr-20 sm:pr-24">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm sm:text-base flex-shrink-0">
+                    <Users className="w-5 h-5 sm:w-6 sm:h-6" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-medium text-gray-900 text-sm sm:text-base leading-tight line-clamp-1">{team.name}</h4>
+                    <p className="text-xs sm:text-sm text-gray-600 mt-1 line-clamp-1 sm:line-clamp-2">{team.description || 'No description'}</p>
+                    
+                    {/* Member Count and Status - Mobile: Stacked, Desktop: Side by side */}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mt-2">
+                      <div className="flex items-center text-xs sm:text-sm text-gray-500">
+                        <Users className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                        <span>{team.memberCount} members</span>
+                      </div>
+                      <Badge variant={getStatusColor(team.archived || false)} size="sm" className="text-xs">
+                        {team.archived ? 'Archived' : 'Active'}
+                      </Badge>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      {/* Member Avatars - Right Side */}
+                    
+                    {/* Member Avatars - Mobile: Stacked, Desktop: Side by side */}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2">
                       {team.members && Array.isArray(team.members) && team.members.length > 0 && (
-                        <MemberAvatars members={team.members} maxVisible={2} />
+                        <MemberAvatars members={team.members} maxVisible={3} />
                       )}
-                          <Button 
-                        variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                          handleTeamMenu(team);
-                        }}
-                      >
-                        <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                  <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">{team.name}</h3>
-                  <p className="text-sm text-gray-600 mb-2">{team.memberCount} members</p>
-                  
-                  <div className="flex items-center justify-between">
-                    <Badge variant={getStatusColor(team.archived || false)} size="sm">
-                      {team.archived ? 'Archived' : 'Active'}
-                    </Badge>
-                    {team.budget && (
-                      <span className="text-xs text-gray-500">{team.budget}</span>
-                    )}
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             ))}
           </div>
-        )}
+         ) : (
+           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 lg:gap-4">
+             {filteredTeams.map((team, index) => (
+               <Card key={team.id || `team-${index}`} hover className="cursor-pointer" onClick={() => handleTeamMenu(team)}>
+                 <CardContent className="p-2 sm:p-3">
+                   <div className="space-y-1 sm:space-y-2">
+                     {/* Header with Team Icon and Title */}
+                     <div className="flex items-start space-x-1 sm:space-x-2">
+                       <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                         <Users className="w-3 h-3 sm:w-4 sm:h-4" />
+                       </div>
+                       <div className="flex-1 min-w-0">
+                         <h4 className="font-medium text-gray-900 text-xs sm:text-sm leading-tight line-clamp-2">{team.name}</h4>
+                         <p className="text-xs text-gray-600 mt-1 line-clamp-1 hidden sm:block">{team.description || 'No description'}</p>
+                       </div>
+                     </div>
+
+                     {/* Member Count and Status - Stacked on mobile */}
+                     <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                       <div className="flex items-center text-xs text-gray-500">
+                         <Users className="w-3 h-3 mr-1" />
+                         <span>{team.memberCount} members</span>
+                       </div>
+                       <Badge variant={getStatusColor(team.archived || false)} size="sm" className="text-xs">
+                         {team.archived ? 'Archived' : 'Active'}
+                       </Badge>
+                     </div>
+
+                     {/* Member Avatars */}
+                     {team.members && Array.isArray(team.members) && team.members.length > 0 && (
+                       <div className="flex items-center justify-between">
+                         <MemberAvatars members={team.members} maxVisible={2} />
+                         <Button 
+                           variant="ghost"
+                           size="sm"
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             handleTeamMenu(team);
+                           }}
+                           className="p-1 h-6 w-6"
+                         >
+                           <MoreVertical className="w-3 h-3" />
+                         </Button>
+                       </div>
+                     )}
+                   </div>
+                 </CardContent>
+               </Card>
+             ))}
+           </div>
+         )}
 
         {/* Loading State */}
         {isLoading && (
@@ -714,7 +729,8 @@ const TeamsPage = () => {
       {/* Team Details Modal */}
       {isTeamDetailsOpen && selectedTeam && (
         <div 
-          className="fixed inset-0 z-50 flex items-end"
+          className="fixed inset-0 z-50 flex items-end lg:items-center justify-center bg-black/70 bg-opacity-50"
+          style={{ backdropFilter: 'blur(2px)' }}
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setIsTeamDetailsOpen(false);
@@ -723,16 +739,14 @@ const TeamsPage = () => {
             }}
           >
             <div 
-            className={`bg-white rounded-t-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl ${
-              isCollapsed ? 'lg:ml-16' : 'lg:ml-64'
-            }`}
+            className="bg-white rounded-t-2xl lg:rounded-2xl w-full lg:w-auto lg:max-w-3xl shadow-2xl overflow-y-auto"
               style={{ 
-              width: `calc(100% - ${isCollapsed ? '4rem' : '16rem'})`,
+              maxHeight: '85vh',
               boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
               }}
             >
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-6">
+              <div className="p-4 lg:p-6">
+                <div className="flex items-center justify-between mb-4 lg:mb-6">
                   <div className="flex items-center space-x-3">
                   <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
                       <Users className="w-6 h-6 text-white" />
@@ -753,72 +767,78 @@ const TeamsPage = () => {
                     </Button>
                 </div>
 
-                <div className="space-y-6">
+                <div className="grid gap-6 lg:grid-cols-2">
                   {/* Basic Info */}
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h3 className="font-semibold text-gray-900 mb-3">Team Information</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                       <p className="text-gray-600">{selectedTeam.description || 'No description'}</p>
+                    </div>
+                    
+                    {/* Mobile: Status and Member Count on same line */}
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-1 sm:gap-0 sm:space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                        <Badge variant={getStatusColor(selectedTeam.archived || false)} size="sm">
+                          {selectedTeam.archived ? 'Archived' : 'Active'}
+                        </Badge>
                       </div>
                       <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                      <Badge variant={getStatusColor(selectedTeam.archived || false)} size="sm">
-                        {selectedTeam.archived ? 'Archived' : 'Active'}
-                      </Badge>
-                      </div>
-                      <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Member Count</label>
-                      <p className="text-gray-600">{selectedTeam.memberCount} members</p>
-                      </div>
-                      <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Budget</label>
-                      <p className="text-gray-600">{selectedTeam.budget || 'Not specified'}</p>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Member Count</label>
+                        <p className="text-gray-600">{selectedTeam.memberCount} members</p>
                       </div>
                     </div>
+                    
+                    {/* Mobile: Budget and Tags on same line */}
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-1 sm:gap-0 sm:space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Budget</label>
+                        <p className="text-gray-600">{selectedTeam.budget || 'Not specified'}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
+                        <div className="flex flex-wrap gap-1">
+                          {parseTags(selectedTeam.tags).length > 0 ? (
+                            parseTags(selectedTeam.tags).map((tag, index) => (
+                              <span
+                                key={index}
+                                className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full"
+                              >
+                                #{tag}
+                              </span>
+                            ))
+                          ) : (
+                            <p className="text-gray-500 text-sm">No tags</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                   </div>
 
                 {/* Team Members */}
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h3 className="font-semibold text-gray-900 mb-3">Team Members</h3>
-                  <div className="space-y-3">
+                  <div className="max-h-72 sm:max-h-80 overflow-y-auto scrollbar-hide space-y-2 pr-2">
                     {parseMembers(selectedTeam.members).map((member, index) => (
-                      <div key={member.id || member.name || `member-${index}`} className="flex items-center space-x-3">
+                      <div key={member.id || member.name || `member-${index}`} className="flex items-center space-x-3 py-2">
                         <Avatar name={member.name} size="sm" />
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900">{member.name}</p>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-900 truncate">{member.name}</p>
                           {member.email && (
-                            <p className="text-sm text-gray-600">{member.email}</p>
+                            <p className="text-sm text-gray-600 truncate">{member.email}</p>
                           )}
-                      </div>
-                        <Badge variant={getRoleColor(member.role)} size="sm">
+                        </div>
+                        <Badge variant={getRoleColor(member.role)} size="sm" className="flex-shrink-0">
                           {member.role}
-                          </Badge>
+                        </Badge>
                       </div>
                     ))}
-                    </div>
                   </div>
+                </div>
 
-                {/* Tags */}
-                {(() => {
-                  const tags = parseTags(selectedTeam.tags);
-                  return tags.length > 0 && (
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <h3 className="font-semibold text-gray-900 mb-3">Tags</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {tags.map((tag, index) => (
-                          <span
-                            key={index}
-                            className="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full"
-                          >
-                            #{tag}
-                          </span>
-                        ))}
-                      </div>
-                      </div>
-                  );
-                })()}
                       </div>
                     </div>
                   </div>
@@ -837,7 +857,8 @@ const TeamsPage = () => {
       {/* Create Team Modal */}
       {isCreateTeamOpen && (
         <div 
-          className="fixed inset-0 z-50 flex items-end"
+          className="fixed inset-0 z-50 flex items-end lg:items-center justify-center bg-black/70 bg-opacity-50"
+          style={{ backdropFilter: 'blur(2px)' }}
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setIsCreateTeamOpen(false);
@@ -846,29 +867,21 @@ const TeamsPage = () => {
           }}
         >
           <div 
-            className={`bg-white rounded-t-2xl w-full overflow-y-auto shadow-2xl ${
-              isCollapsed ? 'lg:ml-16' : 'lg:ml-64'
-            }`}
+            className="bg-white rounded-t-2xl lg:rounded-2xl w-full lg:w-auto lg:max-w-2xl shadow-2xl"
             style={{ 
-              width: `calc(100% - ${isCollapsed ? '4rem' : '16rem'})`,
-              height: `${formHeight}vh`,
+              width: '100%',
+              maxHeight: '90vh',
               boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
             }}
           >
-            {/* Drag Handle - Sticky */}
-            <div 
-              className={`sticky top-0 z-20 w-full h-6 flex items-center justify-center cursor-row-resize hover:bg-gray-50 transition-colors ${isDragging ? 'bg-gray-100' : ''}`}
-              onMouseDown={handleMouseDown}
-            >
-              <div className="w-12 h-1 bg-gray-400 rounded-full"></div>
-                      </div>
             <div className="flex flex-col h-full">
-              <div className="p-6 flex-1 overflow-y-auto">
-                <div className="flex items-center justify-between mb-6">
-                      <div>
+              <div className="p-4 lg:p-6 flex-1 overflow-y-auto">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-4 lg:mb-6">
+                  <div>
                     <h2 className="text-xl font-bold text-gray-900">Create New Team</h2>
                     <p className="text-sm text-gray-600 mt-1">Fill in the team information</p>
-                        </div>
+                  </div>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -879,21 +892,72 @@ const TeamsPage = () => {
                   >
                     <X className="w-5 h-5" />
                   </Button>
-                      </div>
+                </div>
 
-                <form onSubmit={(e) => { e.preventDefault(); handleCreateTeam(); }} className="space-y-6">
-                {/* Team Name */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-800 mb-2">
-                    Team Name *
-                  </label>
-                  <Input
-                    value={teamForm.name}
-                    onChange={(e) => setTeamForm(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="Enter team name"
-                    required
-                  />
+                {/* Form */}
+                <form onSubmit={(e) => { e.preventDefault(); handleCreateTeam(); }} className="space-y-3 lg:space-y-4">
+                {/* Team Name, Start Date, and Tags in same row */}
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {/* Team Name */}
+                  <div className="col-span-2 md:col-span-1">
+                    <label className="block text-sm font-semibold text-gray-800 mb-2">
+                      Team Name *
+                    </label>
+                    <Input
+                      value={teamForm.name}
+                      onChange={(e) => setTeamForm(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="Enter team name"
+                      required
+                    />
+                  </div>
+
+                  {/* Start Date */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-800 mb-2">
+                      Start Date
+                    </label>
+                    <Input
+                      type="date"
+                      value={teamForm.startDate}
+                      onChange={(e) => setTeamForm(prev => ({ ...prev, startDate: e.target.value }))}
+                    />
+                  </div>
+
+                  {/* Tags */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-800 mb-2">
+                      Tags
+                    </label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
+                        placeholder="Add a tag"
+                        className="flex-1"
+                      />
+                      <Button type="button" onClick={addTag} variant="outline">
+                        Add
+                      </Button>
                     </div>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {teamForm.tags.map((tag, index) => (
+                        <span
+                          key={index}
+                          className="px-3 py-1 bg-gray-100 text-gray-600 text-sm rounded-full flex items-center gap-2"
+                        >
+                          #{tag}
+                          <button
+                            type="button"
+                            onClick={() => removeTag(index)}
+                            className="text-gray-400 hover:text-gray-600"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
 
                 {/* Description */}
                 <div>
@@ -908,18 +972,6 @@ const TeamsPage = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                   />
                   </div>
-
-                {/* Start Date */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-800 mb-2">
-                    Start Date
-                  </label>
-                  <Input
-                    type="date"
-                    value={teamForm.startDate}
-                    onChange={(e) => setTeamForm(prev => ({ ...prev, startDate: e.target.value }))}
-                  />
-                </div>
 
                 {/* Team Members - Searchable Multi-select */}
                 <div>
@@ -954,7 +1006,7 @@ const TeamsPage = () => {
                         <div className="py-2">
                           {filteredUsers.map((user, index) => (
                             <button
-                              key={user.id || user.email || `user-${index}`}
+                              key={getStableUserId(user) || user.email || `user-${index}`}
                               type="button"
                               onClick={() => addMember(user)}
                               className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center space-x-3 transition-colors"
@@ -1007,46 +1059,12 @@ const TeamsPage = () => {
                   )}
                 </div>
 
-                {/* Tags */}
-                      <div>
-                  <label className="block text-sm font-semibold text-gray-800 mb-2">
-                    Tags
-                  </label>
-                  <div className="flex gap-2 mb-2">
-                    <Input
-                      value={tagInput}
-                      onChange={(e) => setTagInput(e.target.value)}
-                      placeholder="Add a tag"
-                      className="flex-1"
-                    />
-                    <Button type="button" onClick={addTag} variant="outline">
-                      Add
-                    </Button>
-                  </div>
-                        <div className="flex flex-wrap gap-2">
-                    {teamForm.tags.map((tag, index) => (
-                      <span
-                        key={index}
-                        className="px-3 py-1 bg-gray-100 text-gray-600 text-sm rounded-full flex items-center gap-2"
-                      >
-                        #{tag}
-                        <button
-                          type="button"
-                          onClick={() => removeTag(index)}
-                          className="text-gray-400 hover:text-gray-600"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                            </span>
-                          ))}
-                    </div>
-                  </div>
 
                 </form>
               </div>
 
-              {/* Sticky Form Actions */}
-              <div className="sticky bottom-0 bg-white border-t border-gray-200 p-6">
+              {/* Form Actions */}
+              <div className="sticky bottom-0 bg-white border-t rounded-b-2xl border-gray-300 p-1 sm:p-4 z-10 pb-24 sm:pb-5">
                 <div className="flex justify-end space-x-3">
                   <Button
                     type="button"
@@ -1055,10 +1073,11 @@ const TeamsPage = () => {
                       setIsCreateTeamOpen(false);
                       resetForm();
                     }}
+                    className="flex-1 sm:flex-none"
                   >
                     Cancel
                   </Button>
-                  <Button type="submit" onClick={(e) => { e.preventDefault(); handleCreateTeam(); }}>
+                  <Button type="submit" onClick={(e) => { e.preventDefault(); handleCreateTeam(); }} className="flex-1 sm:flex-none">
                     Create Team
                   </Button>
                 </div>
