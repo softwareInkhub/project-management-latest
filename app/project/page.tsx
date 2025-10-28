@@ -13,16 +13,16 @@ import {
   Edit,
   Eye,
   FolderKanban,
-  TrendingUp,
   ArrowUp,
   ArrowDown,
-  Users,
   Target,
   Search,
   Filter,
   Crown,
   User,
-  X
+  X,
+  Flag,
+  Building2
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -37,6 +37,32 @@ import { useTabs } from '../hooks/useTabs';
 import { useSidebar } from '../components/AppLayout';
 import { useAuth } from '../hooks/useAuth';
 import ProjectForm, { Project } from '../components/ui/ProjectForm';
+import ProjectInlineAdvancedFilters from '../components/ui/ProjectInlineAdvancedFilters';
+
+// Advanced Filter Interfaces
+interface DateRange {
+  from: string;
+  to: string;
+}
+
+interface NumberRange {
+  min: number;
+  max: number;
+}
+
+interface ProjectAdvancedFilters {
+  projectScope: string[];
+  status: string[];
+  priority: string[];
+  assignee: string[];
+  company: string[];
+  tags: string[];
+  startDateRange: DateRange;
+  endDateRange: DateRange;
+  progressRange: NumberRange;
+  teamSizeRange: NumberRange;
+  additionalFilters: string[];
+}
 
 // Status and priority mapping
 const normalizeStatus = (status: string): string => {
@@ -107,6 +133,36 @@ const ProjectsPage = () => {
   const [activePredefinedFilter, setActivePredefinedFilter] = useState('all');
   const [advancedFilters, setAdvancedFilters] = useState<Record<string, string | string[]>>({});
   const [isAdvancedFilterOpen, setIsAdvancedFilterOpen] = useState(false);
+  
+  // Advanced Filter State
+  const [projectAdvancedFilters, setProjectAdvancedFilters] = useState<ProjectAdvancedFilters>({
+    projectScope: [],
+    status: [],
+    priority: [],
+    assignee: [],
+    company: [],
+    tags: [],
+    startDateRange: { from: '', to: '' },
+    endDateRange: { from: '', to: '' },
+    progressRange: { min: 0, max: 100 },
+    teamSizeRange: { min: 0, max: 50 },
+    additionalFilters: []
+  });
+  const [isAdvancedFilterModalOpen, setIsAdvancedFilterModalOpen] = useState(false);
+  const [visibleFilterColumns, setVisibleFilterColumns] = useState<string[]>([
+    'projectScope', 'status', 'priority', 'dateRange'
+  ]);
+
+  // Available filter columns with icons
+  const availableFilterColumns = [
+    { key: 'projectScope', label: 'Project Scope', icon: <FolderKanban className="w-4 h-4" /> },
+    { key: 'status', label: 'Status', icon: <CheckCircle className="w-4 h-4" /> },
+    { key: 'priority', label: 'Priority', icon: <Flag className="w-4 h-4" /> },
+    { key: 'company', label: 'Company', icon: <Building2 className="w-4 h-4" /> },
+    { key: 'dateRange', label: 'Date Range', icon: <Calendar className="w-4 h-4" /> },
+    { key: 'additionalFilters', label: 'Additional', icon: <Filter className="w-4 h-4" /> }
+  ];
+
   const projectPreviewRef = useRef<HTMLDivElement>(null);
   const advancedFilterRef = useRef<HTMLDivElement>(null);
   const { openTab } = useTabs();
@@ -140,26 +196,6 @@ const ProjectsPage = () => {
     fetchProjects();
   }, [fetchProjects]);
 
-  // Predefined filters
-  const predefinedFilters = [
-    { id: 'all', label: 'All Projects', count: projects.length },
-    { id: 'my-projects', label: 'My Projects', count: projects.filter(project => {
-      const currentUserEmail = user?.email;
-      const currentUserName = user?.name;
-      const currentUserId = user?.userId;
-      
-      return project.assignee === currentUserEmail ||
-             project.assignee === currentUserName ||
-             project.assignee === currentUserId ||
-             project.assignee?.includes(currentUserEmail) ||
-             project.assignee?.includes(currentUserName) ||
-             project.assignee?.includes(currentUserId);
-    }).length },
-    { id: 'Active', label: 'Active', count: projects.filter(p => p.status === 'Active').length },
-    { id: 'Completed', label: 'Completed', count: projects.filter(p => p.status === 'Completed').length },
-    { id: 'On Hold', label: 'On Hold', count: projects.filter(p => p.status === 'On Hold').length },
-    { id: 'Planning', label: 'Planning', count: projects.filter(p => p.status === 'Planning').length }
-  ];
 
   const filteredProjects = projects.filter(project => {
     const matchesSearch = (project.name || project.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -194,8 +230,74 @@ const ProjectsPage = () => {
         // Additional filters can be added here
       }
     });
+
+    // Apply project advanced filters
+    let matchesProjectAdvanced = true;
     
-    return matchesSearch && matchesStatus && matchesPriority && matchesPredefined && matchesAdvanced;
+    // Project scope filters
+    if (projectAdvancedFilters.projectScope.length > 0) {
+      const currentUserEmail = user?.email;
+      const currentUserName = user?.name;
+      const currentUserId = user?.userId;
+      
+      const isMyProject = project.assignee === currentUserEmail ||
+                         project.assignee === currentUserName ||
+                         project.assignee === currentUserId ||
+                         project.assignee?.includes(currentUserEmail) ||
+                         project.assignee?.includes(currentUserName) ||
+                         project.assignee?.includes(currentUserId);
+      
+      if (projectAdvancedFilters.projectScope.includes('my-projects') && !isMyProject) {
+        matchesProjectAdvanced = false;
+      }
+      if (projectAdvancedFilters.projectScope.includes('all-projects') && !projectAdvancedFilters.projectScope.includes('my-projects')) {
+        // This is handled by the main filter logic
+      }
+    }
+    
+    // Status filters
+    if (projectAdvancedFilters.status.length > 0 && !projectAdvancedFilters.status.includes(project.status)) {
+      matchesProjectAdvanced = false;
+    }
+    
+    // Priority filters
+    if (projectAdvancedFilters.priority.length > 0 && !projectAdvancedFilters.priority.includes(project.priority)) {
+      matchesProjectAdvanced = false;
+    }
+    
+    
+    // Company filters
+    if (projectAdvancedFilters.company.length > 0 && !projectAdvancedFilters.company.includes(project.company)) {
+      matchesProjectAdvanced = false;
+    }
+    
+    
+    // Date range filters - check if project dates fall within the specified range
+    if (projectAdvancedFilters.startDateRange.from || projectAdvancedFilters.startDateRange.to) {
+      const projectStartDate = new Date(project.startDate);
+      const projectEndDate = new Date(project.endDate);
+      const filterFromDate = projectAdvancedFilters.startDateRange.from ? new Date(projectAdvancedFilters.startDateRange.from) : null;
+      const filterToDate = projectAdvancedFilters.startDateRange.to ? new Date(projectAdvancedFilters.startDateRange.to) : null;
+      
+      // Check if project overlaps with the date range
+      if (filterFromDate && projectEndDate < filterFromDate) {
+        matchesProjectAdvanced = false;
+      }
+      if (filterToDate && projectStartDate > filterToDate) {
+        matchesProjectAdvanced = false;
+      }
+    }
+    
+    
+    // Additional filters
+    if (projectAdvancedFilters.additionalFilters.includes('hasTasks') && getTasksArray(project.tasks).length === 0) {
+      matchesProjectAdvanced = false;
+    }
+    if (projectAdvancedFilters.additionalFilters.includes('overdue') && new Date(project.endDate) < new Date() && project.status !== 'Completed') {
+      matchesProjectAdvanced = false;
+    }
+    
+    return matchesSearch && matchesStatus && matchesPriority && matchesPredefined && matchesAdvanced && matchesProjectAdvanced;
   });
 
   const getStatusIcon = (status: string) => {
@@ -308,6 +410,34 @@ const ProjectsPage = () => {
     setAdvancedFilters({});
   };
 
+  // Advanced filter handlers for project-specific filters
+  const handleProjectAdvancedFilterChange = (key: string, value: string | string[]) => {
+    setProjectAdvancedFilters(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  const handleInlineAdvancedFiltersChange = (filters: ProjectAdvancedFilters) => {
+    setProjectAdvancedFilters(filters);
+  };
+
+  const handleClearInlineAdvancedFilters = () => {
+    setProjectAdvancedFilters({
+      projectScope: [],
+      status: [],
+      priority: [],
+      assignee: [],
+      company: [],
+      tags: [],
+      startDateRange: { from: '', to: '' },
+      endDateRange: { from: '', to: '' },
+      progressRange: { min: 0, max: 100 },
+      teamSizeRange: { min: 0, max: 50 },
+      additionalFilters: []
+    });
+  };
+
   // Close project preview and advanced filter when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -328,152 +458,79 @@ const ProjectsPage = () => {
     };
   }, [isProjectPreviewOpen, isAdvancedFilterOpen]);
 
+  // Handle New Project button click from SearchFilterSection
+  useEffect(() => {
+    const handleNewProjectClick = () => {
+      handleCreateProject();
+    };
+
+    window.addEventListener('newProjectClick', handleNewProjectClick);
+    
+    return () => {
+      window.removeEventListener('newProjectClick', handleNewProjectClick);
+    };
+  }, []);
+
   return (
     <AppLayout>
-      <div className="w-full px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8 overflow-x-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Projects</h1>
-          <div className="flex items-center space-x-4">
-            <ViewToggle
-              currentView={viewMode}
-              views={[
-                {
-                  value: 'list',
-                  label: 'List',
-                  icon: (
-                    <div className="w-3 h-3 flex flex-col space-y-0.5">
-                      <div className="w-full h-0.5 rounded-sm bg-current"></div>
-                      <div className="w-full h-0.5 rounded-sm bg-current"></div>
-                      <div className="w-full h-0.5 rounded-sm bg-current"></div>
-                    </div>
-                  )
-                },
-                {
-                  value: 'card',
-                  label: 'Card',
-                  icon: (
-                    <div className="w-3 h-3 grid grid-cols-2 gap-0.5">
-                      <div className="w-1 h-1 rounded-sm bg-current"></div>
-                      <div className="w-1 h-1 rounded-sm bg-current"></div>
-                      <div className="w-1 h-1 rounded-sm bg-current"></div>
-                      <div className="w-1 h-1 rounded-sm bg-current"></div>
-                    </div>
-                  )
-                }
-              ]}
-              onChange={(view: 'list' | 'card') => setViewMode(view)}
-            />
-            <div className="hidden lg:block">
-              <Button 
-                className="flex items-center justify-center space-x-2 w-full sm:w-auto"
-                onClick={handleCreateProject}
-              >
-                <Plus size={16} className="sm:w-4 sm:h-4" />
-                <span className="text-sm sm:text-base">New Project</span>
-              </Button>
-            </div>
-          </div>
-        </div>
+      <div className="w-full px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 overflow-x-hidden">
 
 
-        {/* Search and Filter Section */}
-        <div className="mb-4 sm:mb-6">
-          {/* Search Bar */}
-          <div className="relative mb-4">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-gray-400" />
-            </div>
-            <input
-              type="text"
-              placeholder="Search projects..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="block w-full pl-10 pr-12 py-3 border border-gray-200 rounded-xl text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <button
-              onClick={() => setIsAdvancedFilterOpen(!isAdvancedFilterOpen)}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center"
-            >
-              <Filter className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-            </button>
-          </div>
-
-          {/* Advanced Filter Dropdown */}
-          {isAdvancedFilterOpen && (
-            <div ref={advancedFilterRef} className="mb-4 p-4 bg-white border border-gray-200 rounded-xl shadow-lg">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="all">All Status</option>
-                    <option value="active">Active</option>
-                    <option value="paused">Paused</option>
-                    <option value="completed">Completed</option>
-                    <option value="planning">Planning</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
-                  <select
-                    value={priorityFilter}
-                    onChange={(e) => setPriorityFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="all">All Priority</option>
-                    <option value="high">High</option>
-                    <option value="medium">Medium</option>
-                    <option value="low">Low</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Applied Advanced Filters */}
-          {Object.keys(advancedFilters).length > 0 && (
-            <div className="mb-4 flex flex-wrap gap-2">
-              {Object.entries(advancedFilters).map(([key, value]) => (
-                <div key={key} className="flex items-center bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
-                  <span className="mr-2">{key}: {value}</span>
-                  <button
-                    onClick={() => removeAdvancedFilter(key)}
-                    className="text-blue-600 hover:text-blue-800"
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-              <button
-                onClick={clearAllAdvancedFilters}
-                className="text-sm text-gray-500 hover:text-gray-700 underline"
-              >
-                Clear all
-              </button>
-            </div>
-          )}
-
-          {/* Filter Pills */}
-          <div className="flex flex-nowrap gap-2 overflow-x-auto pb-2 scrollbar-hide pr-4">
-            {predefinedFilters.map((filter) => (
-              <button
-                key={filter.id}
-                onClick={() => setActivePredefinedFilter(filter.id)}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 ${
-                  activePredefinedFilter === filter.id
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {filter.count} {filter.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        {/* Filters and Search */}
+        <SearchFilterSection
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="Search projects..."
+          filters={[]}
+          variant="modern"
+          showActiveFilters={true}
+          onAdvancedFilterChange={handleAdvancedFilterChange}
+          onApplyAdvancedFilters={() => {}}
+          onClearAdvancedFilters={clearAllAdvancedFilters}
+          advancedFilters={advancedFilters}
+          onOpenAdvancedFilterModal={() => setIsAdvancedFilterModalOpen(true)}
+          showInlineAdvancedFilters={true}
+          onInlineAdvancedFiltersChange={handleInlineAdvancedFiltersChange}
+          onClearInlineAdvancedFilters={handleClearInlineAdvancedFilters}
+          inlineAdvancedFilters={projectAdvancedFilters}
+          projects={projects}
+          users={[]}
+          teams={[]}
+          currentUser={user}
+          customInlineFilterComponent={ProjectInlineAdvancedFilters}
+          availableFilterColumns={availableFilterColumns}
+          visibleFilterColumns={visibleFilterColumns}
+          onFilterColumnsChange={setVisibleFilterColumns}
+          viewToggle={{
+            currentView: viewMode,
+            views: [
+              {
+                value: 'list',
+                label: 'List',
+                icon: (
+                  <div className="w-3 h-3 flex flex-col space-y-0.5">
+                    <div className="w-full h-0.5 rounded-sm bg-current"></div>
+                    <div className="w-full h-0.5 rounded-sm bg-current"></div>
+                    <div className="w-full h-0.5 rounded-sm bg-current"></div>
+                  </div>
+                )
+              },
+              {
+                value: 'card',
+                label: 'Card',
+                icon: (
+                  <div className="w-3 h-3 grid grid-cols-2 gap-0.5">
+                    <div className="w-1 h-1 rounded-sm bg-current"></div>
+                    <div className="w-1 h-1 rounded-sm bg-current"></div>
+                    <div className="w-1 h-1 rounded-sm bg-current"></div>
+                    <div className="w-1 h-1 rounded-sm bg-current"></div>
+                  </div>
+                )
+              }
+            ],
+            onChange: (view: 'list' | 'card') => setViewMode(view)
+          }}
+        />
 
         {/* Projects Grid */}
         {viewMode === 'list' ? (
@@ -539,7 +596,7 @@ const ProjectsPage = () => {
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Users size={12} className="text-gray-500" />
+                        <User size={12} className="text-gray-500" />
                         <span className="text-xs text-gray-500">
                           {getTeamCount(project.team)} team(s)
                           {Array.isArray(project.team) && project.team.length > 0 && (
@@ -609,7 +666,7 @@ const ProjectsPage = () => {
                       </div>
                       <div className="flex items-center space-x-2">
                         <div className="flex items-center space-x-1">
-                          <Users size={8} className="sm:w-3 sm:h-3" />
+                          <User size={8} className="sm:w-3 sm:h-3" />
                           <span className="text-xs">{getTeamCount(project.team)}</span>
                         </div>
                       </div>
@@ -689,19 +746,19 @@ const ProjectsPage = () => {
             }`}
             style={{ 
               width: '100%',
-              maxHeight: '80vh',
+              maxHeight: '85vh',
               boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
             }}
           >
             <div 
               className="bg-white rounded-t-2xl lg:rounded-2xl shadow-2xl overflow-y-auto"
               style={{ 
-                maxHeight: '80vh',
+                maxHeight: '85vh',
                 boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
                 backgroundColor: 'white'
               }}
             >
-              <div className="p-4 lg:p-6">
+              <div className="p-4 lg:p-6 pb-24 lg:pb-6">
                 {/* Project Preview Header */}
                 <div className="flex items-center justify-between mb-4 lg:mb-6">
                   <div className="flex items-center space-x-3">

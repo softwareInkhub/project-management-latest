@@ -378,7 +378,7 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
           </div>
 
            {/* Form Actions */}
-           <div className="sticky bottom-0 bg-white border-t rounded-b-2xl border-gray-300 p-1 sm:p-4 z-10 pb-16 sm:pb-4">
+           <div className="sticky bottom-0 bg-white border-t rounded-b-2xl border-gray-300 p-1 sm:p-4 z-10 pb-24 sm:pb-4">
              <div className="flex justify-end space-x-3">
                <Button
                  type="button"

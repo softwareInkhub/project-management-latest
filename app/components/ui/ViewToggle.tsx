@@ -25,7 +25,7 @@ export const ViewToggle = <T extends string = string>({
           onClick={() => onChange(view.value)}
           className={`px-3 py-2 text-sm font-medium transition-all duration-200 ${
             currentView === view.value
-              ? 'bg-blue-500 text-white shadow-sm'
+              ? 'bg-blue-600 text-white shadow-sm'
               : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
           }`}
         >

@@ -19,11 +19,25 @@ export const Navigation: React.FC<NavigationProps> = ({ onMobileMenuClick }) => 
   const { user } = useAuth();
   const pathname = usePathname();
   const isDashboard = pathname === '/Dashboard' || pathname === '/';
+  const isProjects = pathname === '/project';
+  
+  // Get page title based on current route
+  const getPageTitle = () => {
+    if (isDashboard) return 'Dashboard';
+    if (isProjects) return 'Projects';
+    if (pathname === '/task') return 'Tasks';
+    if (pathname === '/sprint-stories') return 'Sprint & Stories';
+    if (pathname === '/team') return 'Team';
+    if (pathname === '/calander') return 'Calendar';
+    if (pathname === '/notifications') return 'Notifications';
+    if (pathname === '/settings') return 'Settings';
+    return 'ProjectFlow';
+  };
 
   return (
-    <nav className="bg-white dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700 px-3 sm:px-4 lg:px-6 py-3 sm:py-4 w-full sticky top-0 z-30">
+    <nav className="bg-white dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700 px-3 sm:px-4 lg:px-6 py-4 lg:py-5.5 w-full sticky top-0 z-30">
       <div className="flex items-center justify-between w-full">
-        {/* Left Side - Mobile Menu + Dashboard Title */}
+        {/* Left Side - Mobile Menu + Page Title */}
         <div className="flex items-center min-w-0 flex-1">
           <button
             onClick={onMobileMenuClick}
@@ -32,22 +46,22 @@ export const Navigation: React.FC<NavigationProps> = ({ onMobileMenuClick }) => 
             <Menu className="w-5 h-5 text-gray-600 dark:text-gray-300" />
           </button>
           
-          {/* Dashboard Title and Welcome Message */}
-          {isDashboard && (
-            <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
-                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white truncate">
-                  Dashboard
-                </h1>
+          {/* Page Title */}
+          <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
+              <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white truncate">
+                {getPageTitle()}
+              </h1>
+              {isDashboard && (
                 <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 truncate">
                   Welcome back, <span className="font-semibold text-blue-600 dark:text-blue-400">{user?.name || user?.username || user?.email?.split('@')[0] || 'User'}</span>!
                 </p>
-              </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
 
         {/* Right Side */}

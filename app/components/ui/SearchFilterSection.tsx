@@ -54,6 +54,7 @@ interface SearchFilterSectionProps<T extends string = string> {
   teams?: any[];
   projects?: any[];
   currentUser?: any;
+  customInlineFilterComponent?: React.ComponentType<any>;
   // Column settings props
   availableFilterColumns?: Array<{key: string, label: string, icon: React.ReactNode}>;
   visibleFilterColumns?: string[];
@@ -88,6 +89,7 @@ export const SearchFilterSection = <T extends string = string>({
   teams = [],
   projects = [],
   currentUser,
+  customInlineFilterComponent,
   availableFilterColumns = [],
   visibleFilterColumns = [],
   onFilterColumnsChange,
@@ -177,8 +179,8 @@ export const SearchFilterSection = <T extends string = string>({
   return (
     <div className={`${className}`}>
       {/* Mobile-First Layout - Exact Match to Reference */}
-      <div className="space-y-4 mb-1">
-        {/* Search Bar with Filter and Settings Icons - Fixed Width Search */}
+      <div className="space-y-4 mb-6">
+        {/* Search Bar with Filter and Settings Icons - Responsive Width Search */}
         <div className="flex items-center space-x-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -187,15 +189,42 @@ export const SearchFilterSection = <T extends string = string>({
               placeholder={searchPlaceholder}
               value={searchValue}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="w-80 pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-2xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
+              className="w-48 sm:w-64 lg:w-80 pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-2xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
             />
           </div>
           
           {/* Spacer to push icons to the right */}
           <div className="flex-1"></div>
           
-          {/* Settings and Filter Buttons - Positioned at End */}
+          {/* New Project Button, View Toggle, Settings, and Filter Buttons - Positioned at End */}
           <div className="flex items-center space-x-2">
+              {/* New Project Button - Hidden on mobile */}
+              {viewToggle && (
+                <button
+                  onClick={() => {
+                    // This will be handled by the parent component
+                    const event = new CustomEvent('newProjectClick');
+                    window.dispatchEvent(event);
+                  }}
+                  className="hidden lg:flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex-shrink-0"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span>New Project</span>
+                </button>
+              )}
+              
+              {/* View Toggle */}
+              {viewToggle && (
+                <ViewToggle
+                  currentView={viewToggle.currentView}
+                  views={viewToggle.views}
+                  onChange={viewToggle.onChange}
+                  className="flex-shrink-0"
+                />
+              )}
+              
               {/* Settings Button */}
               <div className="relative">
                 <button 
@@ -258,19 +287,35 @@ export const SearchFilterSection = <T extends string = string>({
 
         {/* Advanced Filters - Inline */}
         {isAdvancedFilterOpen && showInlineAdvancedFilters && (
-          <InlineAdvancedFilters
-            isOpen={isAdvancedFilterOpen}
-            onClose={() => setIsAdvancedFilterOpen(false)}
-            filters={inlineAdvancedFilters}
-            onFiltersChange={onInlineAdvancedFiltersChange || (() => {})}
-            onClearAll={onClearInlineAdvancedFilters || (() => {})}
-            tasks={tasks}
-            users={users}
-            teams={teams}
-            projects={projects}
-            visibleColumns={visibleFilterColumns}
-            currentUser={currentUser}
-          />
+          customInlineFilterComponent ? (
+            React.createElement(customInlineFilterComponent, {
+              isOpen: isAdvancedFilterOpen,
+              onClose: () => setIsAdvancedFilterOpen(false),
+              filters: inlineAdvancedFilters,
+              onFiltersChange: onInlineAdvancedFiltersChange || (() => {}),
+              onClearAll: onClearInlineAdvancedFilters || (() => {}),
+              tasks: tasks,
+              users: users,
+              teams: teams,
+              projects: projects,
+              visibleColumns: visibleFilterColumns,
+              currentUser: currentUser
+            })
+          ) : (
+            <InlineAdvancedFilters
+              isOpen={isAdvancedFilterOpen}
+              onClose={() => setIsAdvancedFilterOpen(false)}
+              filters={inlineAdvancedFilters}
+              onFiltersChange={onInlineAdvancedFiltersChange || (() => {})}
+              onClearAll={onClearInlineAdvancedFilters || (() => {})}
+              tasks={tasks}
+              users={users}
+              teams={teams}
+              projects={projects}
+              visibleColumns={visibleFilterColumns}
+              currentUser={currentUser}
+            />
+          )
         )}
 
         {/* Legacy Advanced Filters - Inline */}
@@ -316,33 +361,6 @@ export const SearchFilterSection = <T extends string = string>({
           </div>
         )}
 
-        {/* Predefined Filter Pills */}
-        {predefinedFilters.length > 0 && (
-          <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
-            {predefinedFilters.map((filter) => (
-              <button
-                key={filter.key}
-                onClick={filter.onClick}
-                className={`flex-shrink-0 px-3 py-1 text-xs font-medium rounded-full transition-colors flex items-center space-x-1 ${
-                  filter.isActive
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {filter.count !== undefined && (
-                  <span className={`px-1.5 py-0.5 text-xs rounded-full ${
-                    filter.isActive
-                      ? 'bg-blue-500 text-white' 
-                      : 'bg-gray-200 text-gray-500'
-                  }`}>
-                    {filter.count}
-                  </span>
-                )}
-                <span>{filter.label}</span>
-              </button>
-            ))}
-          </div>
-        )}
 
       </div>
 
