@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { 
   Plus, 
   MoreVertical, 
@@ -69,7 +69,6 @@ interface AdvancedFilters {
   tags: string[];
   dueDateRange: DateRange;
   timeEstimateRange: NumberRange;
-  createdDateRange: DateRange;
   additionalFilters: string[];
 }
 
@@ -77,6 +76,302 @@ interface SortOption {
   field: string;
   direction: 'asc' | 'desc';
 }
+
+// SortableTableHeader Component
+const SortableTableHeader = React.memo(({ 
+  column, 
+  label, 
+  sortable = true, 
+  filterable = true, 
+  width,
+  align = 'left',
+  filterOptions,
+  columnSorts,
+  setColumnSorts,
+  columnFilters,
+  setColumnFilters,
+  openFilterDropdown,
+  setOpenFilterDropdown
+}: {
+  column: string;
+  label: string;
+  sortable?: boolean;
+  filterable?: boolean;
+  width?: string;
+  align?: 'left' | 'center' | 'right';
+  filterOptions?: Array<{ label: string; value: string }> | string[];
+  columnSorts: {[key: string]: 'asc' | 'desc' | null};
+  setColumnSorts: React.Dispatch<React.SetStateAction<{[key: string]: 'asc' | 'desc' | null}>>;
+  columnFilters: {[key: string]: string};
+  setColumnFilters: React.Dispatch<React.SetStateAction<{[key: string]: string}>>;
+  openFilterDropdown: string | null;
+  setOpenFilterDropdown: React.Dispatch<React.SetStateAction<string | null>>;
+}) => {
+  const currentSort = columnSorts[column];
+  const currentFilter = columnFilters[column];
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [showSelectOptions, setShowSelectOptions] = useState(false);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+
+  const handleSort = useCallback(() => {
+    if (!sortable) return;
+    
+    const newSort = currentSort === 'asc' ? 'desc' : 
+                   currentSort === 'desc' ? null : 'asc';
+    
+    setColumnSorts(prev => ({
+      ...prev,
+      [column]: newSort
+    }));
+  }, [sortable, currentSort, column, setColumnSorts]);
+
+  const handleFilterChange = useCallback((value: string) => {
+    setColumnFilters(prev => ({
+      ...prev,
+      [column]: value
+    }));
+  }, [column, setColumnFilters, setOpenFilterDropdown]);
+
+  const clearFilter = useCallback(() => {
+    console.log('Clear filter clicked for column:', column, 'current value:', currentFilter);
+    
+    // Clear the filter value by setting it to empty string
+    setColumnFilters(prev => ({
+      ...prev,
+      [column]: ''
+    }));
+    
+    // Clear selected statuses
+    setSelectedStatuses([]);
+    
+    // Force input to clear immediately
+    if (inputRef.current) {
+      inputRef.current.value = '';
+      inputRef.current.focus();
+    }
+    
+    // Close select options
+    setShowSelectOptions(false);
+  }, [column, setColumnFilters, currentFilter]);
+
+  const handleStatusToggle = useCallback((value: string) => {
+    setSelectedStatuses(prev => {
+      const newSelection = prev.includes(value) 
+        ? prev.filter(status => status !== value)
+        : [...prev, value];
+      
+      // Update the filter with comma-separated values
+      const filterValue = newSelection.length > 0 ? newSelection.join(',') : '';
+      handleFilterChange(filterValue);
+      
+      return newSelection;
+    });
+  }, [handleFilterChange]);
+
+  const getSelectedLabel = useCallback(() => {
+    if (selectedStatuses.length === 0) return 'All Status';
+    if (selectedStatuses.length === 1) return selectedStatuses[0];
+    return `${selectedStatuses.length} selected`;
+  }, [selectedStatuses]);
+
+  const toggleFilterDropdown = useCallback(() => {
+    if (!filterable) return;
+    setOpenFilterDropdown(openFilterDropdown === column ? null : column);
+  }, [filterable, openFilterDropdown, column, setOpenFilterDropdown]);
+
+  // Close dropdown when clicking outside of it
+  useEffect(() => {
+    if (openFilterDropdown !== column) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      // Don't close if clicking on the clear button or its children
+      if (dropdownRef.current && !dropdownRef.current.contains(target)) {
+        setOpenFilterDropdown(null);
+        setShowSelectOptions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [openFilterDropdown, column, setOpenFilterDropdown]);
+
+  return (
+    <th 
+      className={`px-4 py-3 text-${align} text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-300 relative group`}
+      style={{ width }}
+    >
+      <div className="flex items-center justify-between">
+        <div 
+          className={`${sortable ? 'cursor-pointer hover:text-blue-600 transition-colors' : ''} flex items-center space-x-1`}
+          onClick={handleSort}
+        >
+          <span className={`${currentSort ? 'text-blue-600' : ''}`}>{label}</span>
+          {sortable && currentSort && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+              {currentSort === 'asc' ? 'ASC' : 'DESC'}
+            </span>
+          )}
+        </div>
+        
+        <div className="flex items-center space-x-1">
+          {/* Filter Icon */}
+          {filterable && (
+            <div className="relative">
+              <Filter 
+                className={`w-3 h-3 cursor-pointer transition-colors ${
+                  currentFilter ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'
+                }`}
+                onClick={toggleFilterDropdown}
+              />
+              
+              {/* Filter Dropdown */}
+              {openFilterDropdown === column && (
+                <div
+                  ref={dropdownRef}
+                  className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50"
+                  onMouseDown={(e) => { e.stopPropagation(); }}
+                  onClick={(e) => { e.stopPropagation(); }}
+                >
+                  <div className="p-2">
+                    {filterOptions ? (
+                      <div className="space-y-2">
+                        <div className="relative">
+                          <button
+                            type="button"
+                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-left flex items-center justify-between"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setShowSelectOptions(!showSelectOptions);
+                            }}
+                            onMouseDown={(e) => { e.stopPropagation(); }}
+                          >
+                            <span>{getSelectedLabel()}</span>
+                            <ChevronDown className={`w-4 h-4 transition-transform ${showSelectOptions ? 'rotate-180' : ''}`} />
+                          </button>
+                          
+                          {showSelectOptions && (
+                            <div 
+                              className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50"
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {(Array.isArray(filterOptions) ? filterOptions : []).map((opt: any, idx: number) => {
+                                const option = typeof opt === 'string' ? { label: opt, value: opt === 'All Status' ? '' : opt } : opt;
+                                if (option.value === '') return null; // Skip "All Status" option
+                                const isSelected = selectedStatuses.includes(option.value);
+                                return (
+                                  <div
+                                    key={`${column}-opt-${idx}`}
+                                    className="flex items-center px-3 py-2 text-sm hover:bg-gray-100 first:rounded-t-lg last:rounded-b-lg cursor-pointer"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      handleStatusToggle(option.value);
+                                    }}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      onChange={() => {}} // Controlled by parent click
+                                      className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                    />
+                                    <span className="text-gray-700">{option.label}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          className="text-xs text-red-600 hover:text-red-800"
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); clearFilter(); }}
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <input
+                          ref={inputRef}
+                          key={`${column}-${currentFilter || ''}`}
+                          type="text"
+                          placeholder={`Filter by ${label.toLowerCase()}...`}
+                          value={currentFilter || ''}
+                          onChange={(e) => handleFilterChange(e.target.value)}
+                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          autoFocus
+                        />
+                        {(currentFilter && currentFilter.length > 0) && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              clearFilter();
+                            }}
+                            className="mt-2 text-xs text-red-600 hover:text-red-800 px-2 py-1 rounded hover:bg-red-50 cursor-pointer"
+                          >
+                            Clear filter
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </th>
+  );
+});
+
+// Mobile Filter Summary Component
+const MobileFilterSummary = React.memo(({ 
+  columnFilters, 
+  onClearAllFilters 
+}: { 
+  columnFilters: {[key: string]: string};
+  onClearAllFilters: () => void;
+}) => {
+  const activeFilters = useMemo(() => 
+    Object.entries(columnFilters).filter(([_, value]) => value), 
+    [columnFilters]
+  );
+  
+  if (activeFilters.length === 0) return null;
+
+  return (
+    <div className="block sm:hidden mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center space-x-2">
+          <Filter className="w-4 h-4 text-blue-600" />
+          <span className="text-sm font-medium text-blue-800">Active Filters</span>
+          <Badge variant="default" className="text-xs">
+            {activeFilters.length}
+          </Badge>
+        </div>
+        <button
+          onClick={onClearAllFilters}
+          className="text-xs text-blue-600 hover:text-blue-800 underline"
+        >
+          Clear All
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {activeFilters.map(([column, value]) => (
+          <div key={column} className="flex items-center space-x-1 bg-white px-2 py-1 rounded border text-xs">
+            <span className="font-medium text-gray-700">{column}:</span>
+            <span className="text-gray-600">{value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+});
 
 // Mock data for tasks (fallback when API fails)
 const mockTasks: Task[] = [
@@ -215,9 +510,12 @@ const mockTasks: Task[] = [
 ];
 
 const statusConfig = {
-  'To Do': { label: 'To Do', color: 'default', icon: Circle },
-  'In Progress': { label: 'In Progress', color: 'info', icon: Clock },
-  'Completed': { label: 'Completed', color: 'success', icon: CheckCircle },
+  'To Do': { label: 'To Do', color: 'to_do', icon: Circle },
+  'to_do': { label: 'To Do', color: 'to_do', icon: Circle },
+  'In Progress': { label: 'In Progress', color: 'in_progress', icon: Clock },
+  'in_progress': { label: 'In Progress', color: 'in_progress', icon: Clock },
+  'Completed': { label: 'Completed', color: 'done', icon: CheckCircle },
+  'done': { label: 'Done', color: 'done', icon: CheckCircle },
   'Overdue': { label: 'Overdue', color: 'danger', icon: AlertCircle }
 };
 
@@ -231,9 +529,12 @@ const getStatusConfig = (status: string) => {
 };
 
 const priorityConfig = {
-  'Low': { label: 'Low', color: 'default', icon: ArrowDown },
-  'Medium': { label: 'Medium', color: 'warning', icon: Flag },
-  'High': { label: 'High', color: 'danger', icon: ArrowUp }
+  'Low': { label: 'Low', color: 'low', icon: ArrowDown },
+  'low': { label: 'Low', color: 'low', icon: ArrowDown },
+  'Medium': { label: 'Medium', color: 'medium', icon: Flag },
+  'medium': { label: 'Medium', color: 'medium', icon: Flag },
+  'High': { label: 'High', color: 'high', icon: ArrowUp },
+  'high': { label: 'High', color: 'high', icon: ArrowUp }
 };
 
 // Helper function to get priority config with fallback
@@ -271,7 +572,6 @@ const TasksPage = () => {
     tags: [],
     dueDateRange: { from: '', to: '' },
     timeEstimateRange: { min: 0, max: 1000 },
-    createdDateRange: { from: '', to: '' },
     additionalFilters: []
   });
   const [isAdvancedFilterModalOpen, setIsAdvancedFilterModalOpen] = useState(false);
@@ -285,10 +585,9 @@ const TasksPage = () => {
     { key: 'status', label: 'Task Status', icon: <CheckCircle className="w-4 h-4 text-blue-500" /> },
     { key: 'priority', label: 'Priority Level', icon: <Flag className="w-4 h-4 text-green-500" /> },
     { key: 'project', label: 'Project', icon: <FolderOpen className="w-4 h-4 text-orange-500" /> },
-    { key: 'dueDateRange', label: 'Due Date Range', icon: <Calendar className="w-4 h-4 text-blue-500" /> },
+    { key: 'dueDateRange', label: 'Date Range', icon: <Calendar className="w-4 h-4 text-blue-500" /> },
     { key: 'timeEstimateRange', label: 'Time Estimates', icon: <Clock className="w-4 h-4 text-purple-500" /> },
     { key: 'tags', label: 'Tags', icon: <Tag className="w-4 h-4 text-orange-500" /> },
-    { key: 'createdDateRange', label: 'Created Date Range', icon: <Calendar className="w-4 h-4 text-blue-500" /> },
     { key: 'additionalFilters', label: 'Additional Filters', icon: <Filter className="w-4 h-4 text-green-500" /> }
   ];
   const [sortOption, setSortOption] = useState<SortOption>({ field: 'dueDate', direction: 'asc' });
@@ -297,6 +596,8 @@ const TasksPage = () => {
   const [columnSorts, setColumnSorts] = useState<{[key: string]: 'asc' | 'desc' | null}>({});
   const [columnFilters, setColumnFilters] = useState<{[key: string]: string}>({});
   const [openFilterDropdown, setOpenFilterDropdown] = useState<string | null>(null);
+  
+  // Note: click-outside is handled per-dropdown inside SortableTableHeader
   
   const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
   const [isFormAnimating, setIsFormAnimating] = useState(false);
@@ -789,19 +1090,6 @@ const TasksPage = () => {
       return false;
     }
     
-    // Created date range filter
-    if (filters.createdDateRange.from || filters.createdDateRange.to) {
-      const createdDate = new Date(task.createdAt);
-      if (filters.createdDateRange.from) {
-        const fromDate = new Date(filters.createdDateRange.from);
-        if (createdDate < fromDate) return false;
-      }
-      if (filters.createdDateRange.to) {
-        const toDate = new Date(filters.createdDateRange.to);
-        if (createdDate > toDate) return false;
-      }
-    }
-    
     // Additional filters
     for (const additionalFilter of filters.additionalFilters) {
       switch (additionalFilter) {
@@ -827,121 +1115,164 @@ const TasksPage = () => {
 
   const sortTasks = (tasks: Task[]): Task[] => {
     return [...tasks].sort((a, b) => {
-      let aValue: any, bValue: any;
-      
-      switch (sortOption.field) {
-        case 'title':
-          aValue = a.title.toLowerCase();
-          bValue = b.title.toLowerCase();
-          break;
-        case 'status':
-          const statusOrder = { 'To Do': 1, 'In Progress': 2, 'Completed': 3, 'Overdue': 4 };
-          aValue = statusOrder[a.status as keyof typeof statusOrder] || 5;
-          bValue = statusOrder[b.status as keyof typeof statusOrder] || 5;
-          break;
-        case 'priority':
-          const priorityOrder = { 'High': 1, 'Medium': 2, 'Low': 3 };
-          aValue = priorityOrder[a.priority as keyof typeof priorityOrder] || 4;
-          bValue = priorityOrder[b.priority as keyof typeof priorityOrder] || 4;
-          break;
-        case 'dueDate':
-          aValue = new Date(a.dueDate).getTime();
-          bValue = new Date(b.dueDate).getTime();
-          break;
-        case 'createdAt':
-          aValue = new Date(a.createdAt).getTime();
-          bValue = new Date(b.createdAt).getTime();
-          break;
-        case 'updatedAt':
-          aValue = new Date(a.updatedAt).getTime();
-          bValue = new Date(b.updatedAt).getTime();
-          break;
-        case 'progress':
-          aValue = a.progress;
-          bValue = b.progress;
-          break;
-        case 'estimatedHours':
-          aValue = a.estimatedHours;
-          bValue = b.estimatedHours;
-          break;
-        case 'assignee':
-          aValue = a.assignee || '';
-          bValue = b.assignee || '';
-          break;
-        case 'project':
-          aValue = a.project || '';
-          bValue = b.project || '';
-          break;
-        default:
-          aValue = a.title.toLowerCase();
-          bValue = b.title.toLowerCase();
+      // Check for column-specific sorting first
+      const activeColumnSort = Object.entries(columnSorts).find(([_, direction]) => direction !== null);
+      if (activeColumnSort) {
+        const [field, direction] = activeColumnSort;
+        return sortByField(a, b, field, direction as 'asc' | 'desc');
       }
       
-      if (aValue < bValue) return sortOption.direction === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortOption.direction === 'asc' ? 1 : -1;
-      return 0;
+      // Fall back to global sort option
+      return sortByField(a, b, sortOption.field, sortOption.direction);
     });
   };
 
-  const filteredTasks = sortTasks(tasks.filter(task => {
-    // Basic search filter
-    const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         task.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         task.project.toLowerCase().includes(searchTerm.toLowerCase());
+  const sortByField = (a: Task, b: Task, field: string, direction: 'asc' | 'desc'): number => {
+    let aValue: any, bValue: any;
     
-    // Apply predefined filters
-    let matchesPredefined = true;
-    if (activePredefinedFilter === 'completed') {
-      matchesPredefined = task.status === 'Completed';
-    } else if (activePredefinedFilter === 'todo') {
-      matchesPredefined = task.status === 'To Do';
-    } else if (activePredefinedFilter === 'in-progress') {
-      matchesPredefined = task.status === 'In Progress';
-    } else if (activePredefinedFilter === 'overdue') {
-      matchesPredefined = isOverdue(task.dueDate);
-    } else if (activePredefinedFilter === 'high-priority') {
-      matchesPredefined = task.priority === 'High';
-    } else if (activePredefinedFilter === 'my-tasks') {
-      // Filter tasks assigned to the current user
-      const currentUserId = user?.userId || user?.email;
-      if (!currentUserId) {
-        matchesPredefined = false;
-      } else {
-        matchesPredefined = (task.assignee === currentUserId) || 
-                           (task.assignedUsers?.includes(currentUserId) || false) ||
-                           (task.assignedTeams?.some((teamId: string) => 
-                             allTeams.find(team => team.id === teamId)?.members?.includes(currentUserId)
-                           ) || false);
-      }
+    switch (field) {
+      case 'title':
+        aValue = a.title.toLowerCase();
+        bValue = b.title.toLowerCase();
+        break;
+      case 'description':
+        aValue = a.description.toLowerCase();
+        bValue = b.description.toLowerCase();
+        break;
+      case 'project':
+        aValue = a.project?.toLowerCase() || '';
+        bValue = b.project?.toLowerCase() || '';
+        break;
+      case 'status':
+        const statusOrder = { 'To Do': 1, 'In Progress': 2, 'Completed': 3, 'Overdue': 4 };
+        aValue = statusOrder[a.status as keyof typeof statusOrder] || 5;
+        bValue = statusOrder[b.status as keyof typeof statusOrder] || 5;
+        break;
+      case 'priority':
+        const priorityOrder = { 'High': 1, 'Medium': 2, 'Low': 3 };
+        aValue = priorityOrder[a.priority as keyof typeof priorityOrder] || 4;
+        bValue = priorityOrder[b.priority as keyof typeof priorityOrder] || 4;
+        break;
+      case 'dueDate':
+        aValue = a.dueDate ? new Date(a.dueDate).getTime() : 0;
+        bValue = b.dueDate ? new Date(b.dueDate).getTime() : 0;
+        break;
+      case 'createdAt':
+        aValue = new Date(a.createdAt).getTime();
+        bValue = new Date(b.createdAt).getTime();
+        break;
+      case 'updatedAt':
+        aValue = new Date(a.updatedAt).getTime();
+        bValue = new Date(b.updatedAt).getTime();
+        break;
+      case 'progress':
+        aValue = a.progress || 0;
+        bValue = b.progress || 0;
+        break;
+      case 'estimatedHours':
+        aValue = a.estimatedHours || 0;
+        bValue = b.estimatedHours || 0;
+        break;
+      case 'assignee':
+        aValue = a.assignee?.toLowerCase() || '';
+        bValue = b.assignee?.toLowerCase() || '';
+        break;
+      case 'tags':
+        aValue = a.tags?.toLowerCase() || '';
+        bValue = b.tags?.toLowerCase() || '';
+        break;
+      case 'comments':
+        aValue = parseInt(a.comments) || 0;
+        bValue = parseInt(b.comments) || 0;
+        break;
+      case 'subtasks':
+        aValue = parseInt(a.subtasks) || 0;
+        bValue = parseInt(b.subtasks) || 0;
+        break;
+      default:
+        aValue = a.title.toLowerCase();
+        bValue = b.title.toLowerCase();
     }
     
-    // Apply advanced filters
-    const matchesAdvancedFilters = applyAdvancedFilters(task);
-    
-    // Apply column filters
-    const matchesColumnFilters = Object.entries(columnFilters).every(([column, filterValue]) => {
-      if (!filterValue) return true;
+    if (aValue < bValue) return direction === 'asc' ? -1 : 1;
+    if (aValue > bValue) return direction === 'asc' ? 1 : -1;
+    return 0;
+  };
+
+  // Memoized filtered and sorted tasks for performance
+  const filteredTasks = useMemo(() => {
+    return sortTasks(tasks.filter(task => {
+      // Basic search filter
+      const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           task.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           task.project.toLowerCase().includes(searchTerm.toLowerCase());
       
-      switch (column) {
-        case 'title':
-          return task.title.toLowerCase().includes(filterValue.toLowerCase());
-        case 'project':
-          return task.project.toLowerCase().includes(filterValue.toLowerCase());
-        case 'status':
-          return task.status.toLowerCase().includes(filterValue.toLowerCase());
-        case 'priority':
-          return task.priority.toLowerCase().includes(filterValue.toLowerCase());
-        case 'assignee':
-          return task.assignee.toLowerCase().includes(filterValue.toLowerCase());
-        case 'tags':
-          return task.tags?.toLowerCase().includes(filterValue.toLowerCase()) || false;
-        default:
-          return true;
+      // Apply predefined filters
+      let matchesPredefined = true;
+      if (activePredefinedFilter === 'completed') {
+        matchesPredefined = task.status === 'Completed';
+      } else if (activePredefinedFilter === 'todo') {
+        matchesPredefined = task.status === 'To Do';
+      } else if (activePredefinedFilter === 'in-progress') {
+        matchesPredefined = task.status === 'In Progress';
+      } else if (activePredefinedFilter === 'overdue') {
+        matchesPredefined = isOverdue(task.dueDate);
+      } else if (activePredefinedFilter === 'high-priority') {
+        matchesPredefined = task.priority === 'High';
+      } else if (activePredefinedFilter === 'my-tasks') {
+        // Filter tasks assigned to the current user
+        const currentUserId = user?.userId || user?.email;
+        if (!currentUserId) {
+          matchesPredefined = false;
+        } else {
+          matchesPredefined = (task.assignee === currentUserId) || 
+                             (task.assignedUsers?.includes(currentUserId) || false) ||
+                             (task.assignedTeams?.some((teamId: string) => 
+                               allTeams.find(team => team.id === teamId)?.members?.includes(currentUserId)
+                             ) || false);
+        }
       }
-    });
-    
-    return matchesSearch && matchesPredefined && matchesAdvancedFilters && matchesColumnFilters;
-  }));
+      
+      // Apply advanced filters
+      const matchesAdvancedFilters = applyAdvancedFilters(task);
+      
+      // Apply column filters
+      const matchesColumnFilters = Object.entries(columnFilters).every(([column, filterValue]) => {
+        if (!filterValue) return true;
+        
+        switch (column) {
+          case 'title':
+            return task.title.toLowerCase().includes(filterValue.toLowerCase());
+          case 'project':
+            return task.project.toLowerCase().includes(filterValue.toLowerCase());
+          case 'description':
+            return task.description.toLowerCase().includes(filterValue.toLowerCase());
+        case 'status':
+          if (!filterValue) return true;
+          const statusFilters = filterValue.split(',').map(s => s.trim());
+          return statusFilters.includes(task.status);
+          case 'priority':
+            return task.priority.toLowerCase().includes(filterValue.toLowerCase());
+          case 'assignee':
+            return task.assignee.toLowerCase().includes(filterValue.toLowerCase());
+          case 'tags':
+            return task.tags?.toLowerCase().includes(filterValue.toLowerCase()) || false;
+          case 'estimatedHours':
+            return task.estimatedHours?.toString().includes(filterValue) || false;
+          case 'comments':
+            return task.comments?.includes(filterValue) || false;
+          case 'subtasks':
+            return task.subtasks?.includes(filterValue) || false;
+          case 'dueDate':
+            return task.dueDate?.includes(filterValue) || false;
+          default:
+            return true;
+        }
+      });
+      
+      return matchesSearch && matchesPredefined && matchesAdvancedFilters && matchesColumnFilters;
+    }));
+  }, [tasks, searchTerm, activePredefinedFilter, user, allTeams, advancedFilterState, columnFilters, columnSorts, sortOption]);
 
   const getStatusIcon = (status: string) => {
     const config = getStatusConfig(status);
@@ -1065,7 +1396,6 @@ const TasksPage = () => {
       tags: [],
       dueDateRange: { from: '', to: '' },
       timeEstimateRange: { min: 0, max: 1000 },
-      createdDateRange: { from: '', to: '' },
       additionalFilters: []
     });
   };
@@ -1103,6 +1433,11 @@ const TasksPage = () => {
       [column]: value
     }));
     setOpenFilterDropdown(null);
+  };
+
+  // Clear all column filters
+  const handleClearAllColumnFilters = () => {
+    setColumnFilters({});
   };
 
   const clearColumnFilter = (column: string) => {
@@ -2518,54 +2853,22 @@ const TasksPage = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Handle New Task button click from SearchFilterSection
+  useEffect(() => {
+    const handleNewTaskClick = () => {
+      handleCreateTask();
+    };
+
+    window.addEventListener('newTaskClick', handleNewTaskClick);
+    
+    return () => {
+      window.removeEventListener('newTaskClick', handleNewTaskClick);
+    };
+  }, []);
+
   return (
     <AppLayout onCreateTask={handleCreateTask}>
       <div className="w-full px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8 overflow-x-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4 sm:mb-6">
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">Tasks</h1>
-          <div className="flex items-center space-x-4">
-            {/* View Toggle */}
-            <ViewToggle
-              currentView={viewMode}
-              views={[
-                {
-                  value: 'list',
-                  label: 'List',
-                  icon: (
-                    <div className="w-3 h-3 flex flex-col space-y-0.5">
-                      <div className="w-full h-0.5 rounded-sm bg-current"></div>
-                      <div className="w-full h-0.5 rounded-sm bg-current"></div>
-                      <div className="w-full h-0.5 rounded-sm bg-current"></div>
-                    </div>
-                  )
-                },
-                {
-                  value: 'card',
-                  label: 'Card',
-                  icon: (
-                    <div className="w-3 h-3 grid grid-cols-2 gap-0.5">
-                      <div className="w-1 h-1 rounded-sm bg-current"></div>
-                      <div className="w-1 h-1 rounded-sm bg-current"></div>
-                      <div className="w-1 h-1 rounded-sm bg-current"></div>
-                      <div className="w-1 h-1 rounded-sm bg-current"></div>
-                    </div>
-                  )
-                }
-              ]}
-              onChange={(view: 'list' | 'card') => setViewMode(view)}
-            />
-            <div className="hidden lg:block">
-              <Button 
-                className="flex items-center justify-center space-x-2 w-full sm:w-auto"
-                onClick={handleCreateTask}
-              >
-                <Plus size={16} className="sm:w-4 sm:h-4" />
-                <span className="text-sm sm:text-base">New Task</span>
-              </Button>
-            </div>
-          </div>
-        </div>
 
         {/* Analytics Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -2630,6 +2933,35 @@ const TasksPage = () => {
           availableFilterColumns={availableFilterColumns}
           visibleFilterColumns={visibleFilterColumns}
           onFilterColumnsChange={setVisibleFilterColumns}
+          viewToggle={{
+            currentView: viewMode,
+            views: [
+              {
+                value: 'list',
+                label: 'List',
+                icon: (
+                  <div className="w-3 h-3 flex flex-col space-y-0.5">
+                    <div className="w-full h-0.5 rounded-sm bg-current"></div>
+                    <div className="w-full h-0.5 rounded-sm bg-current"></div>
+                    <div className="w-full h-0.5 rounded-sm bg-current"></div>
+                  </div>
+                )
+              },
+              {
+                value: 'card',
+                label: 'Card',
+                icon: (
+                  <div className="w-3 h-3 grid grid-cols-2 gap-0.5">
+                    <div className="w-1 h-1 rounded-sm bg-current"></div>
+                    <div className="w-1 h-1 rounded-sm bg-current"></div>
+                    <div className="w-1 h-1 rounded-sm bg-current"></div>
+                    <div className="w-1 h-1 rounded-sm bg-current"></div>
+                  </div>
+                )
+              }
+            ],
+            onChange: (view: 'list' | 'card') => setViewMode(view)
+          }}
           filters={[
             {
               key: 'status',
@@ -2672,7 +3004,11 @@ const TasksPage = () => {
           ]}
         />
 
-
+        {/* Mobile Filter Summary */}
+        <MobileFilterSummary 
+          columnFilters={columnFilters}
+          onClearAllFilters={handleClearAllColumnFilters}
+        />
 
          {/* Loading State */}
          {isLoading && (
@@ -2707,115 +3043,217 @@ const TasksPage = () => {
          {!isLoading && !error && viewMode === 'list' ? (
            <>
              {/* Mobile List View - Same as Desktop Table */}
-             <div className="block sm:hidden bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+             <div className="block sm:hidden bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
                <div className="overflow-x-auto">
-                 {/* Mobile Table Header */}
-                 <div className="bg-gray-50 border-b border-gray-200 px-4 py-4">
-                   <div className="flex text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[900px]">
-                     {/* Task Name */}
-                     <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: '160px' }}>
-                       <span className="whitespace-nowrap">TASK NAME</span>
-                     </div>
-                     
-                     {/* Project */}
-                     <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: '110px' }}>
-                       <span className="whitespace-nowrap">PROJECT</span>
-                     </div>
-                     
-                     {/* Task Description */}
-                     <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: '140px' }}>
-                       <span className="whitespace-nowrap">TASK DESCRIPTION</span>
-                     </div>
-                     
-                     {/* Status */}
-                     <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: '90px' }}>
-                       <span className="whitespace-nowrap">STATUS</span>
-                     </div>
-                     
-                     {/* Priority */}
-                     <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: '90px' }}>
-                       <span className="whitespace-nowrap">PRIORITY</span>
-                     </div>
-                     
-                     {/* Time */}
-                     <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: '70px' }}>
-                       <span className="whitespace-nowrap">TIME</span>
-                     </div>
-                     
-                     {/* Comments */}
-                     <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: '90px' }}>
-                       <span className="whitespace-nowrap">COMMENTS</span>
-                     </div>
-                     
-                     {/* Subtasks */}
-                     <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: '90px' }}>
-                       <span className="whitespace-nowrap">SUBTASKS</span>
-                     </div>
-                     
-                     {/* Tags */}
-                     <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: '110px' }}>
-                       <span className="whitespace-nowrap">TAGS</span>
-                     </div>
-                     
-                     {/* Due Date */}
-                     <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: '110px' }}>
-                       <span className="whitespace-nowrap">DUE DATE</span>
-                     </div>
-                     
-                     {/* Actions */}
-                     <div className="flex items-center pl-2" style={{ width: '90px' }}>
-                       <span className="whitespace-nowrap">ACTIONS</span>
-                     </div>
-                   </div>
-                 </div>
-                 
-                 {/* Mobile Table Body */}
-                 <div className="divide-y divide-gray-100">
-                   {filteredTasks.map((task, index) => (
-                     <div key={task.id} className={`flex px-4 py-4 cursor-pointer transition-all duration-200 hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/20'} min-w-[900px]`} onClick={() => handleTaskClick(task)}>
+                 <table className="w-full table-fixed border-collapse min-w-[1000px]">
+                   {/* Mobile Table Header - Sticky */}
+                   <thead className="sticky top-0 z-10 bg-gray-100 border-b-2 border-gray-300">
+                     <tr>
                        {/* Task Name */}
-                       <div className="flex items-center border-r border-gray-200 pr-4 min-w-0" style={{ width: '160px' }}>
-                         <h3 className={`text-sm font-medium ${task.status === 'Completed' ? 'line-through text-gray-500' : 'text-gray-900'} truncate`}>
-                           {task.title}
-                         </h3>
-                       </div>
+                       <SortableTableHeader 
+                         column="title" 
+                         label="TASK NAME" 
+                         width="160px" 
+                         align="left"
+                         columnSorts={columnSorts}
+                         setColumnSorts={setColumnSorts}
+                         columnFilters={columnFilters}
+                         setColumnFilters={setColumnFilters}
+                         openFilterDropdown={openFilterDropdown}
+                         setOpenFilterDropdown={setOpenFilterDropdown}
+                       />
                        
                        {/* Project */}
-                       <div className="flex items-center border-r border-gray-200 pr-4 min-w-0" style={{ width: '110px' }}>
-                         <span className="text-sm text-gray-700 truncate">
-                           {task.project}
-                         </span>
-                       </div>
+                       <SortableTableHeader 
+                         column="project" 
+                         label="PROJECT" 
+                         width="110px" 
+                         align="left"
+                         columnSorts={columnSorts}
+                         setColumnSorts={setColumnSorts}
+                         columnFilters={columnFilters}
+                         setColumnFilters={setColumnFilters}
+                         openFilterDropdown={openFilterDropdown}
+                         setOpenFilterDropdown={setOpenFilterDropdown}
+                       />
                        
                        {/* Task Description */}
-                       <div className="flex items-center border-r border-gray-200 pr-4 min-w-0" style={{ width: '140px' }}>
-                         <p className="text-sm text-gray-600 truncate">
-                           {task.description}
-                         </p>
-                       </div>
+                       <SortableTableHeader 
+                         column="description" 
+                         label="TASK DESCRIPTION" 
+                         width="140px" 
+                         align="left"
+                         columnSorts={columnSorts}
+                         setColumnSorts={setColumnSorts}
+                         columnFilters={columnFilters}
+                         setColumnFilters={setColumnFilters}
+                         openFilterDropdown={openFilterDropdown}
+                         setOpenFilterDropdown={setOpenFilterDropdown}
+                       />
                        
                        {/* Status */}
-                       <div className="flex items-center justify-center border-r border-gray-200 pr-4" style={{ width: '90px' }}>
-                         <Badge variant={getStatusConfig(task.status).color as any} size="sm" className="whitespace-nowrap">
-                           {getStatusConfig(task.status).label}
-                         </Badge>
-                       </div>
+                      <SortableTableHeader 
+                         column="status" 
+                         label="STATUS" 
+                        width="90px" 
+                         align="center"
+                        filterOptions={[
+                          { label: 'All Status', value: '' },
+                          { label: 'To Do', value: 'To Do' },
+                          { label: 'In Progress', value: 'In Progress' },
+                          { label: 'Completed', value: 'Completed' }
+                        ]}
+                         columnSorts={columnSorts}
+                         setColumnSorts={setColumnSorts}
+                         columnFilters={columnFilters}
+                         setColumnFilters={setColumnFilters}
+                         openFilterDropdown={openFilterDropdown}
+                         setOpenFilterDropdown={setOpenFilterDropdown}
+                       />
                        
                        {/* Priority */}
-                       <div className="flex items-center justify-center border-r border-gray-200 pr-4" style={{ width: '90px' }}>
-                         <Badge variant={getPriorityConfig(task.priority).color as any} size="sm" className="whitespace-nowrap">
-                           {getPriorityConfig(task.priority).label}
-                         </Badge>
-                       </div>
+                       <SortableTableHeader 
+                         column="priority" 
+                         label="PRIORITY" 
+                         width="90px" 
+                         align="center"
+                         columnSorts={columnSorts}
+                         setColumnSorts={setColumnSorts}
+                         columnFilters={columnFilters}
+                         setColumnFilters={setColumnFilters}
+                         openFilterDropdown={openFilterDropdown}
+                         setOpenFilterDropdown={setOpenFilterDropdown}
+                       />
                        
                        {/* Time */}
-                       <div className="flex items-center justify-center border-r border-gray-200 pr-4" style={{ width: '70px' }}>
-                         <span className="text-sm text-gray-600 whitespace-nowrap">{task.estimatedHours}h</span>
-                       </div>
+                       <SortableTableHeader 
+                         column="estimatedHours" 
+                         label="TIME" 
+                         width="70px" 
+                         align="center"
+                         columnSorts={columnSorts}
+                         setColumnSorts={setColumnSorts}
+                         columnFilters={columnFilters}
+                         setColumnFilters={setColumnFilters}
+                         openFilterDropdown={openFilterDropdown}
+                         setOpenFilterDropdown={setOpenFilterDropdown}
+                       />
                        
                        {/* Comments */}
-                       <div className="flex items-center justify-center border-r border-gray-200 pr-4 min-w-0" style={{ width: '90px' }}>
-                         <span className="text-sm text-gray-600 whitespace-nowrap">
+                       <SortableTableHeader 
+                         column="comments" 
+                         label="COMMENTS" 
+                         width="90px" 
+                         align="center"
+                         columnSorts={columnSorts}
+                         setColumnSorts={setColumnSorts}
+                         columnFilters={columnFilters}
+                         setColumnFilters={setColumnFilters}
+                         openFilterDropdown={openFilterDropdown}
+                         setOpenFilterDropdown={setOpenFilterDropdown}
+                       />
+                       
+                       {/* Subtasks */}
+                       <SortableTableHeader 
+                         column="subtasks" 
+                         label="SUBTASKS" 
+                         width="90px" 
+                         align="center"
+                         columnSorts={columnSorts}
+                         setColumnSorts={setColumnSorts}
+                         columnFilters={columnFilters}
+                         setColumnFilters={setColumnFilters}
+                         openFilterDropdown={openFilterDropdown}
+                         setOpenFilterDropdown={setOpenFilterDropdown}
+                       />
+                       
+                       {/* Tags */}
+                       <SortableTableHeader 
+                         column="tags" 
+                         label="TAGS" 
+                         width="110px" 
+                         align="center"
+                         columnSorts={columnSorts}
+                         setColumnSorts={setColumnSorts}
+                         columnFilters={columnFilters}
+                         setColumnFilters={setColumnFilters}
+                         openFilterDropdown={openFilterDropdown}
+                         setOpenFilterDropdown={setOpenFilterDropdown}
+                       />
+                       
+                       {/* Due Date */}
+                       <SortableTableHeader 
+                         column="dueDate" 
+                         label="DUE DATE" 
+                         width="110px" 
+                         align="center"
+                         columnSorts={columnSorts}
+                         setColumnSorts={setColumnSorts}
+                         columnFilters={columnFilters}
+                         setColumnFilters={setColumnFilters}
+                         openFilterDropdown={openFilterDropdown}
+                         setOpenFilterDropdown={setOpenFilterDropdown}
+                       />
+                       
+                       {/* Actions - Not sortable/filterable */}
+                       <th className="px-3 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider" style={{ width: '90px' }}>
+                         ACTIONS
+                       </th>
+                     </tr>
+                   </thead>
+                 
+                   {/* Mobile Table Body */}
+                   <tbody>
+                     {filteredTasks.map((task, index) => (
+                       <tr 
+                         key={task.id} 
+                         className={`cursor-pointer transition-all duration-200 hover:bg-gray-50 group border-b border-gray-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`} 
+                         onClick={() => handleTaskClick(task)}
+                       >
+                         {/* Task Name */}
+                         <td className="px-3 py-3 text-sm font-medium text-gray-900 border-r border-gray-200" style={{ width: '160px' }}>
+                           <div className="truncate" title={task.title}>
+                             <span className={task.status === 'Completed' ? 'line-through text-gray-500' : 'text-gray-900'}>
+                               {task.title}
+                             </span>
+                           </div>
+                         </td>
+                         
+                         {/* Project */}
+                         <td className="px-3 py-3 text-sm text-gray-700 border-r border-gray-200" style={{ width: '110px' }}>
+                           <div className="truncate" title={task.project}>
+                             {task.project}
+                           </div>
+                         </td>
+                         
+                         {/* Task Description */}
+                         <td className="px-3 py-3 text-sm text-gray-600 border-r border-gray-200" style={{ width: '140px' }}>
+                           <div className="truncate" title={task.description}>
+                             {task.description}
+                           </div>
+                         </td>
+                         
+                         {/* Status */}
+                         <td className="px-3 py-3 text-center border-r border-gray-200" style={{ width: '90px' }}>
+                           <Badge variant={getStatusConfig(task.status).color as any} size="sm" className="whitespace-nowrap">
+                             {getStatusConfig(task.status).label}
+                           </Badge>
+                         </td>
+                         
+                         {/* Priority */}
+                         <td className="px-3 py-3 text-center border-r border-gray-200" style={{ width: '90px' }}>
+                           <Badge variant={getPriorityConfig(task.priority).color as any} size="sm" className="whitespace-nowrap">
+                             {getPriorityConfig(task.priority).label}
+                           </Badge>
+                         </td>
+                         
+                         {/* Time */}
+                         <td className="px-3 py-3 text-center text-sm text-gray-600 border-r border-gray-200" style={{ width: '70px' }}>
+                           {task.estimatedHours}h
+                         </td>
+                         
+                         {/* Comments */}
+                         <td className="px-3 py-3 text-center text-sm text-gray-600 border-r border-gray-200" style={{ width: '90px' }}>
                            {(() => {
                              try {
                                const commentsArray = JSON.parse(task.comments);
@@ -2824,12 +3262,10 @@ const TasksPage = () => {
                                return parseInt(task.comments) || 0;
                              }
                            })()}
-                         </span>
-                       </div>
-                       
-                       {/* Subtasks */}
-                       <div className="flex items-center justify-center border-r border-gray-200 pr-4 min-w-0" style={{ width: '90px' }}>
-                         <span className="text-sm text-gray-600 whitespace-nowrap">
+                         </td>
+                         
+                         {/* Subtasks */}
+                         <td className="px-3 py-3 text-center text-sm text-gray-600 border-r border-gray-200" style={{ width: '90px' }}>
                            {(() => {
                              try {
                                const subtasksArray = JSON.parse(task.subtasks);
@@ -2838,385 +3274,385 @@ const TasksPage = () => {
                                return 0;
                              }
                            })()}
-                         </span>
-                       </div>
-                       
-                       {/* Tags */}
-                       <div className="flex items-center justify-center border-r border-gray-200 pr-4 min-w-0" style={{ width: '110px' }}>
-                         <div className="flex items-center gap-1 overflow-hidden">
-                           {(task.tags || '').split(',').slice(0, 1).map((tag, index) => (
-                             <span key={index} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full whitespace-nowrap">
-                               {tag.trim()}
-                             </span>
-                           ))}
-                           {(task.tags || '').split(',').length > 1 && (
-                             <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full whitespace-nowrap">
-                               +{(task.tags || '').split(',').length - 1}
-                             </span>
-                           )}
-                         </div>
-                       </div>
-                       
-                       {/* Due Date */}
-                       <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: '110px' }}>
-                         <span className={`text-sm whitespace-nowrap ${isOverdue(task.dueDate) ? 'text-red-600 font-medium' : 'text-gray-600'}`}>
-                           {new Date(task.dueDate).toLocaleDateString()}
-                         </span>
-                       </div>
-                       
-                       {/* Actions */}
-                       <div className="flex items-center justify-end space-x-2 pl-2" style={{ width: '90px' }}>
-                         <Button 
-                           variant="ghost" 
-                           size="sm"
-                           title="Edit Task"
-                           className="p-2 h-9 w-9 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-all duration-200 hover:shadow-sm"
-                           onClick={(e) => {
-                             e.stopPropagation();
-                             handleEditTask(task);
-                           }}
-                         >
-                           <Edit size={16} />
-                         </Button>
-                         <div className="relative">
-                           <Button 
-                             variant="ghost" 
-                             size="sm"
-                             title="More Options"
-                             className="p-2 h-9 w-9 hover:bg-gray-100 rounded-lg transition-all duration-200 hover:shadow-sm"
-                             onClick={(e) => {
-                               e.stopPropagation();
-                               setOpenDropdown(openDropdown === task.id ? null : task.id);
-                             }}
-                           >
-                             <MoreVertical size={16} />
-                           </Button>
-                           
-                           {/* Dropdown Menu */}
-                           {openDropdown === task.id && (
-                             <div 
-                               data-dropdown-menu
-                               className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
-                               onClick={(e) => e.stopPropagation()}
-                             >
-                               <div className="py-1">
-                                 <button
-                                   onClick={(e) => {
-                                     e.stopPropagation();
-                                     handleDeleteTask(task);
-                                     setOpenDropdown(null);
-                                   }}
-                                   className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center space-x-2"
+                         </td>
+                         
+                         {/* Tags */}
+                         <td className="px-3 py-3 text-center border-r border-gray-200" style={{ width: '110px' }}>
+                           <div className="flex items-center justify-center gap-1 overflow-hidden">
+                             {(task.tags || '').split(',').slice(0, 1).map((tag, index) => (
+                               <span key={index} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full whitespace-nowrap">
+                                 {tag.trim()}
+                               </span>
+                             ))}
+                             {(task.tags || '').split(',').length > 1 && (
+                               <span className="px-2 py-1 bg-gray-200 text-gray-500 text-xs rounded-full">
+                                 +{(task.tags || '').split(',').length - 1}
+                               </span>
+                             )}
+                           </div>
+                         </td>
+                         
+                         {/* Due Date */}
+                         <td className="px-3 py-3 text-center text-sm border-r border-gray-200" style={{ width: '110px' }}>
+                           <span className={isOverdue(task.dueDate) ? 'text-red-600 font-medium' : 'text-gray-600'}>
+                             {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No date'}
+                           </span>
+                         </td>
+                         
+                         {/* Actions */}
+                         <td className="px-3 py-3 text-center" style={{ width: '90px' }}>
+                           <div className="flex items-center justify-center">
+                             <div className="relative">
+                               <Button 
+                                 variant="ghost" 
+                                 size="sm"
+                                 title="More Options"
+                                 className="p-1 h-10 w-10 hover:bg-gray-100 rounded-lg transition-all duration-200 hover:shadow-sm group-hover:opacity-100 opacity-100"
+                                 onClick={(e) => {
+                                   e.stopPropagation();
+                                   setOpenDropdown(openDropdown === task.id ? null : task.id);
+                                 }}
+                               >
+                                 <MoreVertical size={20} className="text-gray-600" />
+                               </Button>
+                               
+                               {/* Dropdown Menu */}
+                               {openDropdown === task.id && (
+                                 <div 
+                                   data-dropdown-menu
+                                   className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
+                                   onClick={(e) => e.stopPropagation()}
                                  >
-                                   <Trash2 className="w-4 h-4" />
-                                   <span>Delete Task</span>
-                                 </button>
-                               </div>
+                                   <div className="py-1">
+                                     <button
+                                       onClick={(e) => {
+                                         e.stopPropagation();
+                                         handleDeleteTask(task);
+                                         setOpenDropdown(null);
+                                       }}
+                                       className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center space-x-2"
+                                     >
+                                       <Trash2 className="w-4 h-4" />
+                                       <span>Delete Task</span>
+                                     </button>
+                                   </div>
+                                 </div>
+                               )}
                              </div>
-                           )}
-                         </div>
-                       </div>
-                     </div>
-                   ))}
-                 </div>
+                           </div>
+                         </td>
+                       </tr>
+                     ))}
+                   </tbody>
+                 </table>
                </div>
              </div>
 
              {/* Desktop Table View */}
-             <div className="hidden sm:block bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-             <div className="overflow-x-auto">
-             {/* Table Header */}
-                 <div className="bg-gray-50 border-b border-gray-200">
-               <div className="flex text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
-                 {/* Task Name */}
-                 <ColumnHeader
-                   column="title"
-                   title="TASK NAME"
-                   width={columnWidths.taskName}
-                   filterOptions={[]}
-                 />
-                 
-                 {/* Project */}
-                 <ColumnHeader
-                   column="project"
-                   title="PROJECT"
-                   width={columnWidths.project}
-                   filterOptions={allProjects.map(p => ({ value: p, label: p }))}
-                 />
-                 
-                 {/* Task Description */}
-                 <ColumnHeader
-                   column="description"
-                   title="TASK DESCRIPTION"
-                   width={columnWidths.taskDescription}
-                   filterOptions={[]}
-                 />
-                   
-                 {/* Status */}
-                 <ColumnHeader
-                   column="status"
-                   title="STATUS"
-                   width={columnWidths.status}
-                   filterOptions={[
-                     { value: 'To Do', label: 'To Do' },
-                     { value: 'In Progress', label: 'In Progress' },
-                     { value: 'Completed', label: 'Completed' },
-                     { value: 'Overdue', label: 'Overdue' }
-                   ]}
-                 />
-                 
-                 {/* Priority */}
-                 <ColumnHeader
-                   column="priority"
-                   title="PRIORITY"
-                   width={columnWidths.priority}
-                   filterOptions={[
-                     { value: 'Low', label: 'Low' },
-                     { value: 'Medium', label: 'Medium' },
-                     { value: 'High', label: 'High' }
-                   ]}
-                 />
-                 
-                 {/* Time */}
-                 <ColumnHeader
-                   column="time"
-                   title="TIME"
-                   width={columnWidths.time}
-                   sortable={false}
-                   filterable={false}
-                 />
-                 
-                 {/* Comments */}
-                 <ColumnHeader
-                   column="comments"
-                   title="COMMENTS"
-                   width={columnWidths.comments}
-                   sortable={false}
-                   filterable={false}
-                 />
-
-                 {/* Subtasks */}
-                 <ColumnHeader
-                   column="subtasks"
-                   title="SUBTASKS"
-                   width={columnWidths.subtasks}
-                   sortable={false}
-                   filterable={false}
-                 />
-                     
-                 {/* Tags */}
-                 <ColumnHeader
-                   column="tags"
-                   title="TAGS"
-                   width={columnWidths.tags}
-                   filterOptions={[]}
-                 />
-                 
-                 {/* Due Date */}
-                 <ColumnHeader
-                   column="dueDate"
-                   title="DUE DATE"
-                   width={columnWidths.dueDate}
-                   filterOptions={[]}
-                 />
-                 
-                 {/* Actions */}
-                 <div 
-                   className="flex items-center justify-center px-4 py-4"
-                   style={{ width: `${columnWidths.actions}px` }}
-                 >
-                   <span className="text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
-                     ACTIONS
-                   </span>
-                 </div>
-               </div>
-             </div>
-             
-             {/* Table Body */}
-             <div className="divide-y divide-gray-100">
-               {filteredTasks.map((task, index) => (
-                 <div key={task.id} className={`flex px-4 py-4 cursor-pointer transition-all duration-200 hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/20'}`} onClick={() => handleTaskClick(task)}>
-                   {/* Task Name */}
-                   <div 
-                     className="flex items-center border-r border-gray-200 pr-4 min-w-0"
-                     style={{ width: `${columnWidths.taskName}px` }}
-                   >
-                     <h3 className={`text-sm font-medium ${task.status === 'Completed' ? 'line-through text-gray-500' : 'text-gray-900'} truncate`}>
-                           {task.title}
-                         </h3>
-                   </div>
-                   
-                   {/* Project */}
-                   <div 
-                     className="flex items-center border-r border-gray-200 pr-4 min-w-0"
-                     style={{ width: `${columnWidths.project}px` }}
-                   >
-                     <span className="text-sm text-gray-700 truncate">
-                       {task.project}
-                     </span>
-                   </div>
-                   
-                   {/* Task Description */}
-                   <div 
-                     className="flex items-center border-r border-gray-200 pr-4 min-w-0"
-                     style={{ width: `${columnWidths.taskDescription}px` }}
-                   >
-                     <p className="text-sm text-gray-600 truncate">
-                           {task.description}
-                         </p>
-                       </div>
+             <div className="hidden sm:block bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
+               <div className="overflow-x-auto">
+                 <table className="w-full table-fixed border-collapse">
+                   {/* Table Header - Sticky */}
+                   <thead className="sticky top-0 z-10 bg-gray-100 border-b-2 border-gray-300">
+                     <tr>
+                       {/* Task Name */}
+                       <SortableTableHeader 
+                         column="title" 
+                         label="TASK NAME" 
+                         width="180px" 
+                         align="left"
+                         columnSorts={columnSorts}
+                         setColumnSorts={setColumnSorts}
+                         columnFilters={columnFilters}
+                         setColumnFilters={setColumnFilters}
+                         openFilterDropdown={openFilterDropdown}
+                         setOpenFilterDropdown={setOpenFilterDropdown}
+                       />
                        
-                   {/* Status */}
-                   <div 
-                     className="flex items-center justify-center border-r border-gray-200 pr-4"
-                     style={{ width: `${columnWidths.status}px` }}
-                   >
-                           <Badge variant={getStatusConfig(task.status).color as any} size="sm" className="whitespace-nowrap">
-                       {getStatusConfig(task.status).label}
-                           </Badge>
-                         </div>
+                       {/* Project */}
+                       <SortableTableHeader 
+                         column="project" 
+                         label="PROJECT" 
+                         width="140px" 
+                         align="left"
+                         columnSorts={columnSorts}
+                         setColumnSorts={setColumnSorts}
+                         columnFilters={columnFilters}
+                         setColumnFilters={setColumnFilters}
+                         openFilterDropdown={openFilterDropdown}
+                         setOpenFilterDropdown={setOpenFilterDropdown}
+                       />
+                       
+                       {/* Task Description */}
+                       <SortableTableHeader 
+                         column="description" 
+                         label="TASK DESCRIPTION" 
+                         width="220px" 
+                         align="left"
+                         columnSorts={columnSorts}
+                         setColumnSorts={setColumnSorts}
+                         columnFilters={columnFilters}
+                         setColumnFilters={setColumnFilters}
+                         openFilterDropdown={openFilterDropdown}
+                         setOpenFilterDropdown={setOpenFilterDropdown}
+                       />
+                       
+                       {/* Status */}
+                      <SortableTableHeader 
+                         column="status" 
+                         label="STATUS" 
+                        width="100px" 
+                         align="center"
+                        filterOptions={[
+                          { label: 'All Status', value: '' },
+                          { label: 'To Do', value: 'To Do' },
+                          { label: 'In Progress', value: 'In Progress' },
+                          { label: 'Completed', value: 'Completed' }
+                        ]}
+                         columnSorts={columnSorts}
+                         setColumnSorts={setColumnSorts}
+                         columnFilters={columnFilters}
+                         setColumnFilters={setColumnFilters}
+                         openFilterDropdown={openFilterDropdown}
+                         setOpenFilterDropdown={setOpenFilterDropdown}
+                       />
+                       
+                       {/* Priority */}
+                       <SortableTableHeader 
+                         column="priority" 
+                         label="PRIORITY" 
+                         width="100px" 
+                         align="center"
+                         columnSorts={columnSorts}
+                         setColumnSorts={setColumnSorts}
+                         columnFilters={columnFilters}
+                         setColumnFilters={setColumnFilters}
+                         openFilterDropdown={openFilterDropdown}
+                         setOpenFilterDropdown={setOpenFilterDropdown}
+                       />
+                       
+                       {/* Time */}
+                       <SortableTableHeader 
+                         column="estimatedHours" 
+                         label="TIME" 
+                         width="80px" 
+                         align="center"
+                         columnSorts={columnSorts}
+                         setColumnSorts={setColumnSorts}
+                         columnFilters={columnFilters}
+                         setColumnFilters={setColumnFilters}
+                         openFilterDropdown={openFilterDropdown}
+                         setOpenFilterDropdown={setOpenFilterDropdown}
+                       />
+                       
+                       {/* Comments */}
+                       <SortableTableHeader 
+                         column="comments" 
+                         label="COMMENTS" 
+                         width="90px" 
+                         align="center"
+                         columnSorts={columnSorts}
+                         setColumnSorts={setColumnSorts}
+                         columnFilters={columnFilters}
+                         setColumnFilters={setColumnFilters}
+                         openFilterDropdown={openFilterDropdown}
+                         setOpenFilterDropdown={setOpenFilterDropdown}
+                       />
+                       
+                       {/* Subtasks */}
+                       <SortableTableHeader 
+                         column="subtasks" 
+                         label="SUBTASKS" 
+                         width="90px" 
+                         align="center"
+                         columnSorts={columnSorts}
+                         setColumnSorts={setColumnSorts}
+                         columnFilters={columnFilters}
+                         setColumnFilters={setColumnFilters}
+                         openFilterDropdown={openFilterDropdown}
+                         setOpenFilterDropdown={setOpenFilterDropdown}
+                       />
+                       
+                       {/* Tags */}
+                       <SortableTableHeader 
+                         column="tags" 
+                         label="TAGS" 
+                         width="120px" 
+                         align="center"
+                         columnSorts={columnSorts}
+                         setColumnSorts={setColumnSorts}
+                         columnFilters={columnFilters}
+                         setColumnFilters={setColumnFilters}
+                         openFilterDropdown={openFilterDropdown}
+                         setOpenFilterDropdown={setOpenFilterDropdown}
+                       />
+                       
+                       {/* Due Date */}
+                       <SortableTableHeader 
+                         column="dueDate" 
+                         label="DUE DATE" 
+                         width="120px" 
+                         align="center"
+                         columnSorts={columnSorts}
+                         setColumnSorts={setColumnSorts}
+                         columnFilters={columnFilters}
+                         setColumnFilters={setColumnFilters}
+                         openFilterDropdown={openFilterDropdown}
+                         setOpenFilterDropdown={setOpenFilterDropdown}
+                       />
+                       
+                       {/* Actions - Not sortable/filterable */}
+                       <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider" style={{ width: '100px' }}>
+                         ACTIONS
+                       </th>
+                     </tr>
+                   </thead>
                    
-                   {/* Priority */}
-                   <div 
-                     className="flex items-center justify-center border-r border-gray-200 pr-4"
-                     style={{ width: `${columnWidths.priority}px` }}
-                   >
-                           <Badge variant={getPriorityConfig(task.priority).color as any} size="sm" className="whitespace-nowrap">
-                       {getPriorityConfig(task.priority).label}
-                           </Badge>
-                         </div>
-                   
-                   {/* Time */}
-                   <div 
-                     className="flex items-center justify-center border-r border-gray-200 pr-4"
-                     style={{ width: `${columnWidths.time}px` }}
-                   >
-                     <span className="text-sm text-gray-600 whitespace-nowrap">{task.estimatedHours}h</span>
-                         </div>
-                   
-                   {/* Comments */}
-                   <div 
-                     className="flex items-center justify-center border-r border-gray-200 pr-4 min-w-0"
-                     style={{ width: `${columnWidths.comments}px` }}
-                   >
-                     <span className="text-sm text-gray-600 whitespace-nowrap">
-                        {(() => {
-                          try {
-                           const commentsArray = JSON.parse(task.comments);
-                           return Array.isArray(commentsArray) ? commentsArray.length : parseInt(task.comments) || 0;
-                         } catch (e) {
-                           return parseInt(task.comments) || 0;
-                         }
-                       })()}
-                     </span>
-                   </div>
-                   
-                   {/* Subtasks */}
-                   <div 
-                     className="flex items-center justify-center border-r border-gray-200 pr-4 min-w-0"
-                     style={{ width: `${columnWidths.subtasks}px` }}
-                   >
-                     <span className="text-sm text-gray-600 whitespace-nowrap">
-                       {(() => {
-                              try {
-                                const subtasksArray = JSON.parse(task.subtasks);
-                                return Array.isArray(subtasksArray) ? subtasksArray.length : 0;
-                         } catch (e) {
-                                return 0;
-                              }
-                       })()}
-                       </span>
-                 </div>
-
-                   {/* Tags */}
-                   <div 
-                     className="flex items-center justify-center border-r border-gray-200 pr-4 min-w-0"
-                     style={{ width: `${columnWidths.tags}px` }}
-                   >
-                     <div className="flex items-center gap-1 overflow-hidden">
-                       {(task.tags || '').split(',').slice(0, 1).map((tag, index) => (
-                         <span key={index} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full whitespace-nowrap">
-                         {tag.trim()}
-                       </span>
-                     ))}
-                       {(task.tags || '').split(',').length > 1 && (
-                         <span className="px-2 py-1 bg-gray-200 text-gray-500 text-xs rounded-full">
-                           +{(task.tags || '').split(',').length - 1}
-                       </span>
-                     )}
-                     </div>
-                   </div>
-                   
-                   {/* Due Date */}
-                   <div 
-                     className="flex items-center justify-center border-r border-gray-200 pr-4"
-                     style={{ width: `${columnWidths.dueDate}px` }}
-                   >
-                     <span className={`text-sm whitespace-nowrap ${isOverdue(task.dueDate) ? 'text-red-600 font-medium' : 'text-gray-600'}`}>
-                       {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No date'}
-                         </span>
-                       </div>
-                   
-                   {/* Actions */}
-                   <div 
-                     className="flex items-center justify-center space-x-2 px-4"
-                     style={{ width: `${columnWidths.actions}px` }}
-                   >
-                     <Button 
-                       variant="ghost" 
-                       size="sm"
-                       title="Edit Task"
-                       className="p-2 h-9 w-9 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-all duration-200 hover:shadow-sm"
-                       onClick={(e) => {
-                         e.stopPropagation();
-                         handleEditTask(task);
-                       }}
-                     >
-                       <Edit size={16} />
-                     </Button>
-                     <div className="relative">
-                       <Button 
-                         variant="ghost" 
-                         size="sm"
-                         title="More Options"
-                         className="p-2 h-9 w-9 hover:bg-gray-100 rounded-lg transition-all duration-200 hover:shadow-sm"
-                         onClick={(e) => {
-                           e.stopPropagation();
-                           setOpenDropdown(openDropdown === task.id ? null : task.id);
-                         }}
+                   {/* Table Body */}
+                   <tbody>
+                     {filteredTasks.map((task, index) => (
+                       <tr 
+                         key={task.id} 
+                         className={`cursor-pointer transition-all duration-200 hover:bg-gray-50 group border-b border-gray-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`} 
+                         onClick={() => handleTaskClick(task)}
                        >
-                         <MoreVertical size={16} />
-                       </Button>
-                       
-                       {/* Dropdown Menu */}
-                       {openDropdown === task.id && (
-                         <div 
-                           data-dropdown-menu
-                           className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
-                           onClick={(e) => e.stopPropagation()}
-                         >
-                           <div className="py-1">
-                             <button
-                               onClick={(e) => {
-                                 e.stopPropagation();
-                                 handleDeleteTask(task);
-                                 setOpenDropdown(null);
-                               }}
-                               className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center space-x-2"
-                             >
-                               <Trash2 className="w-4 h-4" />
-                               <span>Delete Task</span>
-                             </button>
-                     </div>
-                         </div>
-                       )}
-                   </div>
-                 </div>
+                         {/* Task Name */}
+                         <td className="px-4 py-3 text-sm font-medium text-gray-900 border-r border-gray-200" style={{ width: '180px' }}>
+                           <div className="truncate" title={task.title}>
+                             <span className={task.status === 'Completed' ? 'line-through text-gray-500' : 'text-gray-900'}>
+                               {task.title}
+                             </span>
+                           </div>
+                         </td>
+                         
+                         {/* Project */}
+                         <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200" style={{ width: '140px' }}>
+                           <div className="truncate" title={task.project}>
+                             {task.project}
+                           </div>
+                         </td>
+                         
+                         {/* Task Description */}
+                         <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200" style={{ width: '220px' }}>
+                           <div className="truncate" title={task.description}>
+                             {task.description}
+                           </div>
+                         </td>
+                         
+                         {/* Status */}
+                         <td className="px-4 py-3 text-center border-r border-gray-200" style={{ width: '100px' }}>
+                           <Badge variant={getStatusConfig(task.status).color as any} size="sm" className="whitespace-nowrap">
+                             {getStatusConfig(task.status).label}
+                           </Badge>
+                         </td>
+                         
+                         {/* Priority */}
+                         <td className="px-4 py-3 text-center border-r border-gray-200" style={{ width: '100px' }}>
+                           <Badge variant={getPriorityConfig(task.priority).color as any} size="sm" className="whitespace-nowrap">
+                             {getPriorityConfig(task.priority).label}
+                           </Badge>
+                         </td>
+                         
+                         {/* Time */}
+                         <td className="px-4 py-3 text-center text-sm text-gray-600 border-r border-gray-200" style={{ width: '80px' }}>
+                           {task.estimatedHours}h
+                         </td>
+                         
+                         {/* Comments */}
+                         <td className="px-4 py-3 text-center text-sm text-gray-600 border-r border-gray-200" style={{ width: '90px' }}>
+                           {(() => {
+                             try {
+                               const commentsArray = JSON.parse(task.comments);
+                               return Array.isArray(commentsArray) ? commentsArray.length : parseInt(task.comments) || 0;
+                             } catch (e) {
+                               return parseInt(task.comments) || 0;
+                             }
+                           })()}
+                         </td>
+                         
+                         {/* Subtasks */}
+                         <td className="px-4 py-3 text-center text-sm text-gray-600 border-r border-gray-200" style={{ width: '90px' }}>
+                           {(() => {
+                             try {
+                               const subtasksArray = JSON.parse(task.subtasks);
+                               return Array.isArray(subtasksArray) ? subtasksArray.length : 0;
+                             } catch (e) {
+                               return 0;
+                             }
+                           })()}
+                         </td>
+                         
+                         {/* Tags */}
+                         <td className="px-4 py-3 text-center border-r border-gray-200" style={{ width: '120px' }}>
+                           <div className="flex items-center justify-center gap-1 overflow-hidden">
+                             {(task.tags || '').split(',').slice(0, 1).map((tag, index) => (
+                               <span key={index} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full whitespace-nowrap">
+                                 {tag.trim()}
+                               </span>
+                             ))}
+                             {(task.tags || '').split(',').length > 1 && (
+                               <span className="px-2 py-1 bg-gray-200 text-gray-500 text-xs rounded-full">
+                                 +{(task.tags || '').split(',').length - 1}
+                               </span>
+                             )}
+                           </div>
+                         </td>
+                         
+                         {/* Due Date */}
+                         <td className="px-4 py-3 text-center text-sm border-r border-gray-200" style={{ width: '120px' }}>
+                           <span className={isOverdue(task.dueDate) ? 'text-red-600 font-medium' : 'text-gray-600'}>
+                             {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No date'}
+                           </span>
+                         </td>
+                         
+                         {/* Actions */}
+                         <td className="px-4 py-3 text-center" style={{ width: '100px' }}>
+                           <div className="flex items-center justify-center">
+                             <div className="relative">
+                               <Button 
+                                 variant="ghost" 
+                                 size="sm"
+                                 title="More Options"
+                                 className="p-1 h-10 w-10 hover:bg-gray-100 rounded-lg transition-all duration-200 hover:shadow-sm group-hover:opacity-100 opacity-100"
+                                 onClick={(e) => {
+                                   e.stopPropagation();
+                                   setOpenDropdown(openDropdown === task.id ? null : task.id);
+                                 }}
+                               >
+                                 <MoreVertical size={20} className="text-gray-600" />
+                               </Button>
+                               
+                               {/* Dropdown Menu */}
+                               {openDropdown === task.id && (
+                                 <div 
+                                   data-dropdown-menu
+                                   className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
+                                   onClick={(e) => e.stopPropagation()}
+                                 >
+                                   <div className="py-1">
+                                     <button
+                                       onClick={(e) => {
+                                         e.stopPropagation();
+                                         handleDeleteTask(task);
+                                         setOpenDropdown(null);
+                                       }}
+                                       className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center space-x-2"
+                                     >
+                                       <Trash2 className="w-4 h-4" />
+                                       <span>Delete Task</span>
+                                     </button>
+                                   </div>
+                                 </div>
+                               )}
+                             </div>
+                           </div>
+                         </td>
+                       </tr>
+                     ))}
+                   </tbody>
+                 </table>
                </div>
-             ))}
              </div>
-             </div>
-           </div>
            </>
         ) : !isLoading && !error ? (
           /* Card View */
@@ -3241,23 +3677,40 @@ const TasksPage = () => {
                     
                     {/* Mobile: Key Info Only */}
                     <div className="space-y-2">
-                      {/* Status Badge */}
-                      <div className="flex items-center justify-between">
-                        <Badge variant={getStatusConfig(task.status).color as any} size="sm">
-                          {getStatusConfig(task.status).label}
-                        </Badge>
-                        <span className="text-xs text-gray-500">
-                          {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      {/* Description */}
+                      <p className="text-xs text-gray-600 line-clamp-2">{task.description}</p>
+
+                      {/* Project and Due - Same line */}
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-700">Project: {task.project}</span>
+                        <span className={`${isOverdue(task.dueDate) ? 'text-red-600 font-medium' : 'text-gray-700'}`}>
+                          Due: {new Date(task.dueDate).toLocaleDateString()}
                         </span>
                       </div>
+
+                      {/* Status and Priority - Same line */}
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-1">
+                          <span className="text-gray-500">Status:</span>
+                          <Badge variant={getStatusConfig(task.status).color as any} size="sm" className="text-xs">
+                            {getStatusConfig(task.status).label}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-gray-500">Priority:</span>
+                          <Badge variant={getPriorityConfig(task.priority).color as any} size="sm" className="text-xs">
+                            {getPriorityConfig(task.priority).label}
+                          </Badge>
+                        </div>
+                      </div>
                       
-                      {/* Time and Comments */}
-                      <div className="flex items-center justify-between text-xs text-gray-600">
-                        <div className="flex items-center space-x-1">
+                      {/* Meta Row: Hours, Comments, Subtasks, Tags (single line) */}
+                      <div className="flex items-center justify-between text-xs text-gray-600 bg-gray-50 rounded px-3 py-2">
+                        <div className="flex items-center gap-1">
                           <Clock size={12} />
                           <span>{task.estimatedHours}h</span>
                         </div>
-                        <div className="flex items-center space-x-1">
+                        <div className="flex items-center gap-1">
                           <MessageSquare size={12} />
                           <span>{(() => {
                             try {
@@ -3268,23 +3721,44 @@ const TasksPage = () => {
                             }
                           })()}</span>
                         </div>
-                      </div>
-                      
-                      {/* Tags */}
-                      {task.tags && (
-                        <div className="flex flex-wrap gap-1">
-                          {(task.tags || '').split(',').slice(0, 1).map((tag, index) => (
-                            <span key={index} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                              {tag.trim()}
-                            </span>
-                          ))}
-                          {(task.tags || '').split(',').length > 1 && (
-                            <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                              +{(task.tags || '').split(',').length - 1}
-                            </span>
-                          )}
+                        <div className="flex items-center gap-1">
+                          <CheckSquare size={12} />
+                          <span>{(() => {
+                            try {
+                              const subtasksArray = JSON.parse(task.subtasks);
+                              return Array.isArray(subtasksArray) ? subtasksArray.length : 0;
+                            } catch (e) {
+                              return 0;
+                            }
+                          })()}</span>
                         </div>
-                      )}
+                        {task.tags && task.tags.trim() && (
+                          <div className="flex items-center gap-1">
+                            <span className="px-1.5 py-0.5 bg-gray-200 text-gray-600 text-[10px] rounded">
+                              {(task.tags || '').split(',').slice(0, 1).map((tag) => tag.trim()).join('')}
+                            </span>
+                            {(task.tags || '').split(',').length > 1 && (
+                              <span className="px-1.5 py-0.5 bg-gray-200 text-gray-600 text-[10px] rounded">
+                                +{(task.tags || '').split(',').length - 1}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Bottom: Assignee and Short Date */}
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center space-x-1">
+                          <Avatar name={task.assignee} size="sm" />
+                          <span className="text-gray-500">{task.assignee}</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <Calendar size={12} />
+                          <span className={`${isOverdue(task.dueDate) ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+                            {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -3332,7 +3806,7 @@ const TasksPage = () => {
                       </div>
                     </div>
                       
-                    {/* Meta Info Row */}
+                    {/* Meta Info Row - Hour, Comment, Subtask, Tags */}
                     <div className="flex items-center justify-between text-xs text-gray-600 bg-gray-50 rounded px-3 py-2">
                       <div className="flex items-center gap-1">
                         <Clock size={12} />
@@ -3360,23 +3834,25 @@ const TasksPage = () => {
                           }
                         })()}</span>
                       </div>
+                      {/* Tags in the same row */}
+                      {task.tags && task.tags.trim() && (
+                        <div className="flex items-center gap-1">
+                          <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                          <span className="text-xs">
+                            {(task.tags || '').split(',').slice(0, 1).map((tag, index) => (
+                              <span key={index} className="px-1.5 py-0.5 bg-gray-200 text-gray-600 text-xs rounded">
+                                {tag.trim()}
+                              </span>
+                            ))}
+                            {(task.tags || '').split(',').length > 1 && (
+                              <span className="px-1.5 py-0.5 bg-gray-200 text-gray-600 text-xs rounded ml-1">
+                                +{(task.tags || '').split(',').length - 1}
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      )}
                     </div>
-                      
-                    {/* Tags */}
-                    {task.tags && task.tags.trim() && (
-                      <div className="flex flex-wrap gap-1">
-                        {(task.tags || '').split(',').slice(0, 2).map((tag, index) => (
-                          <span key={index} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                            {tag.trim()}
-                          </span>
-                        ))}
-                        {(task.tags || '').split(',').length > 2 && (
-                          <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                            +{(task.tags || '').split(',').length - 2}
-                          </span>
-                        )}
-                      </div>
-                    )}
                       
                     {/* Bottom Section - Assignee and Date */}
                     <div className="flex items-center justify-between text-xs">
@@ -3413,12 +3889,13 @@ const TasksPage = () => {
 
       </div>
 
-      {/* Task Form - Slides up from bottom */}
+      {/* Task Form - Modal on desktop, slide-up on mobile */}
       {isTaskFormOpen && (
         <div 
-          className={`fixed inset-0 z-50 flex items-end transition-opacity duration-300 ${
-            isFormAnimating ? ' bg-opacity-0' : 'bg-opacity-50'
+          className={`fixed inset-0 z-50 flex items-end lg:items-center justify-center transition-opacity duration-300 ${
+            isFormAnimating ? 'bg-opacity-0' : 'bg-black/70 bg-opacity-50'
           }`}
+          style={{ backdropFilter: 'blur(2px)' }}
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               handleTaskFormCancel();
@@ -3427,22 +3904,23 @@ const TasksPage = () => {
         >
           <div 
             ref={taskFormRef}
-            className={`bg-white rounded-t-2xl shadow-2xl w-full transform transition-all duration-300 ease-out ${
-              isFormAnimating ? 'translate-y-full' : 'translate-y-0'
-            } w-full sm:w-full lg:${isCollapsed ? 'ml-16' : 'ml-64'} lg:w-auto`}
-              style={{ 
+            className={`bg-white rounded-t-2xl lg:rounded-2xl shadow-2xl w-full transform transition-all duration-300 ease-out ${
+              isFormAnimating ? 'translate-y-full lg:translate-y-0 lg:scale-95' : 'translate-y-0 lg:scale-100'
+            } lg:max-w-4xl lg:w-auto`}
+            style={{ 
               width: '100%',
-                height: `${formHeight}vh`,
-                boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
-              }}
-            >
-                <TaskForm
-                  task={selectedTask || undefined}
-                  onSubmit={handleTaskFormSubmit}
-                  onCancel={handleTaskFormCancel}
-                  isEditing={!!selectedTask}
+              height: `${formHeight}vh`,
+              maxHeight: '90vh',
+              boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+            }}
+          >
+            <TaskForm
+              task={selectedTask || undefined}
+              onSubmit={handleTaskFormSubmit}
+              onCancel={handleTaskFormCancel}
+              isEditing={!!selectedTask}
               isCreatingSubtask={isCreatingSubtask}
-                  projects={allProjects.map(project => project.name)}
+              projects={allProjects.map(project => project.name)}
               teams={allTeams}
               users={allUsers}
               isLoadingUsers={isLoadingUsers}
@@ -3456,26 +3934,28 @@ const TasksPage = () => {
         </div>
       )}
 
-      {/* Task Preview - Slides up from bottom */}
+      {/* Task Preview - Modal on desktop, slide-up on mobile */}
       {isTaskPreviewOpen && selectedTask && (
-        <div className={`fixed inset-0 z-50 flex items-end transition-opacity duration-300 ${
-          isPreviewAnimating ? 'bg-opacity-0' : 'bg-opacity-30'
-        }`}>
+        <div className={`fixed inset-0 z-50 flex items-end lg:items-center justify-center transition-opacity duration-300 ${
+          isPreviewAnimating ? 'bg-opacity-0' : 'bg-black/70 bg-opacity-50'
+        }`}
+        style={{ backdropFilter: 'blur(2px)' }}>
           <div 
             ref={taskPreviewRef}
             data-task-preview
             className={`transform transition-all duration-300 ease-out ${
-              isPreviewAnimating ? 'translate-y-full' : 'translate-y-0'
-            } w-full sm:w-full lg:${isCollapsed ? 'ml-16' : 'ml-64'} lg:w-auto`}
+              isPreviewAnimating ? 'translate-y-full lg:translate-y-0 lg:scale-95' : 'translate-y-0 lg:scale-100'
+            } w-full lg:max-w-4xl lg:w-auto`}
             style={{ 
               width: '100%',
               height: `${formHeight}vh`,
+              maxHeight: '90vh',
               boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
             }}
           >
             <div 
               data-task-preview-content
-              className="bg-white dark:bg-gray-800 rounded-t-2xl shadow-2xl overflow-y-auto w-full pb-20 sm:pb-6"
+              className="bg-white dark:bg-gray-800 rounded-t-2xl lg:rounded-2xl shadow-2xl overflow-y-auto scrollbar-hide w-full pb-20 sm:pb-6"
               style={{ 
                 height: `${formHeight}vh`,
                 boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
@@ -3483,7 +3963,7 @@ const TasksPage = () => {
             >
               {/* Drag Handle - Sticky */}
               <div 
-                className={`sticky top-0 z-20 w-full h-6 flex items-center justify-center cursor-row-resize hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${isDragging ? 'bg-gray-100 dark:bg-gray-700' : ''}`}
+                className={`sticky top-0 z-20 w-full h-6 flex items-center justify-center cursor-row-resize hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors sm:hidden ${isDragging ? 'bg-gray-100 dark:bg-gray-700' : ''}`}
                 onMouseDown={handleMouseDown}
               >
                 <div className="w-12 h-1 bg-gray-400 dark:bg-gray-500 rounded-full"></div>
@@ -4360,7 +4840,7 @@ const TasksPage = () => {
       {/* File Preview Modal */}
       {isFilePreviewOpen && selectedFileForPreview && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 bg-opacity-50"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 bg-opacity-50"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               closeFilePreview();
@@ -4454,7 +4934,7 @@ const TasksPage = () => {
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && taskToDelete && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 bg-opacity-50"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 bg-opacity-50"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               cancelDeleteTask();

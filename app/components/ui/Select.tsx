@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 
 interface SelectOption {
@@ -28,6 +29,7 @@ export const Select: React.FC<SelectProps> = ({
   const [dropdownPosition, setDropdownPosition] = useState<'bottom' | 'top'>('bottom');
   const selectRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [portalStyles, setPortalStyles] = useState<React.CSSProperties>({});
 
   const baseClasses = 'border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white';
   
@@ -44,7 +46,7 @@ export const Select: React.FC<SelectProps> = ({
 
   // Calculate dropdown position based on available space
   const calculateDropdownPosition = () => {
-    if (!selectRef.current || !dropdownRef.current) return;
+    if (!selectRef.current) return;
 
     const selectRect = selectRef.current.getBoundingClientRect();
     const viewportHeight = window.innerHeight;
@@ -65,13 +67,23 @@ export const Select: React.FC<SelectProps> = ({
     } else {
       setDropdownPosition('bottom');
     }
+
+    // Compute fixed position for portal dropdown (all viewports)
+    const top = dropdownPosition === 'top' ? selectRect.top - Math.min(dropdownHeight, spaceAbove - 8) - 8 : selectRect.bottom + 8;
+    setPortalStyles({
+      position: 'fixed',
+      top: Math.max(8, top),
+      left: selectRect.left,
+      width: selectRect.width,
+      zIndex: 9999
+    });
   };
 
   useEffect(() => {
     if (isOpen) {
       calculateDropdownPosition();
     }
-  }, [isOpen]);
+  }, [isOpen, dropdownPosition]);
 
   // Recalculate position on window resize
   useEffect(() => {
@@ -83,6 +95,19 @@ export const Select: React.FC<SelectProps> = ({
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
+  }, [isOpen]);
+
+  // Recalculate on scroll when open (for fixed portal positioning)
+  useEffect(() => {
+    const handleScroll = () => {
+      if (isOpen) {
+        calculateDropdownPosition();
+      }
+    };
+    if (isOpen) {
+      window.addEventListener('scroll', handleScroll, true);
+    }
+    return () => window.removeEventListener('scroll', handleScroll, true);
   }, [isOpen]);
 
   useEffect(() => {
@@ -113,6 +138,27 @@ export const Select: React.FC<SelectProps> = ({
     setIsOpen(false);
   };
 
+  const dropdownContent = (
+    <div 
+      ref={dropdownRef}
+      className={`w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto`}
+      style={portalStyles}
+    >
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          onClick={() => handleOptionClick(option.value)}
+          className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg ${
+            option.value === value ? 'bg-blue-50 text-blue-600' : 'text-gray-900'
+          }`}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <div className={`relative ${className}`} ref={selectRef}>
       <button
@@ -127,29 +173,7 @@ export const Select: React.FC<SelectProps> = ({
         <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
       
-      {isOpen && (
-        <div 
-          ref={dropdownRef}
-          className={`absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto ${
-            dropdownPosition === 'top' 
-              ? 'bottom-full mb-1' 
-              : 'top-full mt-1'
-          }`}
-        >
-          {options.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => handleOptionClick(option.value)}
-              className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg ${
-                option.value === value ? 'bg-blue-50 text-blue-600' : 'text-gray-900'
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      )}
+      {isOpen && createPortal(dropdownContent, document.body)}
     </div>
   );
 };

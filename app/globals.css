@@ -27,3 +27,127 @@ body {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* Table sorting and filtering enhancements */
+.sortable-header {
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.sortable-header:hover {
+  background-color: rgba(59, 130, 246, 0.05);
+}
+
+.sort-indicator {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.sortable-header:hover .sort-indicator {
+  opacity: 1;
+}
+
+.sort-indicator.active {
+  opacity: 1;
+  color: #2563eb;
+}
+
+.filter-dropdown {
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Filter chip animations */
+.filter-chip {
+  transition: all 0.2s ease;
+}
+
+.filter-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Table row hover effects */
+.table-row {
+  transition: all 0.2s ease;
+}
+
+.table-row:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Mobile filter summary animations */
+.mobile-filter-summary {
+  animation: slideInFromTop 0.3s ease-out;
+}
+
+@keyframes slideInFromTop {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Sort arrow animations */
+.sort-arrow {
+  transition: all 0.2s ease;
+}
+
+.sort-arrow.asc {
+  transform: rotate(0deg);
+}
+
+.sort-arrow.desc {
+  transform: rotate(180deg);
+}
+
+/* Filter icon animations */
+.filter-icon {
+  transition: all 0.2s ease;
+}
+
+.filter-icon:hover {
+  transform: scale(1.1);
+}
+
+.filter-icon.active {
+  color: #2563eb;
+  transform: scale(1.1);
+}
+
+/* Table header sticky enhancement */
+.sticky-header {
+  backdrop-filter: blur(8px);
+  background-color: rgba(249, 250, 251, 0.95);
+}
+
+/* Mobile responsive enhancements */
+@media (max-width: 640px) {
+  .mobile-table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .mobile-filter-controls {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: white;
+    border-bottom: 1px solid #e5e7eb;
+  }
+}

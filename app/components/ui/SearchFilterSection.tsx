@@ -198,12 +198,12 @@ export const SearchFilterSection = <T extends string = string>({
           
           {/* New Project Button, View Toggle, Settings, and Filter Buttons - Positioned at End */}
           <div className="flex items-center space-x-2">
-              {/* New Project Button - Hidden on mobile */}
+              {/* New Item Button - Hidden on mobile */}
               {viewToggle && (
                 <button
                   onClick={() => {
                     // This will be handled by the parent component
-                    const event = new CustomEvent('newProjectClick');
+                    const event = new CustomEvent(searchPlaceholder.includes('task') ? 'newTaskClick' : 'newProjectClick');
                     window.dispatchEvent(event);
                   }}
                   className="hidden lg:flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex-shrink-0"
@@ -211,7 +211,7 @@ export const SearchFilterSection = <T extends string = string>({
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
-                  <span>New Project</span>
+                  <span>{searchPlaceholder.includes('task') ? 'New Task' : 'New Project'}</span>
                 </button>
               )}
               

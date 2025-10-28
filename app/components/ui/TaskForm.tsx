@@ -317,14 +317,14 @@ export function TaskForm({
       {/* Drag Handle - Sticky */}
       {onMouseDown && (
         <div 
-          className={`sticky top-0 z-20 w-full h-6 flex items-center justify-center cursor-row-resize hover:bg-gray-50 transition-colors ${isDragging ? 'bg-gray-100' : ''}`}
+          className={`sticky top-0 z-20 w-full h-6 flex items-center justify-center cursor-row-resize hover:bg-gray-50 transition-colors sm:hidden ${isDragging ? 'bg-gray-100' : ''}`}
           onMouseDown={onMouseDown}
         >
           <div className="w-12 h-1 bg-gray-400 rounded-full"></div>
         </div>
       )}
       
-      <div className="p-4 sm:p-6 flex-1 overflow-y-auto">
+      <div className="p-4 sm:p-6 flex-1 overflow-y-auto scrollbar-hide">
         {/* Modern Header */}
         <div className="flex items-center gap-3 mb-4 sm:mb-6">
           <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
@@ -344,7 +344,7 @@ export function TaskForm({
           {/* All Form Fields in Single Layout */}
           <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-6 shadow-sm space-y-6">
             {/* Row 1: Task Title, Project, Status, Priority */}
-            <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 sm:gap-25">
+            <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 ">
               {/* Task Title */}
               <div className="sm:col-span-2">
                 <label className="block text-sm font-semibold text-gray-800 mb-2">
@@ -365,9 +365,9 @@ export function TaskForm({
               </div>
 
               {/* Project and Status - Side by side on mobile */}
-              <div className="grid grid-cols-2 gap-4 sm:contents">
+              <div className="grid grid-cols-2 gap-4   sm:contents ">
                 {/* Project */}
-                <div>
+                <div >
                   <label className="block text-sm font-semibold text-gray-800 mb-2">
                     Project *
                   </label>
@@ -378,10 +378,10 @@ export function TaskForm({
                       { value: '', label: 'Select Project' },
                       ...projects.map(project => ({ value: project, label: project }))
                     ]}
-                    className={`h-12 text-base ${errors.project ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500 focus:border-blue-500'}`}
+                className={`w-full h-12 text-base ${errors.project ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500 focus:border-blue-500'}`}
                   />
                   {errors.project && (
-                    <p className="text-red-500 text-sm mt-2 flex items-center gap-1">
+                    <p className="text-red-500 text-sm mt-2 flex items-center gap-1 ">
                       <span className="w-1 h-1 bg-red-500 rounded-full"></span>
                       {errors.project}
                     </p>
@@ -402,7 +402,7 @@ export function TaskForm({
                       { value: 'Completed', label: 'Completed' },
                       { value: 'Overdue', label: 'Overdue' }
                     ]}
-                    className="h-12 text-base focus:ring-blue-500 focus:border-blue-500"
+                className="w-full h-12 text-base focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
               </div>
@@ -422,7 +422,7 @@ export function TaskForm({
                       { value: 'Medium', label: 'Medium' },
                       { value: 'High', label: 'High' }
                     ]}
-                    className="h-12 text-base focus:ring-blue-500 focus:border-blue-500"
+                className="w-full h-12 text-base focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
                 {/* Estimated Time (Mobile Only) */}
@@ -441,7 +441,7 @@ export function TaskForm({
                       label: `${i} ${i === 1 ? 'hour' : 'hours'}`
                     }))}
                     placeholder="Hours"
-                    className={`h-12 text-base ${errors.estimatedHours ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500 focus:border-blue-500'}`}
+                className={`w-full h-12 text-base ${errors.estimatedHours ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500 focus:border-blue-500'}`}
                   />
                   {errors.estimatedHours && (
                     <p className="text-red-500 text-sm mt-2 flex items-center gap-1">
@@ -542,6 +542,17 @@ export function TaskForm({
                       handleInputChange('assignedUsers', [...(formData.assignedUsers || []), selectedUser]);
                     }
                     e.target.value = ''; // Reset dropdown
+                  }}
+                  onFocus={(e) => {
+                    // Limit height on desktop only
+                    if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+                      e.currentTarget.style.maxHeight = '200px';
+                      e.currentTarget.style.overflowY = 'auto';
+                    }
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.maxHeight = 'none';
+                    e.currentTarget.style.overflowY = 'auto';
                   }}
                   disabled={isLoadingUsers}
                 >

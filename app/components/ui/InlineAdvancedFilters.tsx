@@ -46,7 +46,6 @@ interface AdvancedFilters {
   tags: string[];
   dueDateRange: DateRange;
   timeEstimateRange: NumberRange;
-  createdDateRange: DateRange;
   additionalFilters: string[];
 }
 
@@ -109,7 +108,6 @@ const InlineAdvancedFilters: React.FC<InlineAdvancedFiltersProps> = ({
     
     if (localFilters.dueDateRange.from || localFilters.dueDateRange.to) count++;
     if (localFilters.timeEstimateRange.min > 0 || localFilters.timeEstimateRange.max < 1000) count++;
-    if (localFilters.createdDateRange.from || localFilters.createdDateRange.to) count++;
     
     return count;
   };
@@ -124,7 +122,6 @@ const InlineAdvancedFilters: React.FC<InlineAdvancedFiltersProps> = ({
       tags: [],
       dueDateRange: { from: '', to: '' },
       timeEstimateRange: { min: 0, max: 1000 },
-      createdDateRange: { from: '', to: '' },
       additionalFilters: []
     };
     setLocalFilters(clearedFilters);
@@ -408,11 +405,11 @@ const InlineAdvancedFilters: React.FC<InlineAdvancedFiltersProps> = ({
             </div>
           )}
 
-          {/* Due Date Range */}
+          {/* Date Range */}
           {visibleColumns.includes('dueDateRange') && (
             <div className="flex-shrink-0 w-64">
               <FilterCard
-                title="Due Date Range"
+                title="Date Range"
                 icon={<Calendar className="w-3 h-3 text-white" />}
                 color="bg-blue-50"
               >
@@ -490,29 +487,6 @@ const InlineAdvancedFilters: React.FC<InlineAdvancedFiltersProps> = ({
             </div>
           )}
 
-          {/* Created Date Range */}
-          {visibleColumns.includes('createdDateRange') && (
-            <div className="flex-shrink-0 w-64">
-              <FilterCard
-                title="Created Date Range"
-                icon={<Calendar className="w-3 h-3 text-white" />}
-                color="bg-blue-50"
-              >
-                <div className="space-y-3">
-                  <DateInput
-                    label="From"
-                    value={localFilters.createdDateRange.from}
-                    onChange={(value) => updateFilter('createdDateRange', { ...localFilters.createdDateRange, from: value })}
-                  />
-                  <DateInput
-                    label="To"
-                    value={localFilters.createdDateRange.to}
-                    onChange={(value) => updateFilter('createdDateRange', { ...localFilters.createdDateRange, to: value })}
-                  />
-                </div>
-              </FilterCard>
-            </div>
-          )}
 
           {/* Additional Filters */}
           {visibleColumns.includes('additionalFilters') && (
