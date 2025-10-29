@@ -26,7 +26,11 @@ import {
   BarChart3,
   TrendingUp,
   Activity,
-  ListTodo
+  ListTodo,
+  Menu,
+  X,
+  LayoutDashboard,
+  FolderKanban
 } from 'lucide-react';
 import { TaskCreationModal } from './TaskCreationModal';
 
@@ -74,12 +78,16 @@ export default function SprintStoriesPage() {
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [showSprintForm, setShowSprintForm] = useState(false);
   const [showStoryForm, setShowStoryForm] = useState(false);
+  // Mobile modal animations (match project modal feel)
+  const [storyModalIn, setStoryModalIn] = useState(false);
+  const [sprintModalIn, setSprintModalIn] = useState(false);
   const [editingSprint, setEditingSprint] = useState<Sprint | null>(null);
   const [editingStory, setEditingStory] = useState<Story | null>(null);
   const [expandedStories, setExpandedStories] = useState<Set<string>>(new Set());
   const [showTaskCreationModal, setShowTaskCreationModal] = useState(false);
   const [selectedStoryForTask, setSelectedStoryForTask] = useState<{ id: string; title: string } | null>(null);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true); // Start collapsed on mobile
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   
   // Search and filter state
   const [searchTerm, setSearchTerm] = useState('');
@@ -366,6 +374,22 @@ export default function SprintStoriesPage() {
   };
 
   const selectedSprint = sprints.find(s => s.sprint_id === selectedSprintId) || null;
+  // Animate modals in on open (mobile slide-up, desktop scale-in)
+  useEffect(() => {
+    if (showStoryForm) {
+      requestAnimationFrame(() => setStoryModalIn(true));
+    } else {
+      setStoryModalIn(false);
+    }
+  }, [showStoryForm]);
+
+  useEffect(() => {
+    if (showSprintForm) {
+      requestAnimationFrame(() => setSprintModalIn(true));
+    } else {
+      setSprintModalIn(false);
+    }
+  }, [showSprintForm]);
 
   // Task management functions
 
@@ -530,12 +554,12 @@ export default function SprintStoriesPage() {
 
   return (
     <AppLayout>
-      <div className="h-screen flex bg-gray-50 dark:bg-gray-900">
-        {/* Left Sidebar - Sprints List */}
-        <div className={`${isSidebarCollapsed ? 'w-16' : 'w-72'} bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col transition-all duration-300`}>
+        <div className="h-screen flex bg-gray-50 dark:bg-gray-900">
+          {/* Left Sidebar - Sprints List */}
+          <div className={`${isSidebarCollapsed ? 'w-16' : 'w-72'} flex bg-white dark:bg-gray-800 border-r border-gray-300 dark:border-gray-700 flex-col transition-all duration-300`}>
           {/* Sidebar Header */}
-          <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-750">
-            <div className="flex items-center justify-between mb-3">
+          <div className={`${isSidebarCollapsed ? 'px-2 py-3' : 'px-5 py-3'} border-b border-gray-300 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-750`}>
+            <div className="flex items-center justify-between mb-1">
               {!isSidebarCollapsed ? (
                 <>
                   <div className="flex items-center space-x-2">
@@ -543,17 +567,6 @@ export default function SprintStoriesPage() {
                     <h2 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide">Sprints</h2>
                   </div>
                   <div className="flex items-center space-x-1">
-              <button
-                      onClick={() => {
-                        resetSprintForm();
-                        setEditingSprint(null);
-                        setShowSprintForm(true);
-                      }}
-                      className="p-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
-                      title="Add Sprint"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-              </button>
               <button
                       onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
                       className="p-1.5 hover:bg-blue-100 dark:hover:bg-gray-700 rounded-md transition-colors"
@@ -574,24 +587,12 @@ export default function SprintStoriesPage() {
               )}
             </div>
             {!isSidebarCollapsed && (
-              <button
-                onClick={() => setSelectedSprintId(null)}
-                className={`w-full text-left px-3 py-2 rounded-lg transition-all text-xs font-semibold ${
-                  !selectedSprintId
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
-                }`}
-              >
-                <div className="flex items-center space-x-2">
-                  <BarChart3 className="w-3.5 h-3.5" />
-                  <span>All Sprints</span>
-                </div>
-              </button>
+              <></>
             )}
             </div>
 
           {/* Sprints List */}
-          <div className="flex-1 overflow-y-auto p-3">
+          <div className={`flex-1 overflow-y-auto ${isSidebarCollapsed ? 'p-2' : 'p-3'}`}>
             {sprints.length === 0 ? (
               <div className="text-center py-8 text-gray-400 dark:text-gray-500">
                 {!isSidebarCollapsed ? (
@@ -611,7 +612,7 @@ export default function SprintStoriesPage() {
                     <div
                       key={sprint.id}
                       onClick={() => setSelectedSprintId(sprint.sprint_id)}
-                      className={`w-10 h-10 mx-auto rounded-lg cursor-pointer transition-all flex items-center justify-center font-bold ${
+                      className={`w-10 h-10 mx-auto rounded-lg cursor-pointer transition-all flex items-center justify-center font-bold text-sm ${
                         selectedSprintId === sprint.sprint_id
                           ? 'bg-blue-600 text-white shadow-md'
                           : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-blue-100 dark:hover:bg-gray-600'
@@ -619,7 +620,7 @@ export default function SprintStoriesPage() {
                       title={sprint.name}
                     >
                       {index + 1}
-        </div>
+                    </div>
                   ) : (
                     // Expanded view - full card
                     <div
@@ -628,7 +629,7 @@ export default function SprintStoriesPage() {
                       className={`p-3 rounded-lg cursor-pointer transition-all border ${
                         selectedSprintId === sprint.sprint_id
                           ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-500 shadow-sm'
-                          : 'bg-white dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-sm'
+                          : 'bg-white dark:bg-gray-700/50 border-gray-300 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-sm'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-2">
@@ -655,7 +656,7 @@ export default function SprintStoriesPage() {
                       <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1 mb-2 ml-9">
                         {sprint.goal}
                       </p>
-                      <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 ml-9 pt-2 border-t border-gray-200 dark:border-gray-600">
+                      <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 ml-9 pt-2 border-t border-gray-300 dark:border-gray-600">
                         <div className="flex items-center space-x-1">
                           <Calendar className="w-3.5 h-3.5" />
                           <span>{new Date(sprint.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
@@ -674,67 +675,69 @@ export default function SprintStoriesPage() {
       </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto">
           {!selectedSprintId ? (
-            /* All Sprints View */
-            <div className="p-8 bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 min-h-full">
-              <div className="flex items-center justify-between mb-8 pb-6 border-b-2 border-gray-200 dark:border-gray-700">
-                <div>
-                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">All Sprints</h1>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Manage and track your sprint progress
-                  </p>
-                </div>
-              <button
-                onClick={() => {
-                    resetStoryForm();
-                    setEditingStory(null);
-                    setShowStoryForm(true);
-                  }}
-                  className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded-xl transition-all shadow-md hover:shadow-lg"
-              >
-                <Plus className="w-5 h-5" />
-                  <span className="font-semibold">Add Story</span>
-              </button>
-            </div>
+             /* All Sprints View */
+             <div className="p-4 sm:p-6 lg:p-8 bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 min-h-full">
+               <div className="flex items-center justify-between gap-4 mb-6 sm:mb-8">
+                 <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                   <div className="min-w-0 flex-1">
+                     <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-1 sm:mb-2">All Sprints</h1>
+                     <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                      Manage and track your sprint progress
+                    </p>
+                   </div>
+                 </div>
+                 <button
+                   onClick={() => {
+                     resetStoryForm();
+                     setEditingStory(null);
+                     setShowStoryForm(true);
+                   }}
+                   className="flex-shrink-0 flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 sm:px-5 sm:py-3 rounded-xl transition-all shadow-md hover:shadow-lg text-sm sm:text-base"
+                 >
+                   <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                   <span className="font-semibold">Add Story</span>
+                 </button>
+               </div>
 
-            <div className="grid gap-6">
+            <div className="grid gap-4 sm:gap-6">
                 {sprints.map((sprint, index) => {
                 const sprintStories = getStoriesForSprint(sprint.sprint_id);
                 
                 return (
-                    <div key={sprint.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    <div key={sprint.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-300 dark:border-gray-700 overflow-hidden">
                     {/* Sprint Header */}
-                      <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-700 dark:to-gray-750">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                            <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
-                              <span className="text-white font-bold text-lg">{index + 1}</span>
+                      <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-700 dark:to-gray-750">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div className="flex items-center space-x-3 sm:space-x-4">
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <span className="text-white font-bold text-base sm:text-lg">{index + 1}</span>
                             </div>
-                          <div>
-                              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                          <div className="flex-1 min-w-0">
+                              <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white break-words">
                               {sprint.name}
                               </h2>
-                              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
                               {sprint.goal}
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center space-x-4">
-                            <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${getStatusColor(sprint.status)}`}>
+                        <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-4">
+                            <span className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium ${getStatusColor(sprint.status)}`}>
                             {sprint.status}
                           </span>
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-1 sm:space-x-2">
                           <button
                             onClick={() => openEditSprint(sprint)}
-                                className="p-2 hover:bg-white/50 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                                className="p-1.5 sm:p-2 hover:bg-white/50 dark:hover:bg-gray-600 rounded-lg transition-colors"
                             title="Edit Sprint"
                           >
                                 <Edit className="w-4 h-4 text-gray-600 dark:text-gray-300" />
                           </button>
                           <button
                             onClick={() => handleDeleteSprint(sprint.id)}
-                                className="p-2 hover:bg-white/50 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                                className="p-1.5 sm:p-2 hover:bg-white/50 dark:hover:bg-gray-600 rounded-lg transition-colors"
                             title="Delete Sprint"
                           >
                             <Trash2 className="w-4 h-4 text-red-500" />
@@ -743,40 +746,42 @@ export default function SprintStoriesPage() {
                       </div>
                     </div>
 
-                        <div className="flex items-center space-x-6 mt-4 text-sm text-gray-600 dark:text-gray-400">
-                          <div className="flex items-center space-x-2">
-                            <Calendar className="w-4 h-4" />
-                            <span>{sprint.start_date} - {sprint.end_date}</span>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Target className="w-4 h-4" />
-                            <span>{sprint.velocity} pts</span>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Users className="w-4 h-4" />
-                            <span>{getTeamName(sprint.team_id)}</span>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Activity className="w-4 h-4" />
-                            <span>{sprintStories.length} stories</span>
+                        <div className="p-4 sm:p-6">
+                          <div className="flex flex-wrap items-center gap-3 sm:gap-6 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                            <div className="flex items-center space-x-1 sm:space-x-2">
+                              <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                              <span className="break-words">{sprint.start_date} - {sprint.end_date}</span>
+                            </div>
+                            <div className="flex items-center space-x-1 sm:space-x-2">
+                              <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                              <span>{sprint.velocity} pts</span>
+                            </div>
+                            <div className="flex items-center space-x-1 sm:space-x-2">
+                              <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                              <span className="break-words">{getTeamName(sprint.team_id)}</span>
+                            </div>
+                            <div className="flex items-center space-x-1 sm:space-x-2">
+                              <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                              <span>{sprintStories.length} stories</span>
+                            </div>
                           </div>
                         </div>
                         </div>
                         
                       {/* Sprint Stories Preview */}
-                      <div className="p-6">
+                      <div className="p-4 sm:p-6 pt-0">
                         {sprintStories.length === 0 ? (
-                          <p className="text-center text-gray-500 dark:text-gray-400 py-8">
+                          <p className="text-center text-gray-500 dark:text-gray-400 py-6 sm:py-8 text-sm">
                             No stories in this sprint
                           </p>
                         ) : (
-                          <div className="grid grid-cols-4 gap-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                             {sprintStories.slice(0, 4).map((story) => (
-                              <div key={story.id} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border-l-4 border-blue-500">
-                                <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-2">
+                              <div key={story.id} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 sm:p-4 border-l-4 border-blue-500">
+                                <h4 className="font-medium text-gray-900 dark:text-white text-xs sm:text-sm mb-2 line-clamp-2">
                                         {story.title}
                                 </h4>
-                                <div className="flex items-center justify-between">
+                                <div className="flex items-center justify-between gap-2">
                                   <span className={`text-xs px-2 py-1 rounded ${getStatusColor(story.status)}`}>
                                       {story.status}
                                     </span>
@@ -807,17 +812,17 @@ export default function SprintStoriesPage() {
             /* Selected Sprint View with Stories and Tasks */
             <div className="h-full flex flex-col bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
               {/* Sprint Header */}
-              <div className="flex-shrink-0 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-750 border-b-2 border-blue-200 dark:border-gray-700 px-8 py-6 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="p-3 bg-blue-600 rounded-xl shadow-md">
-                      <Target className="w-6 h-6 text-white" />
+              <div className="flex-shrink-0 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-750 border-b-2 border-blue-200 dark:border-gray-700 px-4 sm:px-6 lg:px-8 py-4 sm:py-6 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div className="flex items-center space-x-3 sm:space-x-4">
+                    <div className="p-2 sm:p-3 bg-blue-600 rounded-xl shadow-md flex-shrink-0">
+                      <Target className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                     </div>
-                    <div>
-                      <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                    <div className="flex-1 min-w-0">
+                      <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white break-words">
                         {selectedSprint?.name}
                       </h1>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1.5">
+                      <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1 sm:mt-1.5 line-clamp-2">
                         {selectedSprint?.goal}
                       </p>
                     </div>
@@ -829,77 +834,77 @@ export default function SprintStoriesPage() {
                   setEditingStory(null);
                   setShowStoryForm(true);
                 }}
-                    className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded-xl transition-all shadow-md hover:shadow-lg"
+                    className="w-full sm:w-auto flex items-center justify-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 sm:px-5 sm:py-3 rounded-xl transition-all shadow-md hover:shadow-lg text-sm sm:text-base"
               >
-                <Plus className="w-5 h-5" />
+                <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
                     <span className="font-semibold">Add Story</span>
               </button>
             </div>
                 </div>
 
               {/* Stories with Tasks */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
                 {getStoriesForSprint(selectedSprintId).map((story) => {
                   const isExpanded = expandedStories.has(story.id);
                   const tasksByStatus = getTasksByStatus(story);
                   const totalTasks = (story.tasks || []).length;
                   
                 return (
-                    <div key={story.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                    <div key={story.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-300 dark:border-gray-700">
                       {/* Story Header */}
-                      <div className="p-5 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-750">
-                    <div className="flex items-center justify-between">
+                      <div className="p-4 sm:p-5 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-750">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
                           <button
                             onClick={() => toggleStoryExpansion(story.id)}
-                            className="flex items-center space-x-3 flex-1 text-left group"
+                            className="flex items-center space-x-2 sm:space-x-3 flex-1 text-left group"
                           >
-                            <div className="p-1.5 rounded-lg bg-white dark:bg-gray-700 shadow-sm group-hover:shadow-md transition-shadow">
+                            <div className="p-1 sm:p-1.5 rounded-lg bg-white dark:bg-gray-700 shadow-sm group-hover:shadow-md transition-shadow flex-shrink-0">
                               {isExpanded ? (
-                                <ChevronDown className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                                <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 dark:text-blue-400" />
                               ) : (
-                                <ChevronRight className="w-5 h-5 text-gray-400" />
+                                <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                               )}
                             </div>
-                            <div className="flex-1">
-                              <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors break-words">
                             {story.title}
                           </h3>
-                              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-1">
+                              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2 sm:line-clamp-1">
                             {story.description}
                           </p>
                           </div>
                           </button>
                           
-                          <div className="flex items-center space-x-3">
-                            <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wide ${getStatusColor(story.status)}`}>
+                          <div className="flex items-center flex-wrap gap-2 sm:gap-3 sm:flex-nowrap">
+                            <span className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wide ${getStatusColor(story.status)}`}>
                               {story.status.replace('_', ' ')}
                         </span>
-                            <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wide ${getPriorityColor(story.priority)}`}>
+                            <span className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wide ${getPriorityColor(story.priority)}`}>
                           {story.priority}
                         </span>
-                            <div className="flex items-center space-x-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                              <ListTodo className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                              <span className="text-sm font-semibold text-blue-900 dark:text-blue-100">{totalTasks}</span>
+                            <div className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-1 sm:py-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                              <ListTodo className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600 dark:text-blue-400" />
+                              <span className="text-xs sm:text-sm font-semibold text-blue-900 dark:text-blue-100">{totalTasks}</span>
                             </div>
-                            <div className="h-8 w-px bg-gray-300 dark:bg-gray-600"></div>
+                            <div className="hidden sm:block h-8 w-px bg-gray-300 dark:bg-gray-600"></div>
                             <button
                               onClick={() => openTaskCreationModal(story.id, story.title)}
-                              className="flex items-center space-x-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors shadow-sm hover:shadow-md"
+                              className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors shadow-sm hover:shadow-md text-xs sm:text-sm"
                               title="Create Task"
                             >
-                              <Plus className="w-4 h-4" />
-                              <span className="text-sm font-medium">Task</span>
+                              <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                              <span className="font-medium">Task</span>
                             </button>
                           <button
                             onClick={() => openEditStory(story)}
-                              className="p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                              className="p-1.5 sm:p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                             title="Edit Story"
                           >
                               <Edit className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                           </button>
                           <button
                             onClick={() => handleDeleteStory(story.id)}
-                              className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                              className="p-1.5 sm:p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                             title="Delete Story"
                           >
                             <Trash2 className="w-4 h-4 text-red-500" />
@@ -910,8 +915,8 @@ export default function SprintStoriesPage() {
 
                       {/* Tasks organized by status */}
                       {isExpanded && (
-                        <div className="p-6 bg-gray-50 dark:bg-gray-900/50">
-                          <div className="grid grid-cols-4 gap-5">
+                        <div className="p-4 sm:p-6 bg-gray-50 dark:bg-gray-900/50">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
                             {/* To Do Column */}
                             <div className="space-y-3">
                               <div className="flex items-center justify-between pb-3 border-b-2 border-gray-300 dark:border-gray-600">
@@ -931,7 +936,7 @@ export default function SprintStoriesPage() {
                                 </div>
                               ) : (
                                 tasksByStatus.todo.map((task: any) => (
-                                  <div key={task.id} className="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow">
+                                  <div key={task.id} className="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-300 dark:border-gray-700 hover:shadow-md transition-shadow">
                                     <h5 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">
                                       {task.title}
                                     </h5>
@@ -1059,15 +1064,139 @@ export default function SprintStoriesPage() {
         </div>
       </div>
 
+      {/* Mobile Sidebar Drawer */}
+      {isMobileSidebarOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/50" 
+            onClick={() => setIsMobileSidebarOpen(false)}
+          />
+          <div className="fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-gray-800 border-r border-gray-300 dark:border-gray-700 flex flex-col">
+            <div className="p-4 border-b border-gray-300 dark:border-gray-700 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4 text-blue-600" />
+                <h3 className="font-semibold text-gray-900 dark:text-white">Sprints</h3>
+              </div>
+              <button
+                onClick={() => setIsMobileSidebarOpen(false)}
+                className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3">
+              {sprints.length === 0 ? (
+                <div className="text-center py-6 text-gray-400">No sprints yet</div>
+              ) : (
+                <div className="space-y-2">
+                  {sprints.map((sprint, index) => (
+                    <div
+                      key={sprint.id}
+                      onClick={() => {
+                        setSelectedSprintId(sprint.sprint_id);
+                        setIsMobileSidebarOpen(false);
+                      }}
+                      className={`p-3 rounded-lg cursor-pointer transition-all border ${
+                        selectedSprintId === sprint.sprint_id
+                          ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-500 shadow-sm'
+                          : 'bg-white dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-sm'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-2">
+                          <div className={`w-7 h-7 rounded-md flex items-center justify-center text-sm font-bold ${
+                            selectedSprintId === sprint.sprint_id
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
+                          }`}>
+                            {index + 1}
+                          </div>
+                          <span className="text-sm font-bold text-gray-900 dark:text-white">{sprint.name}</span>
+                        </div>
+                        <span className={`text-xs px-2 py-0.5 rounded-md font-semibold uppercase ${getStatusColor(sprint.status)}`}>
+                          {sprint.status}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1 ml-9">{sprint.goal}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            {/* Navigation Links */}
+            <div className="border-t border-gray-300 dark:border-gray-700 p-3 space-y-1">
+              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 px-2">Navigation</p>
+              <a
+                href="/Dashboard"
+                onClick={() => setIsMobileSidebarOpen(false)}
+                className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
+              >
+                <LayoutDashboard className="w-5 h-5" />
+                <span className="text-sm font-medium">Dashboard</span>
+              </a>
+              <a
+                href="/project"
+                onClick={() => setIsMobileSidebarOpen(false)}
+                className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
+              >
+                <FolderKanban className="w-5 h-5" />
+                <span className="text-sm font-medium">Projects</span>
+              </a>
+              <a
+                href="/task"
+                onClick={() => setIsMobileSidebarOpen(false)}
+                className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
+              >
+                <ListTodo className="w-5 h-5" />
+                <span className="text-sm font-medium">Tasks</span>
+              </a>
+              <a
+                href="/calander"
+                onClick={() => setIsMobileSidebarOpen(false)}
+                className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
+              >
+                <Calendar className="w-5 h-5" />
+                <span className="text-sm font-medium">Calendar</span>
+              </a>
+              <a
+                href="/team"
+                onClick={() => setIsMobileSidebarOpen(false)}
+                className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
+              >
+                <Users className="w-5 h-5" />
+                <span className="text-sm font-medium">Team</span>
+              </a>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Sprint Form Modal */}
       {showSprintForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                {editingSprint ? 'Edit Sprint' : 'Create New Sprint'}
-              </h3>
-              <form onSubmit={editingSprint ? handleUpdateSprint : handleCreateSprint} className="space-y-4">
+        <div
+          className="fixed inset-0 z-50 flex items-end lg:items-center justify-center bg-black/70 bg-opacity-50"
+          style={{ backdropFilter: 'blur(2px)' }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowSprintForm(false);
+              setEditingSprint(null);
+              resetSprintForm();
+            }
+          }}
+        >
+          <div
+            className={`bg-white dark:bg-gray-800 rounded-t-2xl lg:rounded-2xl shadow-2xl w-full lg:w-auto lg:max-w-2xl max-h-[90vh] overflow-y-auto scrollbar-hide transform transition-all duration-300 ease-out ${sprintModalIn ? 'translate-y-0 lg:scale-100' : 'translate-y-full lg:scale-95'} `}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 sm:p-6 pb-28 sm:pb-6">
+              <div className="mb-4 sm:mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {editingSprint ? 'Edit Sprint' : 'Create New Sprint'}
+                </h3>
+              </div>
+              <form onSubmit={editingSprint ? handleUpdateSprint : handleCreateSprint} className="space-y-4 max-w-xl mx-auto">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -1205,7 +1334,7 @@ export default function SprintStoriesPage() {
                   />
                 </div>
                 
-                <div className="flex justify-end space-x-3">
+                <div className="sticky  bg-white dark:bg-gray-800 border-t rounded-b-2xl border-gray-300 dark:border-gray-700 p-1 sm:p-5 z-10 pb-0 sm:pb-0 flex flex-row justify-end space-x-40">
                   <button
                     type="button"
                     onClick={() => {
@@ -1213,7 +1342,7 @@ export default function SprintStoriesPage() {
                       setEditingSprint(null);
                       resetSprintForm();
                     }}
-                    className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                    className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                   >
                     Cancel
                   </button>
@@ -1232,13 +1361,28 @@ export default function SprintStoriesPage() {
 
       {/* Story Form Modal */}
       {showStoryForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                {editingStory ? 'Edit Story' : 'Create New Story'}
-              </h3>
-              <form onSubmit={editingStory ? handleUpdateStory : handleCreateStory} className="space-y-4">
+        <div
+          className="fixed inset-0 z-50 flex items-end lg:items-center justify-center bg-black/70 bg-opacity-50"
+          style={{ backdropFilter: 'blur(2px)' }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowStoryForm(false);
+              setEditingStory(null);
+              resetStoryForm();
+            }
+          }}
+        >
+          <div
+            className={`bg-white dark:bg-gray-800 rounded-t-2xl lg:rounded-2xl shadow-2xl w-full lg:w-auto lg:max-w-2xl max-h-[90vh] overflow-y-auto scrollbar-hide transform transition-all duration-300 ease-out ${storyModalIn ? 'translate-y-0 lg:scale-100' : 'translate-y-full lg:scale-95'} `}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 sm:p-6 pb-28 sm:pb-6">
+              <div className="mb-4 sm:mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {editingStory ? 'Edit Story' : 'Create New Story'}
+                </h3>
+              </div>
+              <form onSubmit={editingStory ? handleUpdateStory : handleCreateStory} className="space-y-4 max-w-xl mx-auto">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Story Title
@@ -1248,6 +1392,7 @@ export default function SprintStoriesPage() {
                     value={storyFormData.title}
                     onChange={(e) => setStoryFormData(prev => ({ ...prev, title: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    placeholder="Enter story title"
                     required
                   />
                 </div>
@@ -1260,6 +1405,7 @@ export default function SprintStoriesPage() {
                     value={storyFormData.description}
                     onChange={(e) => setStoryFormData(prev => ({ ...prev, description: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    placeholder="Briefly describe the story"
                     rows={3}
                     required
                   />
@@ -1357,13 +1503,13 @@ export default function SprintStoriesPage() {
                   </label>
                   
                   {/* Add Existing Task */}
-                  <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg max-w-xl mx-auto w-full">
                     <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Add Existing Task</h4>
                     <div className="flex gap-3">
                       <select
                         value={selectedExistingTask}
                         onChange={(e) => setSelectedExistingTask(e.target.value)}
-                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-600 dark:text-white"
+                        className="w-72 sm:w-96 max-w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-600 dark:text-white"
                       >
                         <option value="">Select an existing task</option>
                         {existingTasks
@@ -1393,7 +1539,7 @@ export default function SprintStoriesPage() {
                       <p className="text-gray-500 dark:text-gray-400 text-sm">No tasks added yet</p>
                     ) : (
                       storyFormData.tasks.map((task) => (
-                        <div key={task.task_id} className="p-3 bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded-lg">
+                        <div key={task.task_id} className="p-3 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-lg">
                           <div className="flex items-center justify-between mb-2">
                             <h5 className="font-medium text-gray-900 dark:text-white text-sm">{task.title}</h5>
                             <button
@@ -1441,7 +1587,7 @@ export default function SprintStoriesPage() {
                   </div>
                 </div>
                 
-                <div className="flex justify-end space-x-3">
+                <div className="sticky bottom-0 bg-white dark:bg-gray-800 border-t rounded-b-2xl border-gray-300 dark:border-gray-700 p-1 sm:p-4 z-10 pb-1 sm:pb-4 flex justify-end space-x-4">
                   <button
                     type="button"
                     onClick={() => {
@@ -1449,7 +1595,7 @@ export default function SprintStoriesPage() {
                       setEditingStory(null);
                       resetStoryForm();
                     }}
-                    className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                    className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                   >
                     Cancel
                   </button>

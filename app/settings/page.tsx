@@ -116,29 +116,29 @@ export default function SettingsPage() {
   return (
     <AppLayout>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-        <div className="w-full mx-auto px-4    h-full ">
+        <div className="w-full mx-auto px-2    h-full ">
           {/* Header */}
          
 
-          <div className="grid grid-cols-1 lg:grid-cols-4 h-full ">
-            {/* Sidebar Navigation */}
-            <div className="lg:col-span-1 ">
-              <Card className="shadow-xl border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm h-full">
-                <CardContent className="p-0">
-                  <nav className="space-y-1 p-2">
+          <Card className="shadow-xl rounded-3xl border border-gray-300 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm h-full mt-8">
+            <CardContent className="p-0">
+              <div className="grid grid-cols-1 gap-6 h-full">
+                {/* Sidebar Navigation (now inside the single card) */}
+                <div className="border-b border-gray-200">
+                  <nav className="grid grid-cols-2 gap-2 p-2 md:flex md:flex-row md:gap-2">
                     {tabs.map((tab) => {
                       const Icon = tab.icon;
                       return (
                         <button
                           key={tab.id}
                           onClick={() => setActiveTab(tab.id)}
-                          className={`w-full flex items-center px-4 py-3 text-left text-sm font-medium rounded-xl transition-all duration-200 group ${
+                          className={`w-full md:w-auto flex items-center justify-start px-3 md:px-4 py-3 text-left text-sm font-medium rounded-xl transition-all duration-200 group ${
                             activeTab === tab.id
                               ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg transform scale-105'
                               : 'text-gray-600 dark:text-gray-300 hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 dark:hover:from-gray-700 dark:hover:to-gray-600 hover:text-gray-900 dark:hover:text-white hover:shadow-md hover:scale-102'
                           }`}
                         >
-                          <Icon className={`w-5 h-5 mr-3 transition-transform duration-200 ${
+                          <Icon className={`w-5 h-5 mr-2 md:mr-3 transition-transform duration-200 ${
                             activeTab === tab.id ? 'scale-110' : 'group-hover:scale-110'
                           }`} />
                           {tab.label}
@@ -146,16 +146,14 @@ export default function SettingsPage() {
                       );
                     })}
                   </nav>
-                </CardContent>
-              </Card>
-            </div>
+                </div>
 
-            {/* Main Content */}
-            <div className="lg:col-span-3">
+                {/* Main Content (now inside the same card) */}
+                <div className="pt-4">
               {/* Profile Tab */}
               {activeTab === 'profile' && (
                 <div className="space-y-6">
-                  <Card className="shadow-xl border-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm overflow-hidden">
+                  <div className="shadow-inner border border-gray-300 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm overflow-hidden rounded-xl">
                     <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-6 text-white w-full rounded-t-xl">
                       <div className="flex items-center justify-between ">
                         <div className="flex items-center space-x-3 ">
@@ -190,7 +188,7 @@ export default function SettingsPage() {
                         </Button>
                       </div>
                     </div>
-                    <CardContent className="p-6">
+                    <div className="p-6">
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Avatar Section */}
@@ -328,15 +326,15 @@ export default function SettingsPage() {
                           />
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 </div>
               )}
 
               {/* Account Tab */}
               {activeTab === 'account' && (
                 <div className="space-y-6">
-                  <Card className="shadow-xl border-0 bg-white/90 backdrop-blur-sm overflow-hidden">
+                  <div className="shadow-inner border-0 bg-white/90 backdrop-blur-sm overflow-hidden rounded-xl">
                     <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-6 text-white rounded-t-xl">
                       <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
@@ -348,7 +346,7 @@ export default function SettingsPage() {
                         </div>
                       </div>
                     </div>
-                    <CardContent className="p-6">
+                    <div className="p-6">
                       
                       <div className="space-y-6">
                         <div>
@@ -396,11 +394,11 @@ export default function SettingsPage() {
                           Update Password
                         </Button>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
 
-                  <Card>
-                    <CardContent className="p-6">
+                  <div className="rounded-xl border border-gray-200">
+                    <div className="p-6">
                       <h2 className="text-xl font-semibold text-gray-900 mb-6">Two-Factor Authentication</h2>
                       <div className="flex items-center justify-between">
                         <div>
@@ -411,15 +409,15 @@ export default function SettingsPage() {
                           Enable
                         </Button>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 </div>
               )}
 
               {/* Notifications Tab */}
               {activeTab === 'notifications' && (
                 <div className="space-y-6 h-full">
-                  <Card className="shadow-xl border-0 bg-white/90 backdrop-blur-sm overflow-hidden h-full">
+                  <div className="shadow-inner border-0 bg-white/90 backdrop-blur-sm overflow-hidden h-full rounded-xl">
                     <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-6 text-white rounded-t-xl">
                       <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
@@ -431,7 +429,7 @@ export default function SettingsPage() {
                         </div>
                       </div>
                     </div>
-                    <CardContent className="p-6">
+                    <div className="p-6">
                       
                       <div className="space-y-4">
                         <div className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-green-50 rounded-xl border border-gray-100 hover:shadow-md transition-all duration-200">
@@ -517,16 +515,16 @@ export default function SettingsPage() {
                           </label>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 </div>
               )}
 
               {/* Appearance Tab */}
               {activeTab === 'appearance' && (
                 <div className="space-y-6">
-                  <Card>
-                    <CardContent className="p-6">
+                  <div className="rounded-xl border border-gray-200">
+                    <div className="p-6">
                       <h2 className="text-xl font-semibold text-gray-900 mb-6">Appearance Settings</h2>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -576,16 +574,16 @@ export default function SettingsPage() {
                           />
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 </div>
               )}
 
               {/* Privacy Tab */}
               {activeTab === 'privacy' && (
                 <div className="space-y-6">
-                  <Card>
-                    <CardContent className="p-6">
+                  <div className="rounded-xl border border-gray-200">
+                    <div className="p-6">
                       <h2 className="text-xl font-semibold text-gray-900 mb-6">Privacy Settings</h2>
                       
                       <div className="space-y-4">
@@ -652,16 +650,16 @@ export default function SettingsPage() {
                           </label>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 </div>
               )}
 
               {/* System Tab */}
               {activeTab === 'system' && (
                 <div className="space-y-6">
-                  <Card>
-                    <CardContent className="p-6">
+                  <div className="rounded-xl border border-gray-200">
+                    <div className="p-6">
                       <h2 className="text-xl font-semibold text-gray-900 mb-6">System Information</h2>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -695,11 +693,11 @@ export default function SettingsPage() {
                           </div>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
 
-                  <Card>
-                    <CardContent className="p-6">
+                  <div className="rounded-xl border border-gray-200">
+                    <div className="p-6">
                       <h2 className="text-xl font-semibold text-gray-900 mb-6">Data Management</h2>
                       
                       <div className="space-y-4">
@@ -716,13 +714,14 @@ export default function SettingsPage() {
                           Delete Account
                         </Button>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 </div>
               )}
-
-            </div>
-          </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </AppLayout>

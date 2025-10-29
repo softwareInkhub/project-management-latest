@@ -536,7 +536,7 @@ const ProjectsPage = () => {
         {viewMode === 'list' ? (
           <div className="space-y-3">
             {filteredProjects.map((project) => (
-              <div key={project.id} className="relative p-3 sm:p-4 bg-white rounded-lg border border-gray-300 hover:border-gray-400 transition-colors min-h-[120px] sm:min-h-[140px] flex flex-col sm:flex-row sm:items-center cursor-pointer shadow-sm" onClick={() => handleProjectClick(project)}>
+              <div key={project.id} className="relative p-3 sm:p-4 bg-white rounded-3xl border border-gray-300 hover:border-gray-400 transition-colors min-h-[120px] sm:min-h-[140px] flex flex-col sm:flex-row sm:items-center cursor-pointer shadow-sm" onClick={() => handleProjectClick(project)}>
                 {/* Action Buttons - Top Right Corner */}
                 <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex flex-col items-end space-y-2 z-20">
                   <div className="flex items-center space-x-1">
@@ -615,7 +615,7 @@ const ProjectsPage = () => {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 lg:gap-4">
             {filteredProjects.map((project) => (
-              <Card key={project.id} hover className="relative cursor-pointer" onClick={() => handleProjectClick(project)}>
+              <Card key={project.id} hover className="relative cursor-pointer rounded-3xl border border-gray-300 hover:border-gray-400" onClick={() => handleProjectClick(project)}>
                 <CardContent className="p-2 sm:p-3">
                   <div className="space-y-1 sm:space-y-2">
                     {/* Header with Project Icon and Title */}
@@ -764,7 +764,7 @@ const ProjectsPage = () => {
                   <div className="flex items-center space-x-3">
                     <button
                       onClick={closeProjectPreview}
-                      className="w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center transition-colors"
+                      className="w-10 h-10 bg-gray-100 hover:bg-gray-300 rounded-lg flex items-center justify-center transition-colors"
                     >
                       <X className="w-5 h-5 text-gray-600" />
                     </button>
@@ -785,7 +785,7 @@ const ProjectsPage = () => {
                 </div>
 
                 {/* Project Details - Single Card */}
-                <div className="bg-white rounded-2xl border border-gray-100 p-4 lg:p-6 shadow-sm">
+                <div className="bg-white rounded-2xl border border-gray-300 p-4 lg:p-6 shadow-sm">
                   <div className="space-y-6">
                     {/* Description */}
                     <div>
@@ -816,7 +816,7 @@ const ProjectsPage = () => {
                             <span>{getTasksArray(selectedProject.tasks).length} task(s)</span>
                             <span>{selectedProject.progress || 0}%</span>
                           </div>
-                          <div className="w-full bg-gray-200 rounded-full h-3">
+                          <div className="w-full bg-gray-300 rounded-full h-3">
                             <div 
                               className="h-3 bg-blue-500 rounded-full transition-all duration-1000 ease-out"
                               style={{ width: `${selectedProject.progress || 0}%` }}

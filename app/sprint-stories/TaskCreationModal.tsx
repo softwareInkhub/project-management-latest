@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 
 interface TaskCreationModalProps {
   isOpen: boolean;
@@ -71,26 +71,25 @@ export const TaskCreationModal: React.FC<TaskCreationModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto scrollbar-hide overflow-hidden">
-        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
-          <div>
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-              Create New Task
-            </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              For story: {storyTitle}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5 text-gray-500" />
-          </button>
+    <div
+      className="fixed inset-0 z-50 flex items-end lg:items-center justify-center bg-black/70 bg-opacity-50"
+      style={{ backdropFilter: 'blur(2px)' }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div
+        className="bg-white dark:bg-gray-800 rounded-t-2xl lg:rounded-2xl shadow-2xl w-full lg:w-auto lg:max-w-2xl max-h-[90vh] overflow-y-auto scrollbar-hide overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Create New Task</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">For story: {storyTitle}</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 pb-24 sm:pb-6 space-y-5">
           {/* Task Title */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
@@ -219,18 +218,18 @@ export const TaskCreationModal: React.FC<TaskCreationModalProps> = ({
           </div>
 
           {/* Action Buttons */}
-          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="sticky bottom-0 bg-white dark:bg-gray-800 border-t rounded-b-2xl border-gray-300 dark:border-gray-700 p-1 sm:p-4 z-10 pb-1 sm:pb-4 flex justify-end space-x-4">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors font-medium"
+              className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
             >
               {loading ? (
                 <>

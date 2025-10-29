@@ -479,28 +479,7 @@ export default function SprintStoriesPage() {
           <div className="p-4 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-gray-900 dark:text-white">Sprints</h2>
-              <button
-                onClick={() => {
-                  resetSprintForm();
-                  setEditingSprint(null);
-                  setShowSprintForm(true);
-                }}
-                className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                title="Add Sprint"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
             </div>
-            <button
-              onClick={() => setSelectedSprintId(null)}
-              className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
-                !selectedSprintId
-                  ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-medium'
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-              }`}
-            >
-              All Sprints
-            </button>
           </div>
 
           {/* Sprints List */}
@@ -878,12 +857,12 @@ export default function SprintStoriesPage() {
       {/* Sprint Form Modal */}
       {showSprintForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto scrollbar-hide">
             <div className="p-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 {editingSprint ? 'Edit Sprint' : 'Create New Sprint'}
               </h3>
-              <form onSubmit={editingSprint ? handleUpdateSprint : handleCreateSprint} className="space-y-4">
+              <form onSubmit={editingSprint ? handleUpdateSprint : handleCreateSprint} className="space-y-4 max-w-xl mx-auto">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -1049,12 +1028,12 @@ export default function SprintStoriesPage() {
       {/* Story Form Modal */}
       {showStoryForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto scrollbar-hide">
             <div className="p-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 {editingStory ? 'Edit Story' : 'Create New Story'}
               </h3>
-              <form onSubmit={editingStory ? handleUpdateStory : handleCreateStory} className="space-y-4">
+              <form onSubmit={editingStory ? handleUpdateStory : handleCreateStory} className="space-y-4 max-w-xl mx-auto">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Story Title
@@ -1173,13 +1152,13 @@ export default function SprintStoriesPage() {
                   </label>
                   
                   {/* Add Existing Task */}
-                  <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg max-w-2xl mx-auto w-full">
                     <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Add Existing Task</h4>
                     <div className="flex gap-3">
                       <select
                         value={selectedExistingTask}
                         onChange={(e) => setSelectedExistingTask(e.target.value)}
-                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-600 dark:text-white"
+                        className="w-72 sm:w-96 max-w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-600 dark:text-white"
                       >
                         <option value="">Select an existing task</option>
                         {existingTasks
