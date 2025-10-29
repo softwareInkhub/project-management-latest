@@ -507,15 +507,15 @@ const NotificationsPage = () => {
 
   return (
     <AppLayout>
-      <div className="w-full px-4 py-6">
+      <div className="w-full px-3 py-4 md:px-6 md:py-8">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-4 md:mb-8">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Notifications</h1>
           <p className="text-gray-600">Configure WhatsApp notifications for your project management system</p>
         </div>
 
         {/* Tab Navigation */}
-        <div className="mb-6">
+        <div className="mb-4 md:mb-6">
           <div className="bg-white rounded-xl border border-gray-200 p-2 shadow-sm">
             <div className="grid grid-cols-3 gap-2">
               <TabButton id="connections" label="WHAPI" icon={<Settings size={18} />} />
@@ -527,9 +527,9 @@ const NotificationsPage = () => {
 
         {/* WHAPI Setup Tab */}
         {activeTab === 'connections' && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-              <div className="flex items-center gap-3 mb-6">
+          <div className="space-y-4 md:space-y-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6 shadow-sm">
+              <div className="flex items-center gap-3 mb-4 md:mb-6">
                 <div className="p-2 bg-blue-100 rounded-lg">
                   <Settings className="w-5 h-5 text-blue-600" />
                 </div>
@@ -539,13 +539,13 @@ const NotificationsPage = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Connection Name</label>
                   <input 
                     value={connName} 
                     onChange={e=>setConnName(e.target.value)} 
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors" 
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 md:px-4 md:py-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors" 
                     placeholder="e.g. Production" 
                   />
                 </div>
@@ -554,24 +554,24 @@ const NotificationsPage = () => {
                   <input 
                     value={connToken} 
                     onChange={e=>setConnToken(e.target.value)} 
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors" 
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 md:px-4 md:py-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors" 
                     placeholder="Enter your WHAPI token" 
                     type="password"
                   />
                 </div>
               </div>
 
-              <div className="mt-6">
+              <div className="mt-4 md:mt-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Base URL</label>
                 <input 
                   value={connBaseUrl} 
                   onChange={e=>setConnBaseUrl(e.target.value)} 
-                  className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors" 
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 md:px-4 md:py-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors" 
                   placeholder="https://gate.whapi.cloud" 
                 />
               </div>
 
-              <div className="mt-6 flex items-center gap-3">
+              <div className="mt-4 md:mt-6 flex items-center gap-3">
                 <input 
                   id="testMode" 
                   type="checkbox" 
@@ -584,17 +584,17 @@ const NotificationsPage = () => {
                 </label>
               </div>
 
-              <div className="mt-6 flex gap-3">
+              <div className="mt-4 md:mt-6 flex gap-3">
                 <button 
                   disabled={loading} 
                   onClick={saveConnection} 
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg disabled:opacity-60 hover:bg-blue-700 transition-colors font-medium"
+                  className="px-4 py-2 md:px-6 md:py-3 bg-blue-600 text-white rounded-lg disabled:opacity-60 hover:bg-blue-700 transition-colors font-medium"
                 >
                   {loading ? 'Saving...' : 'Save Connection'}
                 </button>
                 <button 
                   onClick={fetchConnections} 
-                  className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                  className="px-4 py-2 md:px-6 md:py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
                 >
                   Refresh
                 </button>
@@ -603,11 +603,11 @@ const NotificationsPage = () => {
 
             {/* Saved Connections */}
             {connections.length > 0 && (
-              <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+              <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6 shadow-sm">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Saved Connections</h3>
                 <div className="space-y-3">
                   {connections.map((c) => (
-                    <div key={c.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                    <div key={c.id} className="flex items-center justify-between p-3 md:p-4 border border-gray-200 rounded-lg">
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-green-100 rounded-lg">
                           <Smartphone className="w-4 h-4 text-green-600" />
@@ -645,9 +645,9 @@ const NotificationsPage = () => {
 
         {/* Triggers Tab */}
         {activeTab === 'triggers' && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-              <div className="flex items-center gap-3 mb-6">
+          <div className="space-y-4 md:space-y-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6 shadow-sm">
+              <div className="flex items-center gap-3 mb-4 md:mb-6">
                 <div className="p-2 bg-purple-100 rounded-lg">
                   <Zap className="w-5 h-5 text-purple-600" />
                 </div>
@@ -657,13 +657,13 @@ const NotificationsPage = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Trigger Name</label>
                   <input 
                     value={trigName} 
                     onChange={e=>setTrigName(e.target.value)} 
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors" 
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 md:px-4 md:py-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors" 
                     placeholder="e.g. Task Assignment Alert" 
                   />
                 </div>
@@ -672,7 +672,7 @@ const NotificationsPage = () => {
                   <select 
                     value={trigEvent} 
                     onChange={e=>setTrigEvent(e.target.value)} 
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 md:px-4 md:py-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors"
                   >
                     <option value="task_created">Task Created</option>
                     <option value="task_updated">Task Updated</option>
@@ -687,19 +687,19 @@ const NotificationsPage = () => {
                 </div>
               </div>
 
-              <div className="mt-6">
+              <div className="mt-4 md:mt-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Connection</label>
                 <select 
                   value={trigConnectionId} 
                   onChange={e=>setTrigConnectionId(e.target.value)} 
-                  className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 md:px-4 md:py-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors"
                 >
                   <option value="">Select connection</option>
                   {connections.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
 
-              <div className="mt-6">
+              <div className="mt-4 md:mt-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Recipient Type</label>
                 <div className="grid grid-cols-3 gap-2">
                   <button
@@ -746,7 +746,7 @@ const NotificationsPage = () => {
 
               {/* Users Configuration */}
               {triggerType === 'users' && (
-                <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                <div className="mt-4 md:mt-6 p-3 md:p-4 bg-gray-50 rounded-lg">
                   <h3 className="font-medium text-gray-900 mb-4">Phone Number Configuration</h3>
                   <div className="grid grid-cols-3 gap-3">
                     <div>
@@ -793,7 +793,7 @@ const NotificationsPage = () => {
 
               {/* Community Configuration */}
               {triggerType === 'community' && (
-                <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                <div className="mt-4 md:mt-6 p-3 md:p-4 bg-gray-50 rounded-lg">
                   <h3 className="font-medium text-gray-900 mb-4">Community Configuration</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -801,7 +801,7 @@ const NotificationsPage = () => {
                       <select 
                         value={selectedCommunity} 
                         onChange={e=>setSelectedCommunity(e.target.value)} 
-                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 md:px-4 md:py-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors"
                       >
                         <option value="">Select community</option>
                         {communities.map(c => (
@@ -820,7 +820,7 @@ const NotificationsPage = () => {
                             setSelectedGroups([...selectedGroups, e.target.value])
                           }
                         }}
-                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 md:px-4 md:py-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors"
                       >
                         <option value="">Select subgroup to add...</option>
                         {subgroups
@@ -838,7 +838,7 @@ const NotificationsPage = () => {
                   
                   {/* Selected Subgroups Display */}
                   {selectedGroups.length > 0 && (
-                    <div className="mt-4">
+                    <div className="mt-3 md:mt-4">
                       <label className="block text-sm font-medium text-gray-700 mb-2">Selected Subgroups</label>
                       <div className="flex flex-wrap gap-2">
                         {selectedGroups.map(groupId => {
@@ -867,14 +867,14 @@ const NotificationsPage = () => {
 
               {/* Group Configuration */}
               {triggerType === 'group' && (
-                <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                <div className="mt-4 md:mt-6 p-3 md:p-4 bg-gray-50 rounded-lg">
                   <h3 className="font-medium text-gray-900 mb-4">Group Configuration</h3>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Groups</label>
                     <select 
                       value={selectedGroups[0] || ''} 
                       onChange={e=>setSelectedGroups(e.target.value ? [e.target.value] : [])} 
-                      className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 md:px-4 md:py-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors"
                     >
                       <option value="">Select group</option>
                       {groups.map(g => (
@@ -887,12 +887,12 @@ const NotificationsPage = () => {
                 </div>
               )}
 
-              <div className="mt-6">
+              <div className="mt-4 md:mt-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Message Template</label>
                 <textarea 
                   value={trigTemplate} 
                   onChange={e=>setTrigTemplate(e.target.value)} 
-                  className="w-full border border-gray-300 rounded-lg px-4 py-3 min-h-[120px] focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors" 
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 md:px-4 md:py-3 min-h-[120px] focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-colors" 
                   placeholder="Enter your message template here. Use variables like {{task.title}}, {{user.name}}, etc." 
                 />
                 <p className="text-sm text-gray-500 mt-2">
@@ -900,17 +900,17 @@ const NotificationsPage = () => {
                 </p>
               </div>
               
-              <div className="mt-6 flex gap-3">
+              <div className="mt-4 md:mt-6 flex gap-3">
                 <button 
                   onClick={() => testFire(trigEvent)} 
-                  className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                  className="px-4 py-2 md:px-6 md:py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
                 >
                   Test Trigger
                 </button>
                 <button 
                   disabled={loading} 
                   onClick={saveTrigger} 
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg disabled:opacity-60 hover:bg-blue-700 transition-colors font-medium"
+                  className="px-4 py-2 md:px-6 md:py-3 bg-blue-600 text-white rounded-lg disabled:opacity-60 hover:bg-blue-700 transition-colors font-medium"
                 >
                   {loading ? 'Saving...' : 'Save Trigger'}
                 </button>
@@ -919,11 +919,11 @@ const NotificationsPage = () => {
 
             {/* Existing Triggers */}
             {triggers.length > 0 && (
-              <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+              <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6 shadow-sm">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Existing Triggers</h3>
                 <div className="space-y-3">
                   {triggers.map(t => (
-                    <div key={t.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                    <div key={t.id} className="flex items-center justify-between p-3 md:p-4 border border-gray-200 rounded-lg">
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-purple-100 rounded-lg">
                           <Zap className="w-4 h-4 text-purple-600" />
@@ -966,16 +966,25 @@ const NotificationsPage = () => {
 
         {/* Event Configuration Tab */}
         {activeTab === 'configurations' && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <Target className="w-5 h-5 text-green-600" />
+          <div className="space-y-4 md:space-y-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-4 md:mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <Target className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900">Event Configuration</h2>
+                    <p className="text-sm text-gray-600">Configure which notifications to send for specific events</p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900">Event Configuration</h2>
-                  <p className="text-sm text-gray-600">Configure which notifications to send for specific events</p>
-                </div>
+                <button
+                  onClick={() => window.dispatchEvent(new Event('openNotificationConfigCreate'))}
+                  className="flex items-center gap-2 px-3 py-2 md:px-3 md:py-3 text-xs sm:text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Plus size={16} />
+                  Add Configuration
+                </button>
               </div>
               <NotificationConfigPanel />
             </div>

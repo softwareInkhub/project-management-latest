@@ -2784,6 +2784,12 @@ const TasksPage = () => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
       
+      // Ignore clicks that occur within custom Select dropdown portals or roots
+      const isInSelect = (target as Element).closest('[data-select-portal]') || (target as Element).closest('[data-select-root]');
+      if (isInSelect) {
+        return;
+      }
+
       // Check if click is inside confirmation modals - if so, don't close task preview
       const isClickInsideUserConfirm = removeUserConfirmRef.current && removeUserConfirmRef.current.contains(target);
       const isClickInsideSubtaskConfirm = removeSubtaskConfirmRef.current && removeSubtaskConfirmRef.current.contains(target);

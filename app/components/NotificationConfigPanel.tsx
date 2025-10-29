@@ -61,6 +61,13 @@ const NotificationConfigPanel = () => {
     fetchData();
   }, []);
 
+  // Allow parent to open the create modal via a window event
+  useEffect(() => {
+    const openHandler = () => setIsCreating(true);
+    window.addEventListener('openNotificationConfigCreate', openHandler as any);
+    return () => window.removeEventListener('openNotificationConfigCreate', openHandler as any);
+  }, []);
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -248,25 +255,11 @@ const NotificationConfigPanel = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">Event Configurations</h3>
-          <p className="text-sm text-gray-500">Configure which notifications to send for specific events</p>
-        </div>
-        <button
-          onClick={() => setIsCreating(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus size={16} />
-          Add Configuration
-        </button>
-      </div>
 
       {/* Configuration List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {configs.map((config) => (
-          <div key={config.id} className="bg-white border border-gray-200 rounded-lg p-4 space-y-3 hover:shadow-md transition-shadow">
+          <div key={config.id} className="bg-white border border-gray-300 rounded-lg p-4 space-y-3 hover:shadow-md transition-shadow">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2">
                 {getEventIcon(config.eventType)}
@@ -322,21 +315,22 @@ const NotificationConfigPanel = () => {
 
       {/* Create/Edit Form Modal */}
       {isCreating && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 z-50 flex items-end lg:items-center justify-center p-0 lg:p-4 bg-black/70 bg-opacity-50"
+          style={{ backdropFilter: 'blur(2px)' }}
+          onClick={() => {
+            setIsCreating(false);
+            setEditingConfig(null);
+          }}
+        >
+          <div
+            className="bg-white rounded-t-2xl lg:rounded-2xl w-full lg:w-auto max-w-2xl max-h-[90vh] overflow-y-auto p-4 pb-20 lg:p-6 lg:pb-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">
                 {editingConfig ? 'Edit Configuration' : 'Create New Configuration'}
               </h3>
-              <button
-                onClick={() => {
-                  setIsCreating(false);
-                  setEditingConfig(null);
-                }}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                ×
-              </button>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -466,21 +460,21 @@ const NotificationConfigPanel = () => {
                 </label>
               </div>
 
-              <div className="flex justify-end gap-2 pt-4">
+              <div className="sticky bottom-0 left-0 right-0 bg-white pt-2 pb-2 mt-2 flex justify-between gap-3 lg:static lg:bg-transparent lg:p-0 lg:mt-0 lg:justify-end">
                 <button
                   type="button"
                   onClick={() => {
                     setIsCreating(false);
                     setEditingConfig(null);
                   }}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="px-4 py-2 lg:px-3 lg:py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex-1 text-center lg:flex-none"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  className="px-4 py-2 lg:px-3 lg:py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors flex-1 text-center lg:flex-none"
                 >
                   {loading ? 'Saving...' : editingConfig ? 'Update' : 'Create'}
                 </button>

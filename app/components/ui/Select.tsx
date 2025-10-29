@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
@@ -13,6 +15,7 @@ interface SelectProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>
   size?: 'sm' | 'md' | 'lg';
   variant?: 'default' | 'filter';
   onChange?: (event: React.ChangeEvent<HTMLSelectElement>) => void;
+  onValueChange?: (value: string) => void;
 }
 
 export const Select: React.FC<SelectProps> = ({
@@ -23,9 +26,13 @@ export const Select: React.FC<SelectProps> = ({
   className = '',
   value,
   onChange,
+  onValueChange,
   ...props
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [internalValue, setInternalValue] = useState<string | undefined>(
+    (value as string | undefined)
+  );
   const [dropdownPosition, setDropdownPosition] = useState<'bottom' | 'top'>('bottom');
   const selectRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -112,7 +119,13 @@ export const Select: React.FC<SelectProps> = ({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (selectRef.current && !selectRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      // If click is inside the portal dropdown, do nothing to allow option click
+      if (dropdownRef.current && dropdownRef.current.contains(target)) {
+        return;
+      }
+      // If click is outside the root select button, close
+      if (selectRef.current && !selectRef.current.contains(target)) {
         setIsOpen(false);
       }
     };
@@ -126,14 +139,19 @@ export const Select: React.FC<SelectProps> = ({
     };
   }, [isOpen]);
 
-  const selectedOption = options.find(option => option.value === value);
+  // Use internal value to reflect selection immediately
+  const selectedOption = options.find(option => option.value === (internalValue ?? (value as string | undefined)));
 
   const handleOptionClick = (optionValue: string) => {
+    setInternalValue(optionValue);
     if (onChange) {
       const syntheticEvent = {
         target: { value: optionValue }
       } as React.ChangeEvent<HTMLSelectElement>;
       onChange(syntheticEvent);
+    }
+    if (onValueChange) {
+      onValueChange(optionValue);
     }
     setIsOpen(false);
   };
@@ -143,6 +161,7 @@ export const Select: React.FC<SelectProps> = ({
       ref={dropdownRef}
       className={`w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto`}
       style={portalStyles}
+      data-select-portal
     >
       {options.map((option) => (
         <button
@@ -160,7 +179,7 @@ export const Select: React.FC<SelectProps> = ({
   );
 
   return (
-    <div className={`relative ${className}`} ref={selectRef}>
+    <div className={`relative ${className}`} ref={selectRef} data-select-root>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}

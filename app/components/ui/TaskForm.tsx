@@ -373,7 +373,8 @@ export function TaskForm({
                   </label>
                   <Select
                     value={formData.project || ''}
-                    onChange={(e) => handleInputChange('project', e.target.value)}
+                    onValueChange={(val) => handleInputChange('project', val)}
+                    onChange={(e) => handleInputChange('project', (e.target as any).value)}
                     options={[
                       { value: '', label: 'Select Project' },
                       ...projects.map(project => ({ value: project, label: project }))
@@ -395,7 +396,8 @@ export function TaskForm({
                   </label>
                   <Select
                     value={formData.status || 'To Do'}
-                    onChange={(e) => handleInputChange('status', e.target.value)}
+                    onValueChange={(val) => handleInputChange('status', val)}
+                    onChange={(e) => handleInputChange('status', (e.target as any).value)}
                     options={[
                       { value: 'To Do', label: 'To Do' },
                       { value: 'In Progress', label: 'In Progress' },
@@ -416,7 +418,8 @@ export function TaskForm({
                   </label>
                   <Select
                     value={formData.priority || 'Medium'}
-                    onChange={(e) => handleInputChange('priority', e.target.value)}
+                    onValueChange={(val) => handleInputChange('priority', val)}
+                    onChange={(e) => handleInputChange('priority', (e.target as any).value)}
                     options={[
                       { value: 'Low', label: 'Low' },
                       { value: 'Medium', label: 'Medium' },
@@ -432,8 +435,12 @@ export function TaskForm({
                   </label>
                   <Select
                     value={getHoursFromEstimatedHours(formData.estimatedHours || 0).toString()}
+                    onValueChange={(val) => {
+                      const hours = parseInt(val);
+                      handleInputChange('estimatedHours', hours);
+                    }}
                     onChange={(e) => {
-                      const hours = parseInt(e.target.value);
+                      const hours = parseInt((e.target as any).value);
                       handleInputChange('estimatedHours', hours);
                     }}
                     options={Array.from({ length: 25 }, (_, i) => ({
@@ -505,8 +512,12 @@ export function TaskForm({
                 </label>
                 <Select
                   value={getHoursFromEstimatedHours(formData.estimatedHours || 0).toString()}
+                  onValueChange={(val) => {
+                    const hours = parseInt(val);
+                    handleInputChange('estimatedHours', hours);
+                  }}
                   onChange={(e) => {
-                    const hours = parseInt(e.target.value);
+                    const hours = parseInt((e.target as any).value);
                     handleInputChange('estimatedHours', hours);
                   }}
                   options={Array.from({ length: 25 }, (_, i) => ({

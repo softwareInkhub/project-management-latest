@@ -739,13 +739,13 @@ const filteredUsers = allUsers.filter(user => {
             }}
           >
             <div 
-            className="bg-white rounded-t-2xl lg:rounded-2xl w-full lg:w-auto lg:max-w-3xl shadow-2xl overflow-y-auto"
+            className="bg-white rounded-t-2xl lg:rounded-2xl w-full lg:w-auto lg:max-w-3xl shadow-2xl overflow-y-auto scrollbar-hide"
               style={{ 
               maxHeight: '85vh',
               boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
               }}
             >
-              <div className="p-4 lg:p-6">
+              <div className="p-4 lg:p-6 pb-24 lg:pb-6">
                 <div className="flex items-center justify-between mb-4 lg:mb-6">
                   <div className="flex items-center space-x-3">
                   <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
@@ -821,7 +821,7 @@ const filteredUsers = allUsers.filter(user => {
                 {/* Team Members */}
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h3 className="font-semibold text-gray-900 mb-3">Team Members</h3>
-                  <div className="max-h-72 sm:max-h-80 overflow-y-auto scrollbar-hide space-y-2 pr-2">
+                  <div className="sm:max-h-80 sm:overflow-y-auto scrollbar-hide space-y-2 pr-2 pb-2">
                     {parseMembers(selectedTeam.members).map((member, index) => (
                       <div key={member.id || member.name || `member-${index}`} className="flex items-center space-x-3 py-2">
                         <Avatar name={member.name} size="sm" />

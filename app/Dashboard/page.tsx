@@ -178,6 +178,8 @@ const Dashboard = () => {
   });
   const [chartData, setChartData] = useState<any[]>([]);
   const [taskStatusData, setTaskStatusData] = useState<any[]>([]);
+  const [selectedStatus, setSelectedStatus] = useState<string | 'all'>('all');
+  const [selectedProgress, setSelectedProgress] = useState<'all' | 'Completed' | 'In Progress' | 'Pending'>('all');
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
   const [upcomingTasks, setUpcomingTasks] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -287,6 +289,65 @@ const Dashboard = () => {
       setRefreshing(false);
     }
   };
+  // Filtered data for Task Status pie
+  const getFilteredTaskStatusData = () => {
+    if (selectedStatus === 'all') return taskStatusData;
+    return taskStatusData.filter((d: any) => d.name === selectedStatus);
+  };
+
+  // Custom legend with click-to-filter
+  const renderStatusLegend = (props: any) => {
+    const payload = props?.payload || [];
+    return (
+      <div className="pt-15">
+        <div className="mx-auto flex items-center justify-center gap-3 sm:gap-6 px-2 ">
+          {payload.map((entry: any) => (
+            <div key={entry.value} className="flex items-center">
+              <button
+                onClick={() => setSelectedStatus(prev => (prev === entry.value ? 'all' : entry.value))}
+                className={`flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm transition-opacity whitespace-nowrap ${selectedStatus === 'all' || selectedStatus === entry.value ? 'opacity-100' : 'opacity-50'}`}
+              >
+                <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full" style={{ backgroundColor: entry.color }} />
+                <span>{String(entry.value).replace(/\s/g, '\u00A0')}</span>
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // Legend for Task Progress (AreaChart)
+  const renderProgressLegend = (props: any) => {
+    const payload = props?.payload || [];
+    const labelMap: Record<string, string> = {
+      completed: 'Completed',
+      inProgress: 'In Progress',
+      pending: 'Pending'
+    };
+    return (
+      <div className="pt-2">
+        <div className="mx-auto flex items-center justify-center gap-3 sm:gap-6 px-2">
+          {payload.map((entry: any) => {
+            const key = entry?.value as string;
+            const label = labelMap[key] || key;
+            const isActive = selectedProgress === 'all' || selectedProgress === label;
+            return (
+              <div key={key} className="flex items-center">
+                <button
+                  onClick={() => setSelectedProgress(prev => (prev === label ? 'all' : label as any))}
+                  className={`flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm transition-opacity whitespace-nowrap ${isActive ? 'opacity-100' : 'opacity-50'}`}
+                >
+                  <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full" style={{ backgroundColor: entry.color }} />
+                  <span>{label}</span>
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
 
   // Filter tasks by time range and other filters
   const filterTasks = (tasks: any[], timeRange: string, filters: any) => {
@@ -314,7 +375,17 @@ const Dashboard = () => {
 
     // Status filter
     if (filters.status !== 'all') {
-      filteredTasks = filteredTasks.filter(task => task.status === filters.status);
+      if (filters.status === 'Overdue') {
+        const nowTs = new Date().getTime();
+        filteredTasks = filteredTasks.filter(task => {
+          if (!task?.dueDate) return false;
+          const dueTs = new Date(task.dueDate).getTime();
+          if (Number.isNaN(dueTs)) return false;
+          return task.status !== 'Completed' && dueTs < nowTs;
+        });
+      } else {
+        filteredTasks = filteredTasks.filter(task => task.status === filters.status);
+      }
     }
 
     // Priority filter
@@ -383,28 +454,26 @@ const Dashboard = () => {
     });
   };
 
-  // Generate task status data for pie chart
+  // Generate task status data for pie chart (To Do, In Progress, Completed, Overdue)
   const generateTaskStatusData = (tasks: any[]) => {
-    const statusCounts = tasks.reduce((acc: any, task: any) => {
-      acc[task.status] = (acc[task.status] || 0) + 1;
-      return acc;
-    }, {});
+    const nowTs = new Date().getTime();
 
-    // If no tasks, generate sample data
-    if (Object.keys(statusCounts).length === 0) {
-      return [
-        { name: 'Completed', value: 15, color: '#10b981' },
-        { name: 'In Progress', value: 8, color: '#3b82f6' },
-        { name: 'To Do', value: 5, color: '#f59e0b' },
-        { name: 'On Hold', value: 2, color: '#ef4444' }
-      ];
-    }
+    const toDoCount = tasks.filter((t: any) => t.status === 'To Do').length;
+    const inProgressCount = tasks.filter((t: any) => t.status === 'In Progress').length;
+    const completedCount = tasks.filter((t: any) => t.status === 'Completed').length;
+    const overdueCount = tasks.filter((t: any) => {
+      if (!t?.dueDate) return false;
+      const dueTs = new Date(t.dueDate).getTime();
+      if (Number.isNaN(dueTs)) return false;
+      return t.status !== 'Completed' && dueTs < nowTs;
+    }).length;
 
-    return Object.entries(statusCounts).map(([status, count]) => ({
-      name: status,
-      value: count,
-      color: getStatusColor(status)
-    }));
+    return [
+      { name: 'To Do', value: toDoCount, color: getStatusColor('To Do') },
+      { name: 'In Progress', value: inProgressCount, color: getStatusColor('In Progress') },
+      { name: 'Completed', value: completedCount, color: getStatusColor('Completed') },
+      { name: 'Overdue', value: overdueCount, color: getStatusColor('Overdue') }
+    ];
   };
 
   // Get color for status
@@ -413,7 +482,7 @@ const Dashboard = () => {
       'Completed': '#10b981',
       'In Progress': '#3b82f6',
       'To Do': '#f59e0b',
-      'On Hold': '#ef4444'
+      'Overdue': '#ef4444'
     };
     return colors[status] || '#6b7280';
   };
@@ -628,6 +697,18 @@ const Dashboard = () => {
     );
   }
 
+  // Derived once per render for the pie chart
+  const filteredTaskStatusData = getFilteredTaskStatusData();
+  const totalTaskStatus = taskStatusData.reduce((sum: number, d: any) => sum + (d?.value || 0), 0);
+  const selectedSlice = selectedStatus !== 'all' ? taskStatusData.find((d: any) => d.name === selectedStatus) : null;
+  const selectedPercent = selectedSlice && totalTaskStatus > 0 
+    ? Math.round((selectedSlice.value / totalTaskStatus) * 100) 
+    : 0;
+  // Ensure we always render a visible arc even when the selected slice is zero
+  const displayedFilteredData = selectedSlice && filteredTaskStatusData.length === 1 && (selectedSlice?.value || 0) === 0
+    ? [{ ...selectedSlice, value: 0.0001 }]
+    : filteredTaskStatusData;
+
   return (
     <AppLayout>
       <div className="w-full px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8 overflow-x-hidden bg-gradient-to-br from-gray-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 min-h-screen">
@@ -757,19 +838,28 @@ const Dashboard = () => {
         )}
 
         {/* Modern Stats Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-4 sm:mb-6 lg:mb-8">
-          <div className="group relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-4 sm:mb-6 lg:mb-6 lg:-mt-4">
+          <div className="group relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-4 lg:pb-1 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105">
             <div className="absolute top-0 right-0 w-16 h-16 sm:w-20 sm:h-20 bg-white/10 rounded-full -translate-y-10 translate-x-10"></div>
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-2 sm:mb-4">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-white/20 rounded-lg sm:rounded-xl flex items-center justify-center">
-                  <FolderKanban className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-white" />
+                <div className="flex items-center">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-10 lg:h-10 bg-white/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                    <FolderKanban className="w-4 h-4 sm:w-5 sm:h-5 lg:w-5 lg:h-5 text-white" />
+                  </div>
+                  <div className="hidden lg:block ml-3">
+                    <h3 className="text-white font-semibold text-base mb-0.5">Total Projects</h3>
+                    <p className="text-blue-100 text-sm">across all teams</p>
+                  </div>
+                  <div className="lg:hidden ml-3">
+                    <h3 className="text-white font-semibold text-sm">Total Projects</h3>
+                  </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-xl sm:text-2xl font-bold text-white">
+                  <div className="text-xl sm:text-2xl font-bold text-white lg:block hidden">
                     {dashboardData.stats.totalProjects}
                   </div>
-                  <div className="text-blue-100 text-xs sm:text-sm">
+                  <div className="text-blue-100 text-xs sm:text-sm lg:block hidden">
                     {dashboardData.stats.totalProjects > 0 ? (
                       <span className="flex items-center justify-end">
                         <ArrowUp className="w-2 h-2 sm:w-3 sm:h-3 mr-1" />
@@ -781,23 +871,45 @@ const Dashboard = () => {
                   </div>
                 </div>
               </div>
-              <h3 className="text-white font-semibold text-sm sm:text-base mb-0.5 sm:mb-1">Total Projects</h3>
-              <p className="text-blue-100 text-xs sm:text-sm">across all teams</p>
+              <div className="lg:hidden flex items-center justify-between mt-2">
+                <div className="text-xl font-bold text-white">
+                  {dashboardData.stats.totalProjects}
+                </div>
+                <div className="text-blue-100 text-xs">
+                  {dashboardData.stats.totalProjects > 0 ? (
+                    <span className="flex items-center">
+                      <ArrowUp className="w-2 h-2 mr-1" />
+                      <span>+{dashboardData.stats.projectGrowth || 0}%</span>
+                    </span>
+                  ) : (
+                    <span>No projects</span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="group relative overflow-hidden bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105">
+          <div className="group relative overflow-hidden bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-4 lg:pb-1 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105">
             <div className="absolute top-0 right-0 w-16 h-16 sm:w-20 sm:h-20 bg-white/10 rounded-full -translate-y-10 translate-x-10"></div>
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-2 sm:mb-4">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-white/20 rounded-lg sm:rounded-xl flex items-center justify-center">
-                  <CheckSquare className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-white" />
+                <div className="flex items-center">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-10 lg:h-10 bg-white/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                    <CheckSquare className="w-4 h-4 sm:w-5 sm:h-5 lg:w-5 lg:h-5 text-white" />
+                  </div>
+                  <div className="hidden lg:block ml-3">
+                    <h3 className="text-white font-semibold text-base mb-0.5">Active Tasks</h3>
+                    <p className="text-emerald-100 text-sm">currently in progress</p>
+                  </div>
+                  <div className="lg:hidden ml-3">
+                    <h3 className="text-white font-semibold text-sm">Active Tasks</h3>
+                  </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-xl sm:text-2xl font-bold text-white">
+                  <div className="text-xl sm:text-2xl font-bold text-white lg:block hidden">
                     {dashboardData.stats.activeTasks}
                   </div>
-                  <div className="text-emerald-100 text-xs sm:text-sm">
+                  <div className="text-emerald-100 text-xs sm:text-sm lg:block hidden">
                     {dashboardData.stats.activeTasks > 0 ? (
                       <span className="flex items-center justify-end">
                         <ArrowUp className="w-2 h-2 sm:w-3 sm:h-3 mr-1" />
@@ -809,23 +921,45 @@ const Dashboard = () => {
                   </div>
                 </div>
               </div>
-              <h3 className="text-white font-semibold text-sm sm:text-base mb-0.5 sm:mb-1">Active Tasks</h3>
-              <p className="text-emerald-100 text-xs sm:text-sm">currently in progress</p>
+              <div className="lg:hidden flex items-center justify-between mt-2">
+                <div className="text-xl font-bold text-white">
+                  {dashboardData.stats.activeTasks}
+                </div>
+                <div className="text-emerald-100 text-xs">
+                  {dashboardData.stats.activeTasks > 0 ? (
+                    <span className="flex items-center">
+                      <ArrowUp className="w-2 h-2 mr-1" />
+                      <span>+{dashboardData.stats.taskGrowth || 0} today</span>
+                    </span>
+                  ) : (
+                    <span>All done!</span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="group relative overflow-hidden bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105">
+          <div className="group relative overflow-hidden bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-4 lg:pb-1 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105">
             <div className="absolute top-0 right-0 w-16 h-16 sm:w-20 sm:h-20 bg-white/10 rounded-full -translate-y-10 translate-x-10"></div>
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-2 sm:mb-4">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-white/20 rounded-lg sm:rounded-xl flex items-center justify-center">
-                  <Users className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-white" />
+                <div className="flex items-center">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-10 lg:h-10 bg-white/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                    <Users className="w-4 h-4 sm:w-5 sm:h-5 lg:w-5 lg:h-5 text-white" />
+                  </div>
+                  <div className="hidden lg:block ml-3">
+                    <h3 className="text-white font-semibold text-base mb-0.5">Team Members</h3>
+                    <p className="text-purple-100 text-sm">across all teams</p>
+                  </div>
+                  <div className="lg:hidden ml-3">
+                    <h3 className="text-white font-semibold text-sm">Team Members</h3>
+                  </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-xl sm:text-2xl font-bold text-white">
+                  <div className="text-xl sm:text-2xl font-bold text-white lg:block hidden">
                     {dashboardData.stats.teamMembers}
                   </div>
-                  <div className="text-purple-100 text-xs sm:text-sm">
+                  <div className="text-purple-100 text-xs sm:text-sm lg:block hidden">
                     {dashboardData.stats.teamMembers > 0 ? (
                       <span className="flex items-center justify-end">
                         <ArrowUp className="w-2 h-2 sm:w-3 sm:h-3 mr-1" />
@@ -837,23 +971,45 @@ const Dashboard = () => {
                   </div>
                 </div>
               </div>
-              <h3 className="text-white font-semibold text-sm sm:text-base mb-0.5 sm:mb-1">Team Members</h3>
-              <p className="text-purple-100 text-xs sm:text-sm">across all teams</p>
+              <div className="lg:hidden flex items-center justify-between mt-2">
+                <div className="text-xl font-bold text-white">
+                  {dashboardData.stats.teamMembers}
+                </div>
+                <div className="text-purple-100 text-xs">
+                  {dashboardData.stats.teamMembers > 0 ? (
+                    <span className="flex items-center">
+                      <ArrowUp className="w-2 h-2 mr-1" />
+                      <span>+{dashboardData.stats.userGrowth || 0} new</span>
+                    </span>
+                  ) : (
+                    <span>No members</span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="group relative overflow-hidden bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105">
+          <div className="group relative overflow-hidden bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-4 lg:pb-1 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105">
             <div className="absolute top-0 right-0 w-16 h-16 sm:w-20 sm:h-20 bg-white/10 rounded-full -translate-y-10 translate-x-10"></div>
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-2 sm:mb-4">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-white/20 rounded-lg sm:rounded-xl flex items-center justify-center">
-                  <Target className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-white" />
+                <div className="flex items-center">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-10 lg:h-10 bg-white/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                    <Target className="w-4 h-4 sm:w-5 sm:h-5 lg:w-5 lg:h-5 text-white" />
+                  </div>
+                  <div className="hidden lg:block ml-3">
+                    <h3 className="text-white font-semibold text-base mb-0.5">Completion Rate</h3>
+                    <p className="text-orange-100 text-sm">overall progress</p>
+                  </div>
+                  <div className="lg:hidden ml-3">
+                    <h3 className="text-white font-semibold text-sm">Completion Rate</h3>
+                  </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-xl sm:text-2xl font-bold text-white">
+                  <div className="text-xl sm:text-2xl font-bold text-white lg:block hidden">
                     {dashboardData.stats.completionRate}%
                   </div>
-                  <div className="text-orange-100 text-xs sm:text-sm">
+                  <div className="text-orange-100 text-xs sm:text-sm lg:block hidden">
                     {dashboardData.stats.completionRate > 0 ? (
                       <span className="flex items-center justify-end">
                         {dashboardData.stats.completionRate >= 80 ? (
@@ -869,8 +1025,25 @@ const Dashboard = () => {
                   </div>
                 </div>
               </div>
-              <h3 className="text-white font-semibold text-sm sm:text-base mb-0.5 sm:mb-1">Completion Rate</h3>
-              <p className="text-orange-100 text-xs sm:text-sm">overall progress</p>
+              <div className="lg:hidden flex items-center justify-between mt-2">
+                <div className="text-xl font-bold text-white">
+                  {dashboardData.stats.completionRate}%
+                </div>
+                <div className="text-orange-100 text-xs">
+                  {dashboardData.stats.completionRate > 0 ? (
+                    <span className="flex items-center">
+                      {dashboardData.stats.completionRate >= 80 ? (
+                        <ArrowUp className="w-2 h-2 mr-1" />
+                      ) : (
+                        <ArrowDown className="w-2 h-2 mr-1" />
+                      )}
+                      <span>{dashboardData.stats.completionRate >= 80 ? '+5%' : 'Needs work'}</span>
+                    </span>
+                  ) : (
+                    <span>No tasks</span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -878,7 +1051,7 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 mb-4 sm:mb-6 lg:mb-8">
               {/* Project Progress Chart */}
               <div className="lg:col-span-2">
-                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-white/20 dark:border-gray-700">
+                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-4 shadow-xl border border-gray-300 dark:border-gray-700">
                   <div className="flex items-center justify-between mb-4 sm:mb-6">
                     <div className="flex items-center space-x-2 sm:space-x-3">
                       <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg sm:rounded-xl flex items-center justify-center">
@@ -892,7 +1065,7 @@ const Dashboard = () => {
                       <div className="w-2 h-2 sm:w-3 sm:h-3 bg-orange-500 rounded-full"></div>
                     </div>
                   </div>
-                  <div className="h-64 sm:h-72 lg:h-80 -ml-6 -mr-2">
+                  <div className="h-64 sm:h-72 lg:h-72 -ml-6 -mr-2 border-0 outline-none [&_*]:outline-none [&_.recharts-wrapper]:border-0 [&_.recharts-surface]:border-0">
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={chartData} margin={{ left: 0, right: 0, top: 10, bottom: 10 }}>
                         <defs>
@@ -920,14 +1093,7 @@ const Dashboard = () => {
                             color: '#f9fafb'
                           }}
                         />
-                        <Legend 
-                          wrapperStyle={{
-                            display: 'flex',
-                            justifyContent: 'center',
-                            paddingTop: '10px',
-                            gap: '32px'
-                          }}
-                        />
+                        <Legend content={renderProgressLegend} />
                         <Area
                           type="monotone"
                           dataKey="completed"
@@ -935,6 +1101,7 @@ const Dashboard = () => {
                           stroke="#10b981"
                           fill="url(#colorCompleted)"
                           name="Completed"
+                          hide={selectedProgress !== 'all' && selectedProgress !== 'Completed'}
                         />
                         <Area
                           type="monotone"
@@ -943,6 +1110,7 @@ const Dashboard = () => {
                           stroke="#3b82f6"
                           fill="url(#colorInProgress)"
                           name="In Progress"
+                          hide={selectedProgress !== 'all' && selectedProgress !== 'In Progress'}
                         />
                         <Area
                           type="monotone"
@@ -951,6 +1119,7 @@ const Dashboard = () => {
                           stroke="#f59e0b"
                           fill="url(#colorPending)"
                           name="Pending"
+                          hide={selectedProgress !== 'all' && selectedProgress !== 'Pending'}
                         />
                       </AreaChart>
                     </ResponsiveContainer>
@@ -960,57 +1129,64 @@ const Dashboard = () => {
 
               {/* Task Status Pie Chart */}
               <div className="lg:col-span-1">
-                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-white/20 dark:border-gray-700">
+                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-4 shadow-xl border border-gray-300 dark:border-gray-700">
                   <div className="flex items-center space-x-2 sm:space-x-3 mb-4 sm:mb-6">
                     <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg sm:rounded-xl flex items-center justify-center">
                       <PieChart className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                     </div>
                     <h2 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 dark:text-white">Task Status</h2>
                   </div>
-                  <div className="h-64 sm:h-72 lg:h-80 -mx-3 sm:mx-0 [&_.recharts-pie-label]:text-xs sm:[&_.recharts-pie-label]:text-sm">
+                  <div className="relative h-64 sm:h-72 lg:h-72 mx-0 px-2 sm:px-0 focus:outline-none [&_*:focus]:outline-none [&_.recharts-pie-label]:text-[12px] sm:[&_.recharts-pie-label]:text-sm">
+                    {selectedSlice && (
+                      <div className="flex absolute left-0 lg:left-6 top-1/2 -translate-y-1/2 -ml-1 sm:-ml-3 lg:ml-0 flex-col items-start text-gray-900 dark:text-white">
+                        <div className="text-2xl lg:text-3xl font-extrabold leading-none">{selectedPercent}%</div>
+                        <div className="mt-1 text-xs sm:text-sm font-medium opacity-80">
+                          {selectedSlice.name} : {selectedSlice.value} {selectedSlice.value === 1 ? 'task' : 'tasks'}
+                        </div>
+                      </div>
+                    )}
                     <ResponsiveContainer width="100%" height="100%">
-                      <RechartsPieChart margin={{ top: 15, right: 30, bottom: 50, left: 30 }}>
+                      <RechartsPieChart margin={isDesktop ? { top: 46, right: 56, bottom: 60, left: 56 } : { top: 24, right: 72, bottom: 56, left: 72 }}>
                         <Pie
-                          data={taskStatusData}
+                          data={displayedFilteredData}
                           cx="50%"
                           cy="50%"
                           labelLine={false}
-                          label={({ name, percent }: any) => {
+                          label={displayedFilteredData.length > 1 ? ({ name, percent }: any) => {
                             const percentage = ((percent as number) * 100).toFixed(0);
                             return percentage !== '0' ? `${name} ${percentage}%` : '';
-                          }}
-                          outerRadius={isDesktop ? 90 : 65}
-                          innerRadius={isDesktop ? 30 : 20}
+                          } : false}
+                          outerRadius={isDesktop ? 90 : 58}
+                          innerRadius={isDesktop ? 30 : 22}
                           fill="#8884d8"
                           dataKey="value"
+                          onClick={(data: any) => {
+                            const statusName = data?.name;
+                            setSelectedStatus((prev) => (prev === statusName ? 'all' : statusName));
+                          }}
                         >
-                          {taskStatusData.map((entry, index) => (
+                          {displayedFilteredData.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={entry.color} />
                           ))}
                         </Pie>
-                        <Tooltip 
-                          contentStyle={{
-                            backgroundColor: 'white',
-                            border: '1px solid #e5e7eb',
-                            borderRadius: '8px',
-                            color: '#374151',
-                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-                          }}
-                          formatter={(value: any, name: any) => [
-                            `${value} tasks`,
-                            name
-                          ]}
-                          labelFormatter={(label: any) => `Status: ${label}`}
-                        />
-                        <Legend 
-                          verticalAlign="bottom" 
-                          height={36}
-                          iconType="circle"
-                          wrapperStyle={{
-                            fontSize: isDesktop ? '17px' : '15px',
-                            paddingTop: '25px'
-                          }}
-                        />
+                        {/* No centered label in single-slice view */}
+                        {selectedStatus === 'all' && (
+                          <Tooltip 
+                            contentStyle={{
+                              backgroundColor: 'white',
+                              border: '1px solid #e5e7eb',
+                              borderRadius: '8px',
+                              color: '#374151',
+                              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+                            }}
+                            formatter={(value: any, name: any) => [
+                              `${value} tasks`,
+                              name
+                            ]}
+                            labelFormatter={(label: any) => `Status: ${label}`}
+                          />
+                        )}
+                        <Legend verticalAlign="bottom" height={36} iconType="circle" content={renderStatusLegend} />
                       </RechartsPieChart>
                     </ResponsiveContainer>
                   </div>
@@ -1019,19 +1195,19 @@ const Dashboard = () => {
             </div>
 
             {/* Recent Activity and Upcoming Tasks Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8 mb-4 sm:mb-6 lg:mb-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-6 mb-4 sm:mb-6 lg:mb-8">
               {/* Recent Activity */}
-              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-white/20 dark:border-gray-700">
-                <div className="flex items-center space-x-2 sm:space-x-3 mb-4 sm:mb-6">
+              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-4 shadow-xl border border-gray-300 dark:border-gray-700">
+                <div className="flex items-center space-x-2 sm:space-x-3 mb-4 sm:mb-6 lg:mb-4">
                   <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg sm:rounded-xl flex items-center justify-center">
                     <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                   </div>
-                  <h2 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 dark:text-white">Recent Activity</h2>
+                  <h2 className="text-base sm:text-lg lg:text-base font-bold text-gray-900 dark:text-white">Recent Activity</h2>
                 </div>
-                <div className="space-y-3 sm:space-y-4 max-h-64 overflow-y-auto">
+                <div className="space-y-3 sm:space-y-4 lg:space-y-2 max-h-64 lg:max-h-48 overflow-y-auto">
                   {recentActivities.length > 0 ? (
                     recentActivities.map((activity, index) => (
-                      <div key={activity.id} className="group flex items-start space-x-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                      <div key={activity.id} className="group flex items-start space-x-3 p-3 lg:p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                         <div className="relative">
                           <Avatar name={activity.user} size="sm" />
                           <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white dark:border-gray-800 ${
@@ -1061,13 +1237,13 @@ const Dashboard = () => {
               </div>
 
               {/* Upcoming Tasks */}
-              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-white/20 dark:border-gray-700">
-                <div className="flex flex-col space-y-3 mb-4 sm:mb-6">
+              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-4 shadow-xl border border-gray-300 dark:border-gray-700">
+                <div className="flex flex-col space-y-3 mb-4 sm:mb-6 lg:mb-4">
                   <div className="flex items-center space-x-2 sm:space-x-3">
                     <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg sm:rounded-xl flex items-center justify-center">
                       <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                     </div>
-                    <h2 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 dark:text-white">Upcoming Tasks</h2>
+                    <h2 className="text-base sm:text-lg lg:text-base font-bold text-gray-900 dark:text-white">Upcoming Tasks</h2>
                   </div>
                   {/* Filter Toggle */}
                   <div className="flex items-center space-x-1 sm:space-x-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-1 w-full sm:w-auto">
@@ -1093,12 +1269,12 @@ const Dashboard = () => {
                     </button>
                   </div>
                 </div>
-                <div className="space-y-3 sm:space-y-4 max-h-64 overflow-y-auto">
+                <div className="space-y-3 sm:space-y-4 lg:space-y-2 max-h-64 lg:max-h-48 overflow-y-auto">
                   {upcomingTasks.length > 0 ? (
                     upcomingTasks.map((task, index) => (
-                      <div key={task.id} className="group relative overflow-hidden bg-gradient-to-r from-gray-50 to-white dark:from-gray-700 dark:to-gray-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-5 border border-gray-100 dark:border-gray-600 hover:shadow-lg transition-all duration-300 hover:scale-[1.01] sm:hover:scale-[1.02]">
+                      <div key={task.id} className="group relative overflow-hidden bg-gradient-to-r from-gray-50 to-white dark:from-gray-700 dark:to-gray-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-3 border border-gray-100 dark:border-gray-600 hover:shadow-lg transition-all duration-300 hover:scale-[1.01] sm:hover:scale-[1.02]">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
-                          <div className="flex items-center space-x-2 sm:space-x-3 lg:space-x-4 flex-1 min-w-0">
+                          <div className="flex items-center space-x-2 sm:space-x-3 lg:space-x-2 flex-1 min-w-0">
                             <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full flex-shrink-0 ${
                               task.priority === 'high' ? 'bg-red-500' : 
                               task.priority === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
@@ -1108,7 +1284,7 @@ const Dashboard = () => {
                               <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 truncate">{task.project}</p>
                             </div>
                           </div>
-                          <div className="flex items-center justify-between sm:justify-end space-x-2 sm:space-x-3 lg:space-x-4">
+                          <div className="flex items-center justify-between sm:justify-end space-x-2 sm:space-x-3 lg:space-x-2">
                             <div className={`px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
                               task.priority === 'high' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' : 
                               task.priority === 'medium' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400' : 

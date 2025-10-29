@@ -21,6 +21,11 @@ export const Navigation: React.FC<NavigationProps> = ({ onMobileMenuClick }) => 
   const isDashboard = pathname === '/Dashboard' || pathname === '/';
   const isProjects = pathname === '/project';
   
+  // Reduce navbar padding only on Dashboard
+  const navPaddingClass = isDashboard
+    ? 'px-2 sm:px-3 lg:px-4 py-5 lg:py-4'
+    : 'px-3 sm:px-4 lg:px-6 py-5 lg:py-5.5';
+  
   // Get page title based on current route
   const getPageTitle = () => {
     if (isDashboard) return 'Dashboard';
@@ -35,7 +40,7 @@ export const Navigation: React.FC<NavigationProps> = ({ onMobileMenuClick }) => 
   };
 
   return (
-    <nav className="bg-white dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700 px-3 sm:px-4 lg:px-6 py-4 lg:py-5.5 w-full sticky top-0 z-30">
+    <nav className={`bg-white dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700 ${navPaddingClass} w-full sticky top-0 z-30`}>
       <div className="flex items-center justify-between w-full">
         {/* Left Side - Mobile Menu + Page Title */}
         <div className="flex items-center min-w-0 flex-1">
@@ -81,11 +86,22 @@ export const Navigation: React.FC<NavigationProps> = ({ onMobileMenuClick }) => 
 
           {/* User Avatar */}
           <div className="flex items-center space-x-1 sm:space-x-2 lg:space-x-3 min-w-0">
-            <Avatar 
-              name={user?.name || user?.username || user?.email || 'User'} 
-              size="sm"
-              className="cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all flex-shrink-0 sm:w-8 sm:h-8"
-            />
+            <button
+              type="button"
+              className="rounded-full focus:outline-none"
+              onClick={() => {
+                // Navigate to settings when tapped on mobile view only
+                if (typeof window !== 'undefined' && window.innerWidth < 640) {
+                  window.location.href = '/settings';
+                }
+              }}
+            >
+              <Avatar 
+                name={user?.name || user?.username || user?.email || 'User'} 
+                size="sm"
+                className="cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all flex-shrink-0 sm:w-8 sm:h-8"
+              />
+            </button>
             <div className="hidden sm:block min-w-0">
               <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white truncate">
                 {user?.name || user?.username || user?.email?.split('@')[0] || 'User'}
