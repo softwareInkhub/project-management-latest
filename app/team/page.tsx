@@ -599,7 +599,7 @@ const filteredUsers = allUsers.filter(user => {
         {viewMode === 'list' ? (
           <div className="space-y-3">
             {filteredTeams.map((team, index) => (
-              <div key={team.id || `team-${index}`} className="relative p-3 sm:p-4 bg-white rounded-lg border border-gray-300 hover:border-gray-400 transition-colors min-h-[120px] sm:min-h-[140px] flex flex-col sm:flex-row sm:items-center cursor-pointer shadow-sm" onClick={() => handleTeamMenu(team)}>
+              <div key={team.id || `team-${index}`} className="relative p-2 sm:p-3 bg-white rounded-lg border border-gray-300 hover:border-gray-400 transition-colors min-h-[96px] sm:min-h-[112px] flex flex-col sm:flex-row sm:items-center cursor-pointer shadow-sm" onClick={() => handleTeamMenu(team)}>
                 {/* Action Buttons - Top Right Corner */}
                 <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex flex-col items-end space-y-2 z-20">
                   <div className="flex items-center space-x-1">
@@ -627,22 +627,20 @@ const filteredUsers = allUsers.filter(user => {
                     <h4 className="font-medium text-gray-900 text-sm sm:text-base leading-tight line-clamp-1">{team.name}</h4>
                     <p className="text-xs sm:text-sm text-gray-600 mt-1 line-clamp-1 sm:line-clamp-2">{team.description || 'No description'}</p>
                     
-                    {/* Member Count and Status - Mobile: Stacked, Desktop: Side by side */}
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mt-2">
+                    {/* Member Count, Status, and Avatars inline on desktop */}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 mt-2">
                       <div className="flex items-center text-xs sm:text-sm text-gray-500">
                         <Users className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                         <span>{team.memberCount} members</span>
                       </div>
-                      <Badge variant={getStatusColor(team.archived || false)} size="sm" className="text-xs">
-                        {team.archived ? 'Archived' : 'Active'}
-                      </Badge>
-                    </div>
-                    
-                    {/* Member Avatars - Mobile: Stacked, Desktop: Side by side */}
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2">
-                      {team.members && Array.isArray(team.members) && team.members.length > 0 && (
-                        <MemberAvatars members={team.members} maxVisible={3} />
-                      )}
+                      <div className="flex items-center gap-2">
+                        <Badge variant={getStatusColor(team.archived || false)} size="sm" className="text-xs">
+                          {team.archived ? 'Archived' : 'Active'}
+                        </Badge>
+                        {team.members && Array.isArray(team.members) && team.members.length > 0 && (
+                          <MemberAvatars members={team.members} maxVisible={3} />
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -650,10 +648,10 @@ const filteredUsers = allUsers.filter(user => {
             ))}
           </div>
          ) : (
-           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 lg:gap-4">
-             {filteredTeams.map((team, index) => (
-               <Card key={team.id || `team-${index}`} hover className="cursor-pointer" onClick={() => handleTeamMenu(team)}>
-                 <CardContent className="p-2 sm:p-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 xl:grid-cols-7 gap-2 sm:gap-3 lg:gap-4">
+            {filteredTeams.map((team, index) => (
+              <Card key={team.id || `team-${index}`} hover className="cursor-pointer" onClick={() => handleTeamMenu(team)}>
+                <CardContent className="p-1 sm:p-1">
                    <div className="space-y-1 sm:space-y-2">
                      {/* Header with Team Icon and Title */}
                      <div className="flex items-start space-x-1 sm:space-x-2">

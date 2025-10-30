@@ -296,19 +296,20 @@ const Dashboard = () => {
   };
 
   // Custom legend with click-to-filter
-  const renderStatusLegend = (props: any) => {
-    const payload = props?.payload || [];
+  const renderStatusLegend = () => {
+    // Always render legend for all statuses so non-selected ones can be faded
+    const legendItems = taskStatusData;
     return (
       <div className="pt-15">
         <div className="mx-auto flex items-center justify-center gap-3 sm:gap-6 px-2 ">
-          {payload.map((entry: any) => (
-            <div key={entry.value} className="flex items-center">
+          {legendItems.map((entry: any) => (
+            <div key={entry.name} className="flex items-center">
               <button
-                onClick={() => setSelectedStatus(prev => (prev === entry.value ? 'all' : entry.value))}
-                className={`flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm transition-opacity whitespace-nowrap ${selectedStatus === 'all' || selectedStatus === entry.value ? 'opacity-100' : 'opacity-50'}`}
+                onClick={() => setSelectedStatus(prev => (prev === entry.name ? 'all' : entry.name))}
+                className={`flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm transition-opacity whitespace-nowrap ${selectedStatus === 'all' || selectedStatus === entry.name ? 'opacity-100' : 'opacity-50'}`}
               >
                 <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full" style={{ backgroundColor: entry.color }} />
-                <span>{String(entry.value).replace(/\s/g, '\u00A0')}</span>
+                <span>{String(entry.name).replace(/\s/g, '\u00A0')}</span>
               </button>
             </div>
           ))}
@@ -346,6 +347,45 @@ const Dashboard = () => {
           })}
         </div>
       </div>
+    );
+  };
+
+  // Custom label for Task Status pie to show text on mobile without overlap
+  const renderPieLabel = (props: any) => {
+    const { cx, cy, midAngle, outerRadius, percent, name, fill } = props;
+    const RADIAN = Math.PI / 180;
+    // Base radius for labels
+    let labelRadius = (outerRadius || 0) + (isDesktop ? 16 : 12);
+    // For Overdue on desktop, place the label outside near the top-right of the red slice
+    // by pushing outward and slightly rotating toward the top
+    let angle = midAngle;
+    if (isDesktop && name === 'Overdue') {
+      labelRadius -= 10; // push well outside toward the right clear area
+      angle = midAngle + 50; // slight tilt toward the top-right but mostly rightwards
+    }
+    // For To Do on desktop, keep the label slightly inside the arc so it doesn't
+    // get clipped at the top when placed outside the pie area
+    if (isDesktop && name === 'To Do') {
+      labelRadius = (outerRadius || 0) - 6;
+    }
+    let x = cx + labelRadius * Math.cos(-angle * RADIAN);
+    let y = cy + labelRadius * Math.sin(-angle * RADIAN);
+    if (isDesktop && name === 'Overdue') {
+      y += 4; // nudge slightly downward to match the circled spot
+    }
+    const percentage = ((percent as number) * 100).toFixed(0);
+    if (percentage === '0') return null;
+    return (
+      <text
+        x={x}
+        y={y}
+        fill="#374151"
+        textAnchor={(isDesktop && name === 'Overdue') ? 'start' : (x > cx ? 'start' : 'end')}
+        dominantBaseline="central"
+        style={{ fontSize: isDesktop ? 15 : 13, fontWeight: 500 }}
+      >
+        {isDesktop ? `${name} ${percentage}%` : `${name} ${percentage}%`}
+      </text>
     );
   };
 
@@ -839,7 +879,14 @@ const Dashboard = () => {
 
         {/* Modern Stats Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-4 sm:mb-6 lg:mb-6 lg:-mt-4">
-          <div className="group relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-4 lg:pb-1 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105">
+          <div
+            className="group relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-4 lg:pb-1 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 cursor-pointer"
+            onClick={() => router.push('/project')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter') router.push('/project'); }}
+            title="View Projects"
+          >
             <div className="absolute top-0 right-0 w-16 h-16 sm:w-20 sm:h-20 bg-white/10 rounded-full -translate-y-10 translate-x-10"></div>
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-2 sm:mb-4">
@@ -889,7 +936,14 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="group relative overflow-hidden bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-4 lg:pb-1 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105">
+          <div
+            className="group relative overflow-hidden bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-4 lg:pb-1 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 cursor-pointer"
+            onClick={() => router.push('/task')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter') router.push('/task'); }}
+            title="View Tasks"
+          >
             <div className="absolute top-0 right-0 w-16 h-16 sm:w-20 sm:h-20 bg-white/10 rounded-full -translate-y-10 translate-x-10"></div>
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-2 sm:mb-4">
@@ -939,7 +993,14 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="group relative overflow-hidden bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-4 lg:pb-1 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105">
+          <div
+            className="group relative overflow-hidden bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-4 lg:pb-1 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 cursor-pointer"
+            onClick={() => router.push('/team')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter') router.push('/team'); }}
+            title="View Team"
+          >
             <div className="absolute top-0 right-0 w-16 h-16 sm:w-20 sm:h-20 bg-white/10 rounded-full -translate-y-10 translate-x-10"></div>
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-2 sm:mb-4">
@@ -989,7 +1050,14 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="group relative overflow-hidden bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-4 lg:pb-1 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105">
+          <div
+            className="group relative overflow-hidden bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-4 lg:pb-1 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 cursor-pointer"
+            onClick={() => router.push('/sprint-stories')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter') router.push('/sprint-stories'); }}
+            title="View Sprints"
+          >
             <div className="absolute top-0 right-0 w-16 h-16 sm:w-20 sm:h-20 bg-white/10 rounded-full -translate-y-10 translate-x-10"></div>
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-2 sm:mb-4">
@@ -1050,8 +1118,8 @@ const Dashboard = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 mb-4 sm:mb-6 lg:mb-8">
               {/* Project Progress Chart */}
-              <div className="lg:col-span-2">
-                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-4 shadow-xl border border-gray-300 dark:border-gray-700">
+              <div className="lg:col-span-1">
+                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-3 shadow-xl border border-gray-300 dark:border-gray-700">
                   <div className="flex items-center justify-between mb-4 sm:mb-6">
                     <div className="flex items-center space-x-2 sm:space-x-3">
                       <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg sm:rounded-xl flex items-center justify-center">
@@ -1065,7 +1133,7 @@ const Dashboard = () => {
                       <div className="w-2 h-2 sm:w-3 sm:h-3 bg-orange-500 rounded-full"></div>
                     </div>
                   </div>
-                  <div className="h-64 sm:h-72 lg:h-72 -ml-6 -mr-2 border-0 outline-none [&_*]:outline-none [&_.recharts-wrapper]:border-0 [&_.recharts-surface]:border-0">
+                  <div className="h-64 sm:h-72 lg:h-48 -ml-6 -mr-2 border-0 outline-none [&_*]:outline-none [&_.recharts-wrapper]:border-0 [&_.recharts-surface]:border-0">
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={chartData} margin={{ left: 0, right: 0, top: 10, bottom: 10 }}>
                         <defs>
@@ -1129,82 +1197,139 @@ const Dashboard = () => {
 
               {/* Task Status Pie Chart */}
               <div className="lg:col-span-1">
-                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-4 shadow-xl border border-gray-300 dark:border-gray-700">
-                  <div className="flex items-center space-x-2 sm:space-x-3 mb-4 sm:mb-6">
+                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-4 lg:p-4 shadow-xl border border-gray-300 dark:border-gray-700">
+                  <div className="flex items-center space-x-2 sm:space-x-3 mb-3 sm:mb-4">
                     <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg sm:rounded-xl flex items-center justify-center">
                       <PieChart className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                     </div>
                     <h2 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 dark:text-white">Task Status</h2>
                   </div>
-                  <div className="relative h-64 sm:h-72 lg:h-72 mx-0 px-2 sm:px-0 focus:outline-none [&_*:focus]:outline-none [&_.recharts-pie-label]:text-[12px] sm:[&_.recharts-pie-label]:text-sm">
-                    {selectedSlice && (
-                      <div className="flex absolute left-0 lg:left-6 top-1/2 -translate-y-1/2 -ml-1 sm:-ml-3 lg:ml-0 flex-col items-start text-gray-900 dark:text-white">
-                        <div className="text-2xl lg:text-3xl font-extrabold leading-none">{selectedPercent}%</div>
-                        <div className="mt-1 text-xs sm:text-sm font-medium opacity-80">
+                  <div className="relative h-48 sm:h-52 lg:h-48 mx-0 px-1 sm:px-0 focus:outline-none [&_*:focus]:outline-none [&_.recharts-pie-label]:text-[12px] sm:[&_.recharts-pie-label]:text-sm flex">
+                    {/* Left side vertical status list */}
+                    <div className="h-40 w-36 sm:w-40 lg:w-40 pl-0 sm:pl-1 flex flex-col justify-center gap-3.5">
+                      {['In Progress', 'To Do', 'Overdue', 'Completed'].map((name) => {
+                        const item = taskStatusData.find((d: any) => d.name === name);
+                        const color = getStatusColor(name);
+                        const pct = totalTaskStatus > 0 && item ? Math.round((item.value / totalTaskStatus) * 100) : 0;
+                        return (
+                          <div key={name}>
+                            <button
+                              onClick={() => setSelectedStatus(prev => (prev === name ? 'all' : name))}
+                              className={`flex items-center gap-2 text-sm text-left transition-opacity ${selectedStatus === 'all' || selectedStatus === name ? 'opacity-100' : 'opacity-50'}`}
+                            >
+                              <span className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
+                              <span className="text-gray-700 dark:text-gray-200">{name} {pct}%</span>
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {/* Right side pie chart */}
+                    <div className="flex-1 relative">
+                      {selectedSlice && (
+                        <div className="absolute left-1/2 top-1.5 -translate-x-1/2 z-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-100 text-xs rounded-md shadow-md px-3 py-1 pointer-events-none">
                           {selectedSlice.name} : {selectedSlice.value} {selectedSlice.value === 1 ? 'task' : 'tasks'}
                         </div>
+                      )}
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RechartsPieChart margin={isDesktop ? { top: 6, right: 12, bottom: 6, left: 0 } : { top: 6, right: 6, bottom: 6, left: 0 }}>
+                          <Pie
+                            data={displayedFilteredData}
+                            cx="62%"
+                            cy="50%"
+                            labelLine={false}
+                            label={false}
+                            outerRadius={isDesktop ? 86 : 56}
+                            innerRadius={isDesktop ? 28 : 20}
+                            fill="#8884d8"
+                            dataKey="value"
+                            onClick={(data: any) => {
+                              const statusName = data?.name;
+                              setSelectedStatus((prev) => (prev === statusName ? 'all' : statusName));
+                            }}
+                          >
+                            {displayedFilteredData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          {selectedStatus === 'all' && (
+                            <Tooltip 
+                              contentStyle={{
+                                backgroundColor: 'white',
+                                border: '1px solid #e5e7eb',
+                                borderRadius: '8px',
+                                color: '#374151',
+                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+                              }}
+                              formatter={(value: any, name: any) => [
+                                `${value} tasks`,
+                                name
+                              ]}
+                              labelFormatter={(label: any) => `Status: ${label}`}
+                            />
+                          )}
+                          {/* Remove bottom legend as we now show a left list */}
+                        </RechartsPieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Recent Activity (desktop column) */}
+              <div className="lg:col-span-1 hidden lg:block">
+                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-3 shadow-xl border border-gray-300 dark:border-gray-700">
+                  <div className="flex items-center space-x-2 sm:space-x-3 mb-4 sm:mb-6 lg:mb-4">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg sm:rounded-xl flex items-center justify-center">
+                      <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                    </div>
+                    <h2 className="text-base sm:text-lg lg:text-base font-bold text-gray-900 dark:text-white">Recent Activity</h2>
+                  </div>
+                  <div className="space-y-3 sm:space-y-4 lg:space-y-2 max-h-64 lg:max-h-48 overflow-y-auto overflow-x-hidden scrollbar-hide">
+                    {recentActivities.length > 0 ? (
+                      recentActivities.map((activity, index) => (
+                        <div key={activity.id} className="group flex items-start space-x-3 p-3 lg:p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                          <div className="relative">
+                            <Avatar name={activity.user} size="sm" />
+                            <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white dark:border-gray-800 ${
+                              index === 0 ? 'bg-emerald-500' : 
+                              index === 1 ? 'bg-blue-500' : 
+                              index === 2 ? 'bg-purple-500' : 
+                              index === 3 ? 'bg-orange-500' : 'bg-gray-400'
+                            }`}></div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-gray-900 dark:text-white leading-relaxed">
+                              <span className="font-semibold text-gray-800 dark:text-gray-200">{activity.user}</span> {activity.action}{' '}
+                              <span className="font-semibold text-blue-600 dark:text-blue-400">{activity.target}</span>
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{activity.time}</p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8">
+                        <Activity className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                        <p className="text-gray-500 dark:text-gray-400 text-sm">No recent activity</p>
+                        <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">Complete some tasks to see activity here</p>
                       </div>
                     )}
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RechartsPieChart margin={isDesktop ? { top: 46, right: 56, bottom: 60, left: 56 } : { top: 24, right: 72, bottom: 56, left: 72 }}>
-                        <Pie
-                          data={displayedFilteredData}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={displayedFilteredData.length > 1 ? ({ name, percent }: any) => {
-                            const percentage = ((percent as number) * 100).toFixed(0);
-                            return percentage !== '0' ? `${name} ${percentage}%` : '';
-                          } : false}
-                          outerRadius={isDesktop ? 90 : 58}
-                          innerRadius={isDesktop ? 30 : 22}
-                          fill="#8884d8"
-                          dataKey="value"
-                          onClick={(data: any) => {
-                            const statusName = data?.name;
-                            setSelectedStatus((prev) => (prev === statusName ? 'all' : statusName));
-                          }}
-                        >
-                          {displayedFilteredData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        {/* No centered label in single-slice view */}
-                        {selectedStatus === 'all' && (
-                          <Tooltip 
-                            contentStyle={{
-                              backgroundColor: 'white',
-                              border: '1px solid #e5e7eb',
-                              borderRadius: '8px',
-                              color: '#374151',
-                              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-                            }}
-                            formatter={(value: any, name: any) => [
-                              `${value} tasks`,
-                              name
-                            ]}
-                            labelFormatter={(label: any) => `Status: ${label}`}
-                          />
-                        )}
-                        <Legend verticalAlign="bottom" height={36} iconType="circle" content={renderStatusLegend} />
-                      </RechartsPieChart>
-                    </ResponsiveContainer>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Recent Activity and Upcoming Tasks Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-6 mb-4 sm:mb-6 lg:mb-8">
-              {/* Recent Activity */}
-              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-4 shadow-xl border border-gray-300 dark:border-gray-700">
+            <div className="grid grid-cols-1 lg:grid-cols-1 gap-4 sm:gap-6 lg:gap-6 mb-4 sm:mb-6 lg:mb-8">
+              {/* Recent Activity (hidden on desktop; shown above) */}
+              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-3 shadow-xl border border-gray-300 dark:border-gray-700 lg:hidden">
                 <div className="flex items-center space-x-2 sm:space-x-3 mb-4 sm:mb-6 lg:mb-4">
                   <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg sm:rounded-xl flex items-center justify-center">
                     <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                   </div>
                   <h2 className="text-base sm:text-lg lg:text-base font-bold text-gray-900 dark:text-white">Recent Activity</h2>
                 </div>
-                <div className="space-y-3 sm:space-y-4 lg:space-y-2 max-h-64 lg:max-h-48 overflow-y-auto">
+                <div className="space-y-3 sm:space-y-4 lg:space-y-2 max-h-64 lg:max-h-48 overflow-y-auto overflow-x-hidden scrollbar-hide">
                   {recentActivities.length > 0 ? (
                     recentActivities.map((activity, index) => (
                       <div key={activity.id} className="group flex items-start space-x-3 p-3 lg:p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
@@ -1237,7 +1362,7 @@ const Dashboard = () => {
               </div>
 
               {/* Upcoming Tasks */}
-              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-4 shadow-xl border border-gray-300 dark:border-gray-700">
+              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-3 shadow-xl border border-gray-300 dark:border-gray-700">
                 <div className="flex flex-col space-y-3 mb-4 sm:mb-6 lg:mb-4">
                   <div className="flex items-center space-x-2 sm:space-x-3">
                     <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg sm:rounded-xl flex items-center justify-center">
@@ -1269,7 +1394,7 @@ const Dashboard = () => {
                     </button>
                   </div>
                 </div>
-                <div className="space-y-3 sm:space-y-4 lg:space-y-2 max-h-64 lg:max-h-48 overflow-y-auto">
+                <div className="space-y-3 sm:space-y-4 lg:space-y-2 max-h-64 lg:max-h-48 overflow-y-auto overflow-x-hidden scrollbar-hide">
                   {upcomingTasks.length > 0 ? (
                     upcomingTasks.map((task, index) => (
                       <div key={task.id} className="group relative overflow-hidden bg-gradient-to-r from-gray-50 to-white dark:from-gray-700 dark:to-gray-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-3 border border-gray-100 dark:border-gray-600 hover:shadow-lg transition-all duration-300 hover:scale-[1.01] sm:hover:scale-[1.02]">

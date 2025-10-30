@@ -546,6 +546,53 @@ const getPriorityConfig = (priority: string) => {
   };
 };
 
+// Assignee avatar helpers (match team page style)
+const assigneeAvatarColors = [
+  'from-purple-500 to-purple-600',
+  'from-blue-500 to-blue-600',
+  'from-green-500 to-green-600',
+  'from-pink-500 to-pink-600',
+  'from-orange-500 to-orange-600',
+  'from-indigo-500 to-indigo-600',
+  'from-red-500 to-red-600'
+];
+
+const getAssigneeAvatarColor = (index: number) => {
+  return assigneeAvatarColors[index % assigneeAvatarColors.length];
+};
+
+const getInitials = (name: string) => {
+  if (!name) return '?';
+  const parts = name.trim().split(' ').filter(Boolean);
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+};
+
+const AssigneeAvatars = ({ names, maxVisible = 2 }: { names: string[]; maxVisible?: number }) => {
+  const visible = names.slice(0, maxVisible);
+  const remaining = Math.max(0, names.length - maxVisible);
+  return (
+    <div className="flex items-center">
+      <div className="flex -space-x-2">
+        {visible.map((name, index) => (
+          <div
+            key={`${name}-${index}`}
+            className={`w-8 h-8 rounded-full bg-gradient-to-br ${getAssigneeAvatarColor(index)} flex items-center justify-center text-white text-xs font-semibold border-2 border-white shadow-sm`}
+            title={name}
+          >
+            {getInitials(name)}
+          </div>
+        ))}
+        {remaining > 0 && (
+          <div className="w-8 h-8 rounded-full bg-gray-100 border-2 border-white shadow-sm flex items-center justify-center text-gray-600 text-xs font-semibold">
+            +{remaining}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const TasksPage = () => {
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
@@ -945,6 +992,7 @@ const TasksPage = () => {
   // Load tasks on component mount
   useEffect(() => {
     fetchTasks();
+    fetchUsers(); // Also fetch users to populate assignee names
   }, []);
 
   // Fetch users for task assignment
@@ -967,6 +1015,41 @@ const TasksPage = () => {
     } finally {
       setIsLoadingUsers(false);
     }
+  };
+
+  // Helper function to get assignee name from ID
+  const getAssigneeName = (assigneeId: string): string => {
+    if (!assigneeId || !allUsers.length) return '';
+    
+    // Check if assigneeId is already a name (not an ID)
+    const user = allUsers.find(u => u.id === assigneeId || u.userId === assigneeId);
+    
+    if (user) {
+      return user.name || user.username || user.email || '';
+    }
+    
+    // If no user found and assigneeId looks like a UUID, return empty string
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (uuidPattern.test(assigneeId)) {
+      return '';
+    }
+    
+    // If it's not a UUID, return as is (might be a name already)
+    return assigneeId;
+  };
+
+  // Helper function to get all assigned users from task
+  const getAssignedUsers = (task: Task) => {
+    if (!task.assignedUsers || !Array.isArray(task.assignedUsers) || !allUsers.length) {
+      return [];
+    }
+    
+    return task.assignedUsers
+      .map(userId => {
+        const user = allUsers.find(u => u.id === userId || u.userId === userId);
+        return user ? (user.name || user.username || user.email || '') : null;
+      })
+      .filter((name): name is string => name !== null && name !== '');
   };
 
   // Fetch teams for task assignment
@@ -2877,7 +2960,7 @@ const TasksPage = () => {
       <div className="w-full px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8 overflow-x-hidden">
 
         {/* Analytics Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-6">
           {/* Total Tasks */}
           <StatsCard
             title="Total Tasks"
@@ -3664,43 +3747,74 @@ const TasksPage = () => {
           /* Card View */
           <div className="w-full">
             {/* Mobile: Single Column with Simplified Cards */}
-            <div className="block sm:hidden space-y-3">
+            <div className="block sm:hidden space-y-2">
               {filteredTasks.map((task) => (
                 <Card key={task.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleTaskClick(task)}>
-                  <CardContent className="p-4">
+                  <CardContent className="p-1 relative">
+                    {/* Card actions - top right */}
+                    <div className="absolute top-1 right-2">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        title="More Options"
+                        className="p-1.5 h-10 w-10 hover:bg-gray-100 rounded-lg"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenDropdown(openDropdown === task.id ? null : task.id);
+                        }}
+                      >
+                        <MoreVertical size={22} className="text-gray-600" />
+                      </Button>
+                      {openDropdown === task.id && (
+                        <div 
+                          data-dropdown-menu
+                          className="absolute right-0 mt-1 w-40 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="py-1">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteTask(task);
+                                setOpenDropdown(null);
+                              }}
+                              className="w-full px-3 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center space-x-2"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              <span>Delete Task</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                     {/* Mobile: Simplified Header */}
-                    <div className="flex items-start space-x-3 mb-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                    <div className="flex items-start space-x-2 mb-2">
+                      <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
                         {(task.project || 'T').charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-gray-900 text-sm leading-tight line-clamp-2">
+                        <h4 className="font-semibold text-gray-900 text-sm leading-tight line-clamp-1 pt-2 sm:pt-0">
                           {task.title}
                         </h4>
-                        <p className="text-xs text-gray-500 mt-1">{task.project}</p>
+                        <p className="hidden">{task.project}</p>
                       </div>
                     </div>
                     
                     {/* Mobile: Key Info Only */}
-                    <div className="space-y-2">
-                      {/* Description */}
-                      <p className="text-xs text-gray-600 line-clamp-2">{task.description}</p>
+                    <div className="space-y-1.5">
+                      {/* Description - hidden on mobile card */}
+                      <p className="hidden">{task.description}</p>
 
-                      {/* Project and Due - Same line */}
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-700">Project: {task.project}</span>
-                        <span className={`${isOverdue(task.dueDate) ? 'text-red-600 font-medium' : 'text-gray-700'}`}>
-                          Due: {new Date(task.dueDate).toLocaleDateString()}
-                        </span>
-                      </div>
-
-                      {/* Status and Priority - Same line */}
+                      {/* Status, Project, Priority - Same line */}
                       <div className="flex items-center justify-between text-xs">
                         <div className="flex items-center gap-1">
                           <span className="text-gray-500">Status:</span>
                           <Badge variant={getStatusConfig(task.status).color as any} size="sm" className="text-xs">
                             {getStatusConfig(task.status).label}
                           </Badge>
+                        </div>
+                        <div className="text-gray-700 truncate mx-2 flex-1 text-center">
+                          Project: {task.project}
                         </div>
                         <div className="flex items-center gap-1">
                           <span className="text-gray-500">Priority:</span>
@@ -3752,19 +3866,21 @@ const TasksPage = () => {
                         )}
                       </div>
 
-                      {/* Bottom: Assignee and Short Date */}
-                      <div className="flex items-center justify-between text-xs">
-                        <div className="flex items-center space-x-1">
-                          <Avatar name={task.assignee} size="sm" />
-                          <span className="text-gray-500">{task.assignee}</span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          <Calendar size={12} />
-                          <span className={`${isOverdue(task.dueDate) ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
-                            {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          </span>
-                        </div>
-                      </div>
+                      {/* Bottom: Assigned Users Avatars with Due on right */}
+                      {(() => {
+                        const assignedUsers = getAssignedUsers(task);
+                        return assignedUsers.length > 0 ? (
+                          <div className="flex items-center justify-between">
+                            <AssigneeAvatars names={assignedUsers} maxVisible={2} />
+                            <div className="flex items-center space-x-1 text-xs">
+                              <Calendar size={12} />
+                              <span className={`${isOverdue(task.dueDate) ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+                                {new Date(task.dueDate).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+                        ) : null;
+                      })()}
                     </div>
                   </CardContent>
                 </Card>
@@ -3772,37 +3888,68 @@ const TasksPage = () => {
             </div>
 
             {/* Desktop: Improved Multi-Column Grid */}
-            <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6">
+            <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 lg:gap-4">
             {filteredTasks.map((task) => (
               <Card key={task.id} hover className="cursor-pointer h-fit" onClick={() => handleTaskClick(task)}>
-                <CardContent className="p-4">
-                  <div className="space-y-2">
+                <CardContent className="p-1 relative">
+                  {/* Card actions - top right */}
+                  <div className="absolute top-0 right-2">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      title="More Options"
+                      className="p-1.5 h-10 w-10 hover:bg-gray-100 rounded-lg"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenDropdown(openDropdown === task.id ? null : task.id);
+                      }}
+                    >
+                      <MoreVertical size={22} className="text-gray-600" />
+                    </Button>
+                    {openDropdown === task.id && (
+                      <div 
+                        data-dropdown-menu
+                        className="absolute right-0 mt-1 w-40 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="py-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteTask(task);
+                              setOpenDropdown(null);
+                            }}
+                            className="w-full px-3 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center space-x-2"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            <span>Delete Task</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
                     {/* Header with Project Icon and Title */}
-                    <div className="flex items-start space-x-3">
-                      <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                    <div className="flex items-start space-x-2">
+                      <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
                         {(task.project || 'T').charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
                         <h4 className="font-semibold text-gray-900 text-sm leading-tight line-clamp-1">{task.title}</h4>
-                        <p className="text-xs text-gray-600 line-clamp-1 mt-1">{task.description}</p>
+                        <p className="text-xs text-gray-600 line-clamp-1 mt-0.5">{task.description}</p>
                       </div>
                     </div>
                     
-                    {/* Project and Due Date - Same Line */}
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-700">Project: {task.project}</span>
-                      <span className={`${isOverdue(task.dueDate) ? 'text-red-600 font-medium' : 'text-gray-700'}`}>
-                        Due: {new Date(task.dueDate).toLocaleDateString()}
-                      </span>
-                    </div>
-                    
-                    {/* Status and Priority - Same Line */}
+                    {/* Status, Project, Priority - Same Line */}
                     <div className="flex items-center justify-between text-xs">
                       <div className="flex items-center gap-1">
                         <span className="text-gray-500">Status:</span>
                         <Badge variant={getStatusConfig(task.status).color as any} size="sm" className="text-xs">
                           {getStatusConfig(task.status).label}
                         </Badge>
+                      </div>
+                      <div className="text-gray-700 truncate mx-2 flex-1 text-center">
+                        Project: {task.project}
                       </div>
                       <div className="flex items-center gap-1">
                         <span className="text-gray-500">Priority:</span>
@@ -3860,19 +4007,21 @@ const TasksPage = () => {
                       )}
                     </div>
                       
-                    {/* Bottom Section - Assignee and Date */}
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center space-x-1">
-                        <Avatar name={task.assignee} size="sm" />
-                        <span className="text-gray-500">{task.assignee}</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <Calendar size={12} />
-                        <span className={`${isOverdue(task.dueDate) ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
-                          {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                        </span>
-                      </div>
-                    </div>
+                    {/* Bottom Section - Assigned Users Avatars with Due on right */}
+                    {(() => {
+                      const assignedUsers = getAssignedUsers(task);
+                      return assignedUsers.length > 0 ? (
+                        <div className="flex items-center justify-between">
+                          <AssigneeAvatars names={assignedUsers} maxVisible={3} />
+                          <div className="flex items-center space-x-1 text-xs">
+                            <Calendar size={12} />
+                            <span className={`${isOverdue(task.dueDate) ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+                              {new Date(task.dueDate).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                      ) : null;
+                    })()}
                   </div>
                 </CardContent>
               </Card>
@@ -3977,8 +4126,8 @@ const TasksPage = () => {
               
               <div className="p-4 sm:p-6">
                 {/* Task Preview Header */}
-                <div className="flex items-center justify-between mb-4 sm:mb-6">
-                  <div className="flex items-center space-x-3">
+                <div className="flex items-center justify-between gap-2 mb-4 sm:mb-6">
+                  <div className="flex items-center space-x-3 min-w-0 flex-1">
                     {/* Back Button (always visible) */}
                     <button
                       onClick={handleBack}

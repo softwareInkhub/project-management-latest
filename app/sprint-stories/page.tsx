@@ -701,14 +701,14 @@ export default function SprintStoriesPage() {
                  </button>
                </div>
 
-            <div className="grid gap-4 sm:gap-6">
+            <div className="grid gap-3 sm:gap-5 lg:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {sprints.map((sprint, index) => {
                 const sprintStories = getStoriesForSprint(sprint.sprint_id);
                 
                 return (
                     <div key={sprint.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-300 dark:border-gray-700 overflow-hidden">
                     {/* Sprint Header */}
-                      <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-700 dark:to-gray-750">
+                    <div className="p-2.5 sm:p-3 lg:p-2.5 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-700 dark:to-gray-750">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                         <div className="flex items-center space-x-3 sm:space-x-4">
                             <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -746,7 +746,7 @@ export default function SprintStoriesPage() {
                       </div>
                     </div>
 
-                        <div className="p-4 sm:p-6">
+                        <div className="p-2.5 sm:p-3 lg:p-3">
                           <div className="flex flex-wrap items-center gap-3 sm:gap-6 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                             <div className="flex items-center space-x-1 sm:space-x-2">
                               <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -769,7 +769,7 @@ export default function SprintStoriesPage() {
                         </div>
                         
                       {/* Sprint Stories Preview */}
-                      <div className="p-4 sm:p-6 pt-0">
+                      <div className="p-2.5 sm:p-3 lg:p-3 pt-0">
                         {sprintStories.length === 0 ? (
                           <p className="text-center text-gray-500 dark:text-gray-400 py-6 sm:py-8 text-sm">
                             No stories in this sprint

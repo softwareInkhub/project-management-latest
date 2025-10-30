@@ -35,10 +35,10 @@ export const StatsCard: React.FC<StatsCardProps> = ({
 
   return (
     <Card className={className}>
-      <CardContent className="flex items-center justify-between p-1.5">
+      <CardContent className="flex items-center justify-between p-0 sm:p-0">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-gray-600">{title}</p>
-          <p className="text-xl sm:text-2xl font-bold text-gray-900">{value}</p>
+          <p className="text-xs sm:text-sm font-medium text-gray-600">{title}</p>
+          <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">{value}</p>
           {subtitle && (
             <p className={`text-xs flex items-center mt-1 ${
               trend?.isPositive ? 'text-green-600' : 'text-gray-600'
@@ -47,8 +47,8 @@ export const StatsCard: React.FC<StatsCardProps> = ({
             </p>
           )}
         </div>
-        <div className={`w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${iconColorClasses[iconColor]}`}>
-          <Icon className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6" />
+        <div className={`w-7 h-7 sm:w-10 sm:h-10 lg:w-12 lg:h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${iconColorClasses[iconColor]}`}>
+          <Icon className="w-3.5 h-3.5 sm:w-5 sm:h-5 lg:w-6 lg:h-6" />
         </div>
       </CardContent>
     </Card>

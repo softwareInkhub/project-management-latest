@@ -534,9 +534,9 @@ const ProjectsPage = () => {
 
         {/* Projects Grid */}
         {viewMode === 'list' ? (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {filteredProjects.map((project) => (
-              <div key={project.id} className="relative p-3 sm:p-4 bg-white rounded-3xl border border-gray-300 hover:border-gray-400 transition-colors min-h-[120px] sm:min-h-[140px] flex flex-col sm:flex-row sm:items-center cursor-pointer shadow-sm" onClick={() => handleProjectClick(project)}>
+              <div key={project.id} className="relative p-2 sm:p-3 bg-white rounded-3xl border border-gray-300 hover:border-gray-400 transition-colors min-h-[100px] sm:min-h-[120px] flex flex-col sm:flex-row sm:items-center cursor-pointer shadow-sm" onClick={() => handleProjectClick(project)}>
                 {/* Action Buttons - Top Right Corner */}
                 <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex flex-col items-end space-y-2 z-20">
                   <div className="flex items-center space-x-1">
@@ -544,58 +544,82 @@ const ProjectsPage = () => {
                       variant="ghost" 
                       size="sm"
                       title="Edit Project"
-                      className="p-1.5 h-7 w-7 sm:p-2 sm:h-9 sm:w-9"
+                      className="p-2 h-9 w-9 sm:p-2 sm:h-10 sm:w-10"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleEditProject(project);
                       }}
                     >
-                      <Edit size={14} className="sm:w-[18px] sm:h-[18px]" />
+                      <Edit size={18} className="sm:w-[20px] sm:h-[20px]" />
                     </Button>
                     <Button 
                       variant="ghost" 
                       size="sm"
                       title="More Options"
-                      className="p-1.5 h-7 w-7 sm:p-2 sm:h-9 sm:w-9"
+                      className="p-2 h-9 w-9 sm:p-2 sm:h-10 sm:w-10"
                     >
-                      <MoreVertical size={14} className="sm:w-[18px] sm:h-[18px]" />
+                      <MoreVertical size={18} className="sm:w-[20px] sm:h-[20px]" />
                     </Button>
                   </div>
                 </div>
 
                 {/* Project Info */}
-                <div className="flex items-start space-x-3 sm:space-x-4 flex-1 min-w-0 pr-20 sm:pr-24">
+                <div className="flex items-start space-x-3 sm:space-x-4 flex-1 min-w-0 pr-16 sm:pr-20">
                   <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm sm:text-base flex-shrink-0">
                     {project.name.charAt(0)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <h4 className="font-medium text-gray-900 text-sm sm:text-base leading-tight line-clamp-1">{project.name}</h4>
-                    <p className="text-xs sm:text-sm text-gray-600 mt-1 line-clamp-1 sm:line-clamp-2">{project.description}</p>
+                    <p className="text-xs sm:text-xs text-gray-600 mt-1 line-clamp-1 sm:line-clamp-2">{project.description}</p>
                     
-                    {/* Status and Priority - Mobile: Stacked, Desktop: Side by side */}
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mt-2">
-                      <Badge variant={statusColors[project.status as keyof typeof statusColors] as any} size="sm" className="text-xs">
-                        {getStatusIcon(project.status)}
-                        <span className="ml-1 text-xs capitalize">{project.status || 'Unknown'}</span>
-                      </Badge>
-                      <Badge variant={priorityColors[project.priority as keyof typeof priorityColors] as any} size="sm" className="text-xs">
-                        {getPriorityIcon(project.priority)}
-                        <span className="ml-1 text-xs">{project.priority} priority</span>
-                      </Badge>
+                    {/* Mobile layout: two rows with ends aligned */}
+                    <div className="flex flex-col lg:hidden gap-2 mt-2">
+                      <div className="flex items-center justify-between">
+                        <Badge variant={statusColors[project.status as keyof typeof statusColors] as any} size="sm" className="text-xs">
+                          {getStatusIcon(project.status)}
+                          <span className="ml-1 text-xs capitalize">{project.status || 'Unknown'}</span>
+                        </Badge>
+                        <Badge variant={priorityColors[project.priority as keyof typeof priorityColors] as any} size="sm" className="text-xs">
+                          {getPriorityIcon(project.priority)}
+                          <span className="ml-1 text-xs">{project.priority} priority</span>
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="text-xs text-gray-500">Progress: {project.progress}%</div>
+                          <div className="w-20 bg-gray-200 rounded-full h-1.5">
+                            <div className="h-1.5 bg-blue-500 rounded-full" style={{ width: `${project.progress || 0}%` }}></div>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <User size={12} className="text-gray-500" />
+                          <span className="text-xs text-gray-500">{getTeamCount(project.team)} team(s)</span>
+                        </div>
+                      </div>
                     </div>
-                    
-                    {/* Progress and Team - Mobile: Stacked, Desktop: Side by side */}
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2">
-                      <div className="flex items-center space-x-2">
+
+                    {/* Desktop layout: single row */}
+                    <div className="hidden lg:flex lg:flex-row lg:items-center gap-2 lg:gap-4 mt-2">
+                      <div className="flex items-center gap-1 sm:gap-2">
+                        <Badge variant={statusColors[project.status as keyof typeof statusColors] as any} size="sm" className="text-xs">
+                          {getStatusIcon(project.status)}
+                          <span className="ml-1 text-xs capitalize">{project.status || 'Unknown'}</span>
+                        </Badge>
+                        <Badge variant={priorityColors[project.priority as keyof typeof priorityColors] as any} size="sm" className="text-xs">
+                          {getPriorityIcon(project.priority)}
+                          <span className="ml-1 text-xs">{project.priority} priority</span>
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2 lg:ml-2">
                         <div className="text-xs text-gray-500">Progress: {project.progress}%</div>
-                        <div className="w-16 sm:w-20 bg-gray-200 rounded-full h-1.5">
+                        <div className="w-14 sm:w-20 bg-gray-200 rounded-full h-1.5">
                           <div 
                             className="h-1.5 bg-blue-500 rounded-full"
                             style={{ width: `${project.progress || 0}%` }}
                           ></div>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-2 lg:ml-2">
                         <User size={12} className="text-gray-500" />
                         <span className="text-xs text-gray-500">
                           {getTeamCount(project.team)} team(s)
@@ -613,24 +637,31 @@ const ProjectsPage = () => {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 lg:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3 lg:gap-3">
             {filteredProjects.map((project) => (
               <Card key={project.id} hover className="relative cursor-pointer rounded-3xl border border-gray-300 hover:border-gray-400" onClick={() => handleProjectClick(project)}>
-                <CardContent className="p-2 sm:p-3">
-                  <div className="space-y-1 sm:space-y-2">
-                    {/* Header with Project Icon and Title */}
-                    <div className="flex items-start space-x-1 sm:space-x-2">
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
-                        {(project.name || project.title || 'P').charAt(0).toUpperCase()}
+                <CardContent className="px-1 py-1 sm:px-2 sm:py-1 lg:px-2 lg:py-0">
+                  <div className="space-y-1 sm:space-y-2 lg:space-y-1.5">
+                    {/* Header with Project Icon and Title and Assignee aligned */}
+                    <div className="flex items-center justify-between px-1 sm:px-0">
+                      <div className="flex items-center space-x-1 sm:space-x-2 flex-1 min-w-0 mr-2">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                          {(project.name || project.title || 'P').charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-gray-900 text-xs sm:text-sm leading-tight truncate whitespace-nowrap">{project.name || project.title || 'Untitled Project'}</h4>
+                          <p className="text-xs text-gray-600 mt-1 hidden sm:block truncate whitespace-nowrap overflow-hidden">{project.description || 'No description'}</p>
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-gray-900 text-xs sm:text-sm leading-tight line-clamp-2">{project.name || project.title || 'Untitled Project'}</h4>
-                        <p className="text-xs text-gray-600 mt-1 line-clamp-1 hidden sm:block">{project.description || 'No description'}</p>
-                      </div>
+                      {project.assignee && (
+                        <div className="ml-2 mr-1 flex-shrink-0 self-center">
+                          <Avatar name={project.assignee} size="sm" />
+                        </div>
+                      )}
                     </div>
 
                     {/* Product Owner & Scrum Master */}
-                    <div className="flex flex-col sm:flex-row gap-1 sm:gap-2 text-xs">
+                    <div className="flex flex-col sm:flex-row gap-1 sm:gap-2 text-xs lg:text-[11px]">
                       {project.productOwner && (
                         <div className="flex items-center text-gray-600">
                           <Crown className="w-3 h-3 mr-1" />
@@ -646,7 +677,7 @@ const ProjectsPage = () => {
                     </div>
                     
                     {/* Status and Priority Badges - Stacked on mobile */}
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 lg:gap-1.5">
                       <Badge variant={statusColors[project.status as keyof typeof statusColors] as any} size="sm" className="text-xs">
                         {getStatusIcon(project.status)}
                         <span className="ml-1 text-xs capitalize">{project.status || 'Unknown'}</span>
@@ -659,7 +690,7 @@ const ProjectsPage = () => {
                     </div>
                     
                     {/* Progress - Minimal on mobile */}
-                    <div className="flex items-center justify-between text-xs text-gray-500">
+                    <div className="flex items-center justify-between text-xs lg:text-[11px] text-gray-500">
                       <div className="flex items-center space-x-1">
                         <Target size={8} className="sm:w-3 sm:h-3" />
                         <span className="text-xs">{project.progress || 0}%</span>
@@ -673,16 +704,11 @@ const ProjectsPage = () => {
                     </div>
                     
                     {/* Assignee */}
-                    {project.assignee && (
-                      <div className="flex items-center space-x-1 sm:space-x-2">
-                        <Avatar name={project.assignee} size="sm" />
-                        <span className="text-xs text-gray-500 hidden sm:inline">{project.assignee}</span>
-                      </div>
-                    )}
+                    {/* Assignee avatar moved to top-right corner */}
                     
                     {/* Timeline - Minimal on mobile */}
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-1 text-xs">
+                      <div className="flex items-center space-x-1 text-xs lg:text-[11px]">
                         <Calendar size={8} className="sm:w-3 sm:h-3" />
                         <span className="text-xs">{new Date(project.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                       </div>
