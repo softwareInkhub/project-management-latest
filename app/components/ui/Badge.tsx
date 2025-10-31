@@ -22,7 +22,7 @@ export const Badge: React.FC<BadgeProps> = ({
     danger: 'bg-red-100 text-red-800',
     info: 'bg-blue-100 text-blue-800',
     // Status variants
-    to_do: 'bg-gray-100 text-gray-800',
+    to_do: 'bg-orange-100 text-orange-800',
     in_progress: 'bg-blue-100 text-blue-800',
     done: 'bg-green-100 text-green-800',
     // Priority variants

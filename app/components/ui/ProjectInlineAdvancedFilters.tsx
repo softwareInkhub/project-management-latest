@@ -129,19 +129,19 @@ const ProjectInlineAdvancedFilters: React.FC<ProjectInlineAdvancedFiltersProps> 
     color: string;
     children: React.ReactNode;
   }> = ({ title, icon, color, children }) => (
-    <div className="bg-white rounded-xl border border-gray-300 overflow-hidden h-64 flex flex-col">
+    <div className="bg-white rounded-lg border border-gray-300 overflow-hidden h-auto min-h-[200px] max-h-[240px] flex flex-col">
       {/* Header */}
-      <div className={`${color} px-4 py-3 border-b border-gray-200 flex-shrink-0`}>
-        <div className="flex items-center space-x-2">
-          <div className={`w-5 h-5 ${color.includes('blue') ? 'bg-blue-500' : color.includes('green') ? 'bg-green-500' : color.includes('purple') ? 'bg-purple-500' : color.includes('orange') ? 'bg-orange-500' : 'bg-gray-500'} rounded flex items-center justify-center`}>
-            {icon}
+      <div className={`${color} px-3 py-2 border-b border-gray-200 flex-shrink-0`}>
+        <div className="flex items-center space-x-1.5">
+          <div className={`w-4 h-4 ${color.includes('blue') ? 'bg-blue-500' : color.includes('green') ? 'bg-green-500' : color.includes('purple') ? 'bg-purple-500' : color.includes('orange') ? 'bg-orange-500' : 'bg-gray-500'} rounded flex items-center justify-center`}>
+            <div className="scale-75">{icon}</div>
           </div>
-          <h4 className="font-medium text-gray-900">{title}</h4>
+          <h4 className="font-medium text-sm text-gray-900">{title}</h4>
         </div>
       </div>
       
       {/* Content */}
-      <div className="p-4 flex-1 overflow-y-auto">
+      <div className="p-2.5 flex-1 overflow-y-auto">
         {children}
       </div>
     </div>
@@ -154,16 +154,16 @@ const ProjectInlineAdvancedFilters: React.FC<ProjectInlineAdvancedFiltersProps> 
     onChange: () => void;
     count?: number;
   }> = ({ value, label, isChecked, onChange, count }) => (
-    <label className="flex items-center space-x-2 py-1 cursor-pointer hover:bg-gray-50 rounded px-1">
+    <label className="flex items-center space-x-1.5 py-0.5 cursor-pointer hover:bg-gray-50 rounded px-1">
       <input
         type="checkbox"
         checked={isChecked}
         onChange={onChange}
-        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+        className="w-3.5 h-3.5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
       />
-      <span className="text-sm text-gray-700 flex-1">{label}</span>
+      <span className="text-xs text-gray-700 flex-1">{label}</span>
       {count !== undefined && (
-        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+        <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full">
           {count}
         </span>
       )}
@@ -178,7 +178,7 @@ const ProjectInlineAdvancedFilters: React.FC<ProjectInlineAdvancedFiltersProps> 
     max?: number;
     unit?: string;
   }> = ({ label, value, onChange, min = 0, max = 100, unit = '' }) => (
-    <div className="space-y-1">
+    <div className="space-y-0.5">
       <label className="text-xs text-gray-600">{label}</label>
       <Input
         type="number"
@@ -186,7 +186,7 @@ const ProjectInlineAdvancedFilters: React.FC<ProjectInlineAdvancedFiltersProps> 
         onChange={(e) => onChange(parseInt(e.target.value) || 0)}
         min={min}
         max={max}
-        className="text-sm"
+        className="text-xs py-1.5"
         placeholder={`${min}-${max}${unit}`}
       />
     </div>
@@ -197,16 +197,16 @@ const ProjectInlineAdvancedFilters: React.FC<ProjectInlineAdvancedFiltersProps> 
     value: string;
     onChange: (value: string) => void;
   }> = ({ label, value, onChange }) => (
-    <div className="space-y-1">
+    <div className="space-y-0.5">
       <label className="text-xs text-gray-600">{label}</label>
       <div className="relative">
         <Input
           type="date"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="text-sm pr-8"
+          className="text-xs pr-7 py-1.5"
         />
-        <Calendar className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <Calendar className="absolute right-1.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
       </div>
     </div>
   );
@@ -233,20 +233,20 @@ const ProjectInlineAdvancedFilters: React.FC<ProjectInlineAdvancedFiltersProps> 
   if (!isOpen) return null;
 
   return (
-    <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
+    <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center space-x-2">
-          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-          <h3 className="text-lg font-semibold text-gray-900">Advanced Filters</h3>
-          <span className="text-sm text-gray-500">({getActiveFilterCount()} active)</span>
+          <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+          <h3 className="text-base font-semibold text-gray-900">Advanced Filters</h3>
+          <span className="text-xs text-gray-500">({getActiveFilterCount()} active)</span>
         </div>
-        <div className="flex space-x-2">
+        <div className="flex space-x-1.5">
           <Button
             variant="ghost"
             size="sm"
             onClick={handleClearAll}
-            className="text-sm text-gray-500 hover:text-gray-700"
+            className="text-xs text-gray-500 hover:text-gray-700"
           >
             Clear all
           </Button>
@@ -254,20 +254,20 @@ const ProjectInlineAdvancedFilters: React.FC<ProjectInlineAdvancedFiltersProps> 
             variant="ghost"
             size="sm"
             onClick={onClose}
-            className="text-sm text-gray-500 hover:text-gray-700"
+            className="text-xs text-gray-500 hover:text-gray-700"
           >
-            <X className="w-4 h-4" />
+            <X className="w-3.5 h-3.5" />
           </Button>
         </div>
       </div>
 
       {/* Filter Cards Grid */}
-      <div className="overflow-x-auto px-1 py-1">
-        <div className="flex space-x-4 min-w-max">
+      <div className="overflow-x-auto px-0.5 py-0.5">
+        <div className="flex space-x-2.5 min-w-max">
           
           {/* Project Scope */}
           {visibleColumns.includes('projectScope') && (
-            <div className="flex-shrink-0 w-64">
+            <div className="flex-shrink-0 w-48">
               <FilterCard
                 title="Projects"
                 icon={<CheckCircle className="w-3 h-3 text-white" />}
@@ -302,7 +302,7 @@ const ProjectInlineAdvancedFilters: React.FC<ProjectInlineAdvancedFiltersProps> 
 
           {/* Project Status */}
           {visibleColumns.includes('status') && (
-            <div className="flex-shrink-0 w-64">
+            <div className="flex-shrink-0 w-48">
               <FilterCard
                 title="Project Status"
                 icon={<CheckCircle className="w-3 h-3 text-white" />}
@@ -332,7 +332,7 @@ const ProjectInlineAdvancedFilters: React.FC<ProjectInlineAdvancedFiltersProps> 
 
           {/* Priority Level */}
           {visibleColumns.includes('priority') && (
-            <div className="flex-shrink-0 w-64">
+            <div className="flex-shrink-0 w-48">
               <FilterCard
                 title="Priority Level"
                 icon={<Flag className="w-3 h-3 text-white" />}
@@ -362,7 +362,7 @@ const ProjectInlineAdvancedFilters: React.FC<ProjectInlineAdvancedFiltersProps> 
 
           {/* Company */}
           {visibleColumns.includes('company') && (
-            <div className="flex-shrink-0 w-64">
+            <div className="flex-shrink-0 w-48">
               <FilterCard
                 title="Company"
                 icon={<Building2 className="w-3 h-3 text-white" />}
@@ -387,7 +387,7 @@ const ProjectInlineAdvancedFilters: React.FC<ProjectInlineAdvancedFiltersProps> 
 
           {/* Date Range */}
           {visibleColumns.includes('dateRange') && (
-            <div className="flex-shrink-0 w-64">
+            <div className="flex-shrink-0 w-48">
               <FilterCard
                 title="Date Range"
                 icon={<Calendar className="w-3 h-3 text-white" />}
@@ -413,7 +413,7 @@ const ProjectInlineAdvancedFilters: React.FC<ProjectInlineAdvancedFiltersProps> 
 
           {/* Additional Filters */}
           {visibleColumns.includes('additionalFilters') && (
-            <div className="flex-shrink-0 w-64">
+            <div className="flex-shrink-0 w-48">
               <FilterCard
                 title="Additional Filters"
                 icon={<Filter className="w-3 h-3 text-white" />}

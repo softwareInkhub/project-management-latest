@@ -600,11 +600,8 @@ const TasksPage = () => {
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [projectFilter, setProjectFilter] = useState('all');
   const [viewMode, setViewMode] = useState<'list' | 'card'>(() => {
-    // Set card view as default for mobile, list view for desktop
-    if (typeof window !== 'undefined') {
-      return window.innerWidth < 640 ? 'card' : 'list';
-    }
-    return 'list'; // Default fallback
+    // Default to list view on all devices (mobile and desktop)
+    return 'list';
   });
   const [activePredefinedFilter, setActivePredefinedFilter] = useState('all');
   const [advancedFilters, setAdvancedFilters] = useState<Record<string, string | string[]>>({});
@@ -1362,6 +1359,10 @@ const TasksPage = () => {
     const Icon = config.icon;
     return <Icon className="w-4 h-4" />;
   };
+
+  // Date format helpers for card grid (match project cards)
+  const formatShort = (d: string | Date) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
+  const formatWithYear = (d: string | Date) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
 
   const getPriorityIcon = (priority: string) => {
     const config = getPriorityConfig(priority);
@@ -2930,17 +2931,8 @@ const TasksPage = () => {
     };
   }, [isDragging]);
 
-  // Handle window resize to update view mode based on screen size
-  useEffect(() => {
-    const handleResize = () => {
-      const isMobile = window.innerWidth < 640;
-      const newViewMode = isMobile ? 'card' : 'list';
-      setViewMode(newViewMode);
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  // Do not auto-switch view on resize; preserve user's selection (default is list on all devices)
+  useEffect(() => {}, []);
 
   // Handle New Task button click from SearchFilterSection
   useEffect(() => {
@@ -3128,8 +3120,157 @@ const TasksPage = () => {
            </div>
          )}
 
+        {/* New List (card-style) view for tasks */}
+        {!isLoading && !error && viewMode === 'list' && (
+          <div className="pt-0 sm:pt-3 md:pt-2 space-y-2">
+            {filteredTasks.map((task) => (
+              <div
+                key={task.id}
+                className="relative px-2 py-4 sm:p-3 bg-white rounded-3xl border border-gray-300 hover:border-gray-400 transition-colors min-h-[90px] sm:min-h-[110px] flex flex-col sm:flex-row sm:items-start cursor-pointer shadow-sm"
+                onClick={() => handleTaskClick(task)}
+              >
+                {/* Action button */}
+                <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex items-center z-20">
+                  <div className="relative">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      title="More Options"
+                      className="p-2 h-9 w-9 sm:h-10 sm:w-10"
+                      onClick={(e) => { e.stopPropagation(); setOpenDropdown(openDropdown === task.id ? null : task.id); }}
+                    >
+                      <MoreVertical size={18} />
+                    </Button>
+                    {openDropdown === task.id && (
+                      <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-30" onClick={(e)=>e.stopPropagation()}>
+                        <button className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-xl flex items-center gap-2 text-sm text-red-600" onClick={()=>{ handleDeleteTask(task); setOpenDropdown(null); }}>
+                          <Trash2 className="w-4 h-4" />
+                          <span>Delete Task</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Left project avatar + title/desc */}
+                <div className="flex items-start space-x-3 sm:space-x-4 flex-1 min-w-0 pr-14 sm:pr-20">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm sm:text-base flex-shrink-0">
+                    {(task.project || 'T').charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-medium text-gray-900 text-sm sm:text-base leading-tight line-clamp-1">
+                      {task.title || 'Untitled Task'}
+                    </h4>
+                    <p className="text-xs sm:text-xs text-gray-600 mt-1 line-clamp-1 sm:line-clamp-2">{task.description || 'No description'}</p>
+
+                    {/* Mobile meta rows */}
+                    <div className="block sm:hidden mt-2 space-y-1 text-xs text-gray-700">
+                      {/* Row 1: Status + Priority */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1">
+                          <span className="text-gray-700 font-semibold">Status:</span>
+                          <Badge variant={getStatusConfig(task.status).color as any} size="sm" className="text-[11px]">
+                            {getStatusConfig(task.status).label}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-gray-700 font-semibold">Priority:</span>
+                          <Badge variant={getPriorityConfig(task.priority).color as any} size="sm" className="text-[11px]">{getPriorityConfig(task.priority).label}</Badge>
+                        </div>
+                      </div>
+
+                      {/* Row 2: Project + Tags */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1 min-w-0">
+                          <span className="text-gray-700 font-semibold">Project:</span>
+                          <span className="px-2 py-1 rounded-md bg-gray-100 text-gray-700 truncate">{task.project || 'N/A'}</span>
+                        </div>
+                        { (task.tags || '').trim() && (
+                          <div className="flex items-center gap-1 min-w-0">
+                            <span className="text-gray-700 font-semibold">Tags:</span>
+                            {(task.tags || '').split(',').filter(Boolean).slice(0,2).map((t, i) => (
+                              <span key={i} className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full truncate">{t.trim()}</span>
+                            ))}
+                            {(task.tags || '').split(',').filter(Boolean).length > 2 && (
+                              <span className="px-2 py-1 bg-gray-200 text-gray-500 rounded-full">+{(task.tags || '').split(',').filter(Boolean).length - 2}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Row 3: Comments + Subtasks + Time */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1">
+                          <span className="text-gray-700 font-semibold">Comments:</span>
+                          <span className="text-gray-600">{(() => { try { const c = JSON.parse(task.comments); return Array.isArray(c) ? c.length : parseInt(task.comments)||0; } catch { return parseInt(task.comments)||0; } })()}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-gray-700 font-semibold">Subtasks:</span>
+                          <span className="text-gray-600">{(() => { try { const s = JSON.parse(task.subtasks); return Array.isArray(s) ? s.length : 0; } catch { return 0; } })()}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-gray-700 font-semibold">Time:</span>
+                          <span className="text-gray-600">{task.estimatedHours || 0}h</span>
+                        </div>
+                      </div>
+
+                      {/* Row 4: Avatars */}
+                      {(() => { const names = getAssignedUsers(task); return names.length > 0 ? (
+                        <div className="flex items-center">
+                          <AssigneeAvatars names={names} maxVisible={3} />
+                        </div>
+                      ) : null; })()}
+                    </div>
+
+                    {/* Desktop meta row */}
+                    <div className="hidden sm:flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs text-gray-700">
+                      <span className="text-gray-700 font-semibold">Status:</span>
+                      <Badge variant={getStatusConfig(task.status).color as any} size="sm" className="text-[11px]">
+                        {getStatusConfig(task.status).label}
+                      </Badge>
+
+                      <span className="text-gray-700 font-semibold">Project:</span>
+                      <span className="px-2 py-1 rounded-md bg-gray-100 text-gray-700">{task.project || 'N/A'}</span>
+
+                      <span className="text-gray-700 font-semibold">Priority:</span>
+                      <Badge variant={getPriorityConfig(task.priority).color as any} size="sm" className="text-[11px]">{getPriorityConfig(task.priority).label}</Badge>
+
+                      <span className="text-gray-700 font-semibold">Time:</span>
+                      <span className="text-gray-600">{task.estimatedHours || 0}h</span>
+
+                      <span className="text-gray-700 font-semibold">Comments:</span>
+                      <span className="text-gray-600">{(() => { try { const c = JSON.parse(task.comments); return Array.isArray(c) ? c.length : parseInt(task.comments)||0; } catch { return parseInt(task.comments)||0; } })()}</span>
+
+                      <span className="text-gray-700 font-semibold">Subtasks:</span>
+                      <span className="text-gray-600">{(() => { try { const s = JSON.parse(task.subtasks); return Array.isArray(s) ? s.length : 0; } catch { return 0; } })()}</span>
+
+                      {(task.tags || '').trim() && (
+                        <>
+                          <span className="text-gray-700 font-semibold">Tags:</span>
+                          {(task.tags || '').split(',').filter(Boolean).slice(0,2).map((t, i) => (
+                            <span key={i} className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full">{t.trim()}</span>
+                          ))}
+                          {(task.tags || '').split(',').filter(Boolean).length > 2 && (
+                            <span className="px-2 py-1 bg-gray-200 text-gray-500 rounded-full">+{(task.tags || '').split(',').filter(Boolean).length - 2}</span>
+                          )}
+                        </>
+                      )}
+
+                      {(() => { const names = getAssignedUsers(task); return names.length > 0 ? (
+                        <div className="flex items-center gap-2 ml-1">
+                          <AssigneeAvatars names={names} maxVisible={3} />
+                        </div>
+                      ) : null; })()}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
          {/* Tasks Table */}
-         {!isLoading && !error && viewMode === 'list' ? (
+        {!isLoading && !error && viewMode === 'list' && false ? (
            <>
              {/* Mobile List View - Same as Desktop Table */}
              <div className="block sm:hidden bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
@@ -3743,290 +3884,105 @@ const TasksPage = () => {
                </div>
              </div>
            </>
-        ) : !isLoading && !error ? (
-          /* Card View */
-          <div className="w-full">
-            {/* Mobile: Single Column with Simplified Cards */}
-            <div className="block sm:hidden space-y-2">
-              {filteredTasks.map((task) => (
-                <Card key={task.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleTaskClick(task)}>
-                  <CardContent className="p-1 relative">
-                    {/* Card actions - top right */}
-                    <div className="absolute top-1 right-2">
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        title="More Options"
-                        className="p-1.5 h-10 w-10 hover:bg-gray-100 rounded-lg"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenDropdown(openDropdown === task.id ? null : task.id);
-                        }}
-                      >
-                        <MoreVertical size={22} className="text-gray-600" />
-                      </Button>
-                      {openDropdown === task.id && (
-                        <div 
-                          data-dropdown-menu
-                          className="absolute right-0 mt-1 w-40 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
-                          onClick={(e) => e.stopPropagation()}
+        ) : (!isLoading && !error && viewMode === 'card') ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3 lg:gap-3">
+            {filteredTasks.map((task) => (
+              <Card key={task.id} hover className="relative cursor-pointer rounded-3xl border border-gray-300 hover:border-gray-400" onClick={() => handleTaskClick(task)}>
+                <CardContent className="px-0 py-0 sm:px-2 sm:py-1 lg:px-2 lg:py-0">
+                  <div className="space-y-1 sm:space-y-2 lg:space-y-1.5">
+                    {/* Header with Project Icon and Title and Action Menu */}
+                    <div className="flex items-center justify-between px-0 sm:px-0 -mt-0.5">
+                      <div className="flex items-center space-x-1 sm:space-x-2 flex-1 min-w-0 mr-2">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                          {(task.project || 'T').charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-gray-900 text-xs sm:text-sm leading-tight truncate whitespace-nowrap">{task.title || 'Untitled Task'}</h4>
+                          <p className="text-xs text-gray-600 mt-1 hidden sm:block truncate whitespace-nowrap overflow-hidden">{task.description || 'No description'}</p>
+                        </div>
+                      </div>
+                      <div className="ml-2 -mr-1 flex-shrink-0 self-start relative">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="p-0.5 h-10 w-10"
+                          title="More options"
+                          onClick={(e) => { e.stopPropagation(); setOpenDropdown(openDropdown === task.id ? null : task.id); }}
                         >
-                          <div className="py-1">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteTask(task);
-                                setOpenDropdown(null);
-                              }}
-                              className="w-full px-3 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center space-x-2"
-                            >
+                          <MoreVertical className="w-5 h-5" />
+                        </Button>
+                        {openDropdown === task.id && (
+                          <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-lg z-30" onClick={(e)=>e.stopPropagation()}>
+                            <button className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-xl flex items-center gap-2 text-sm text-red-600" onClick={(e)=>{e.stopPropagation(); handleDeleteTask(task); setOpenDropdown(null);}}>
                               <Trash2 className="w-4 h-4" />
                               <span>Delete Task</span>
                             </button>
                           </div>
-                        </div>
-                      )}
-                    </div>
-                    {/* Mobile: Simplified Header */}
-                    <div className="flex items-start space-x-2 mb-2">
-                      <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
-                        {(task.project || 'T').charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-gray-900 text-sm leading-tight line-clamp-1 pt-2 sm:pt-0">
-                          {task.title}
-                        </h4>
-                        <p className="hidden">{task.project}</p>
-                      </div>
-                    </div>
-                    
-                    {/* Mobile: Key Info Only */}
-                    <div className="space-y-1.5">
-                      {/* Description - hidden on mobile card */}
-                      <p className="hidden">{task.description}</p>
-
-                      {/* Status, Project, Priority - Same line */}
-                      <div className="flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-1">
-                          <span className="text-gray-500">Status:</span>
-                          <Badge variant={getStatusConfig(task.status).color as any} size="sm" className="text-xs">
-                            {getStatusConfig(task.status).label}
-                          </Badge>
-                        </div>
-                        <div className="text-gray-700 truncate mx-2 flex-1 text-center">
-                          Project: {task.project}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-gray-500">Priority:</span>
-                          <Badge variant={getPriorityConfig(task.priority).color as any} size="sm" className="text-xs">
-                            {getPriorityConfig(task.priority).label}
-                          </Badge>
-                        </div>
-                      </div>
-                      
-                      {/* Meta Row: Hours, Comments, Subtasks, Tags (single line) */}
-                      <div className="flex items-center justify-between text-xs text-gray-600 bg-gray-50 rounded px-3 py-2">
-                        <div className="flex items-center gap-1">
-                          <Clock size={12} />
-                          <span>{task.estimatedHours}h</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <MessageSquare size={12} />
-                          <span>{(() => {
-                            try {
-                              const commentsArray = JSON.parse(task.comments);
-                              return Array.isArray(commentsArray) ? commentsArray.length : parseInt(task.comments) || 0;
-                            } catch (e) {
-                              return parseInt(task.comments) || 0;
-                            }
-                          })()}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <CheckSquare size={12} />
-                          <span>{(() => {
-                            try {
-                              const subtasksArray = JSON.parse(task.subtasks);
-                              return Array.isArray(subtasksArray) ? subtasksArray.length : 0;
-                            } catch (e) {
-                              return 0;
-                            }
-                          })()}</span>
-                        </div>
-                        {task.tags && task.tags.trim() && (
-                          <div className="flex items-center gap-1">
-                            <span className="px-1.5 py-0.5 bg-gray-200 text-gray-600 text-[10px] rounded">
-                              {(task.tags || '').split(',').slice(0, 1).map((tag) => tag.trim()).join('')}
-                            </span>
-                            {(task.tags || '').split(',').length > 1 && (
-                              <span className="px-1.5 py-0.5 bg-gray-200 text-gray-600 text-[10px] rounded">
-                                +{(task.tags || '').split(',').length - 1}
-                              </span>
-                            )}
-                          </div>
                         )}
                       </div>
-
-                      {/* Bottom: Assigned Users Avatars with Due on right */}
-                      {(() => {
-                        const assignedUsers = getAssignedUsers(task);
-                        return assignedUsers.length > 0 ? (
-                          <div className="flex items-center justify-between">
-                            <AssigneeAvatars names={assignedUsers} maxVisible={2} />
-                            <div className="flex items-center space-x-1 text-xs">
-                              <Calendar size={12} />
-                              <span className={`${isOverdue(task.dueDate) ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
-                                {new Date(task.dueDate).toLocaleDateString()}
-                              </span>
-                            </div>
-                          </div>
-                        ) : null;
-                      })()}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {/* Desktop: Improved Multi-Column Grid */}
-            <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 lg:gap-4">
-            {filteredTasks.map((task) => (
-              <Card key={task.id} hover className="cursor-pointer h-fit" onClick={() => handleTaskClick(task)}>
-                <CardContent className="p-1 relative">
-                  {/* Card actions - top right */}
-                  <div className="absolute top-0 right-2">
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      title="More Options"
-                      className="p-1.5 h-10 w-10 hover:bg-gray-100 rounded-lg"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setOpenDropdown(openDropdown === task.id ? null : task.id);
-                      }}
-                    >
-                      <MoreVertical size={22} className="text-gray-600" />
-                    </Button>
-                    {openDropdown === task.id && (
-                      <div 
-                        data-dropdown-menu
-                        className="absolute right-0 mt-1 w-40 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="py-1">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteTask(task);
-                              setOpenDropdown(null);
-                            }}
-                            className="w-full px-3 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center space-x-2"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                            <span>Delete Task</span>
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-1.5">
-                    {/* Header with Project Icon and Title */}
-                    <div className="flex items-start space-x-2">
-                      <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
-                        {(task.project || 'T').charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-gray-900 text-sm leading-tight line-clamp-1">{task.title}</h4>
-                        <p className="text-xs text-gray-600 line-clamp-1 mt-0.5">{task.description}</p>
-                      </div>
                     </div>
                     
-                    {/* Status, Project, Priority - Same Line */}
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-1">
-                        <span className="text-gray-500">Status:</span>
-                        <Badge variant={getStatusConfig(task.status).color as any} size="sm" className="text-xs">
-                          {getStatusConfig(task.status).label}
-                        </Badge>
-                      </div>
-                      <div className="text-gray-700 truncate mx-2 flex-1 text-center">
-                        Project: {task.project}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <span className="text-gray-500">Priority:</span>
-                        <Badge variant={getPriorityConfig(task.priority).color as any} size="sm" className="text-xs">
+                    {/* Status and Priority Chips - show on same line */}
+                    <div className="flex flex-row items-center justify-between gap-1 sm:gap-2 lg:gap-1.5">
+                      <Badge variant={getStatusConfig(task.status).color as any} size="sm" className="text-[11px]">
+                        {getStatusConfig(task.status).label}
+                      </Badge>
+                      <div className="block">
+                        <Badge variant={getPriorityConfig(task.priority).color as any} size="sm" className="text-[11px]">
                           {getPriorityConfig(task.priority).label}
                         </Badge>
                       </div>
                     </div>
-                      
-                    {/* Meta Info Row - Hour, Comment, Subtask, Tags */}
-                    <div className="flex items-center justify-between text-xs text-gray-600 bg-gray-50 rounded px-3 py-2">
-                      <div className="flex items-center gap-1">
-                        <Clock size={12} />
-                        <span>{task.estimatedHours}h</span>
+                    
+                    {/* Progress from task progress field */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-xs lg:text-[11px] text-gray-600">
+                        <span>Progress</span>
+                        <span className="font-medium">{task.progress || 0}%</span>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <MessageSquare size={12} />
-                        <span>{(() => {
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div
+                          className="h-2 bg-blue-500 rounded-full transition-all"
+                          style={{ width: `${task.progress || 0}%` }}
+                        ></div>
+                      </div>
+                      <div className="text-xs lg:text-[11px] text-gray-500">
+                        {task.estimatedHours || 0}h • {(() => {
                           try {
                             const commentsArray = JSON.parse(task.comments);
                             return Array.isArray(commentsArray) ? commentsArray.length : parseInt(task.comments) || 0;
                           } catch (e) {
                             return parseInt(task.comments) || 0;
                           }
-                        })()}</span>
+                        })()} comments
                       </div>
-                      <div className="flex items-center gap-1">
-                        <CheckSquare size={12} />
-                        <span>{(() => {
-                          try {
-                            const subtasksArray = JSON.parse(task.subtasks);
-                            return Array.isArray(subtasksArray) ? subtasksArray.length : 0;
-                          } catch (e) {
-                            return 0;
-                          }
-                        })()}</span>
-                      </div>
-                      {/* Tags in the same row */}
-                      {task.tags && task.tags.trim() && (
-                        <div className="flex items-center gap-1">
-                          <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                          <span className="text-xs">
-                            {(task.tags || '').split(',').slice(0, 1).map((tag, index) => (
-                              <span key={index} className="px-1.5 py-0.5 bg-gray-200 text-gray-600 text-xs rounded">
-                                {tag.trim()}
-                              </span>
-                            ))}
-                            {(task.tags || '').split(',').length > 1 && (
-                              <span className="px-1.5 py-0.5 bg-gray-200 text-gray-600 text-xs rounded ml-1">
-                                +{(task.tags || '').split(',').length - 1}
-                              </span>
-                            )}
-                          </span>
-                        </div>
-                      )}
                     </div>
-                      
-                    {/* Bottom Section - Assigned Users Avatars with Due on right */}
-                    {(() => {
-                      const assignedUsers = getAssignedUsers(task);
-                      return assignedUsers.length > 0 ? (
-                        <div className="flex items-center justify-between">
-                          <AssigneeAvatars names={assignedUsers} maxVisible={3} />
-                          <div className="flex items-center space-x-1 text-xs">
-                            <Calendar size={12} />
-                            <span className={`${isOverdue(task.dueDate) ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
-                              {new Date(task.dueDate).toLocaleDateString()}
+                    
+                    {/* Timeline: Start → Due date like projects */}
+                    {(task.startDate || task.dueDate) && (
+                      <div className="flex items-center space-x-2 text-xs lg:text-[11px] text-gray-600 min-w-0">
+                        <Calendar size={8} className="sm:w-3 sm:h-3" />
+                        {task.startDate && task.dueDate ? (
+                          <>
+                            <span className="text-xs whitespace-nowrap overflow-hidden text-ellipsis">
+                              {formatShort(task.startDate)}
                             </span>
-                          </div>
-                        </div>
-                      ) : null;
-                    })()}
+                            <span className="mx-1">→</span>
+                            <span className={`text-xs whitespace-nowrap overflow-hidden text-ellipsis ${isOverdue(task.dueDate) ? 'text-red-600 font-medium' : ''}`}>
+                              {formatWithYear(task.dueDate)}
+                            </span>
+                          </>
+                        ) : (
+                          <span className={`text-xs whitespace-nowrap overflow-hidden text-ellipsis ${task.dueDate && isOverdue(task.dueDate) ? 'text-red-600 font-medium' : ''}`}>
+                            {formatWithYear(task.dueDate || task.startDate)}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
             ))}
-            </div>
           </div>
         ) : null}
 
@@ -4124,9 +4080,9 @@ const TasksPage = () => {
                 <div className="w-12 h-1 bg-gray-400 dark:bg-gray-500 rounded-full"></div>
               </div>
               
-              <div className="p-4 sm:p-6">
+              <div className="p-4 sm:p-6 lg:p-4">
                 {/* Task Preview Header */}
-                <div className="flex items-center justify-between gap-2 mb-4 sm:mb-6">
+                <div className="flex items-center justify-between gap-2 mb-4 sm:mb-6 lg:mb-4">
                   <div className="flex items-center space-x-3 min-w-0 flex-1">
                     {/* Back Button (always visible) */}
                     <button
@@ -4159,24 +4115,24 @@ const TasksPage = () => {
                 </div>
 
                 {/* Task Details */}
-                <div className="space-y-4 sm:space-y-6">
+                <div className="space-y-4 sm:space-y-5 lg:space-y-4">
                   {/* Basic Info */}
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 sm:p-6 shadow-sm">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 sm:p-5 lg:p-4 shadow-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 lg:gap-4">
                       <div className="sm:col-span-2">
                         <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Description</label>
                         <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base break-words">{selectedTask.description}</p>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Project and Status */}
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 sm:p-5 lg:p-4 shadow-sm">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-5 lg:gap-4">
                       <div>
                         <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Project</label>
                         <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">{selectedTask.project}</p>
                       </div>
-                    </div>
-                  </div>
-
-                  {/* Status and Priority */}
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 sm:p-6 shadow-sm">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                       <div>
                         <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Status</label>
                         <Badge variant={getStatusConfig(selectedTask.status).color as any} size="md" className="text-xs sm:text-sm">
@@ -4184,7 +4140,7 @@ const TasksPage = () => {
                           <span className="ml-2">{getStatusConfig(selectedTask.status).label}</span>
                         </Badge>
                       </div>
-                      <div>
+                      <div className="hidden sm:block">
                         <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Priority</label>
                         <Badge variant={getPriorityConfig(selectedTask.priority).color as any} size="md" className="text-xs sm:text-sm">
                           {getPriorityIcon(selectedTask.priority)}
@@ -4194,9 +4150,26 @@ const TasksPage = () => {
                     </div>
                   </div>
 
+                  {/* Priority and Estimated Time (Mobile) */}
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 sm:p-5 lg:p-4 shadow-sm sm:hidden">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Priority</label>
+                        <Badge variant={getPriorityConfig(selectedTask.priority).color as any} size="md" className="text-xs sm:text-sm">
+                          {getPriorityIcon(selectedTask.priority)}
+                          <span className="ml-2">{getPriorityConfig(selectedTask.priority).label}</span>
+                        </Badge>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Estimated Time</label>
+                        <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">{selectedTask.estimatedHours} hours</p>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Dates and Time */}
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 sm:p-6 shadow-sm">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 sm:p-5 lg:p-4 shadow-sm">
+                    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-4">
                       <div>
                         <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Start Date</label>
                         <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">{new Date(selectedTask.startDate).toLocaleDateString()}</p>
@@ -4207,7 +4180,7 @@ const TasksPage = () => {
                           {new Date(selectedTask.dueDate).toLocaleDateString()}
                         </p>
                       </div>
-                      <div className="sm:col-span-2 lg:col-span-1">
+                      <div className="hidden sm:block sm:col-span-2 lg:col-span-1">
                         <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Estimated Time</label>
                         <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">{selectedTask.estimatedHours} hours</p>
                       </div>
@@ -4215,8 +4188,8 @@ const TasksPage = () => {
                   </div>
 
                   {/* Assignment */}
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 sm:p-6 shadow-sm">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 sm:p-5 lg:p-4 shadow-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 lg:gap-4">
                       {/* Assigned Users */}
                       <div>
                         <div className="flex items-center justify-between mb-4">

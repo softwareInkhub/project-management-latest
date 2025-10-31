@@ -19,6 +19,13 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Make placeholders more visible globally */
+input::placeholder,
+textarea::placeholder {
+  color: #1f2937; /* slightly black/dark gray for better visibility */
+  opacity: 0.9;   /* override browser default low opacity */
+}
+
 /* Custom scrollbar utilities */
 .scrollbar-hide {
   -ms-overflow-style: none;
