@@ -154,25 +154,25 @@ export default function SettingsPage() {
               {activeTab === 'profile' && (
                 <div className="space-y-6">
                   <div className="shadow-inner border border-gray-300 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm overflow-hidden rounded-xl">
-                    <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-6 text-white w-full rounded-t-xl">
-                      <div className="flex items-center justify-between ">
-                        <div className="flex items-center space-x-3 ">
-                          <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                    <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-4 text-white w-full rounded-t-xl relative">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center space-x-3 flex-1">
+                          <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center absolute top-3 left-3 md:relative md:top-auto md:left-auto flex-shrink-0">
                             <User className="w-5 h-5" />
                           </div>
-                          <div >
-                            <h2 className="text-xl font-semibold">Profile Information</h2>
-                            <p className="text-blue-100 text-sm">Manage your personal details</p>
+                          <div className="ml-14 md:ml-0">
+                            <h2 className="text-lg md:text-xl font-semibold leading-tight">Profile Information</h2>
+                            <p className="text-blue-100 text-xs md:text-sm">Manage your personal details</p>
                           </div>
                         </div>
                         <Button
                           variant={isEditing ? "outline" : "primary"}
                           onClick={() => isEditing ? handleSaveProfile() : setIsEditing(true)}
-                          className={`${
+                          className={`absolute top-3 right-3 md:relative md:top-auto md:right-auto ${
                             isEditing 
                               ? 'bg-white text-blue-600 hover:bg-blue-50 border-white' 
                               : 'bg-white/20 text-white hover:bg-white/30 border-white/30'
-                          }`}
+                          } text-xs md:text-sm px-3 py-1.5 md:px-4 md:py-2`}
                         >
                           {isEditing ? (
                             <>
@@ -182,7 +182,7 @@ export default function SettingsPage() {
                           ) : (
                             <>
                               <Edit3 className="w-4 h-4 mr-2" />
-                              Edit Profile
+                              
                             </>
                           )}
                         </Button>
@@ -195,7 +195,7 @@ export default function SettingsPage() {
                         <div className="md:col-span-2">
                           <div className="flex items-center space-x-6 p-4 bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-700 dark:to-gray-600 rounded-xl border border-gray-100 dark:border-gray-600">
                             <div className="relative">
-                              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold shadow-lg">
+                              <div className="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xl md:text-2xl font-bold shadow-lg">
                                 {profileData.name.charAt(0).toUpperCase()}
                               </div>
                               {isEditing && (
