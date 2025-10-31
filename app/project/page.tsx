@@ -820,7 +820,7 @@ const ProjectsPage = () => {
                     </div>
 
                     {/* Status, Priority, Progress */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-sm font-semibold text-gray-800 mb-2">Status</label>
                         <Badge variant={statusColors[selectedProject.status as keyof typeof statusColors] as any} size="md">
@@ -835,7 +835,7 @@ const ProjectsPage = () => {
                           <span className="ml-2">{selectedProject.priority} priority</span>
                         </Badge>
                       </div>
-                      <div>
+                      <div className="col-span-2 sm:col-span-1 hidden sm:block">
                         <label className="block text-sm font-semibold text-gray-800 mb-2">Progress</label>
                         <div className="space-y-2">
                           <div className="flex justify-between text-sm text-gray-600">
@@ -853,7 +853,7 @@ const ProjectsPage = () => {
                     </div>
 
                     {/* Start Date & End Date */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-semibold text-gray-800 mb-2">Start Date</label>
                         <p className="text-gray-600">{new Date(selectedProject.startDate).toLocaleDateString()}</p>
@@ -864,15 +864,33 @@ const ProjectsPage = () => {
                       </div>
                     </div>
 
-                    {/* Assignee & Company */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-800 mb-2">Assignee</label>
-                        <p className="text-gray-600">{selectedProject.assignee || 'Not assigned'}</p>
-                      </div>
+                    {/* Company + Progress on same line (mobile), Assignee below */}
+                    <div className="grid grid-cols-2 sm:grid-cols-2 gap-4">
+                      {/* Company */}
                       <div>
                         <label className="block text-sm font-semibold text-gray-800 mb-2">Company</label>
                         <p className="text-gray-600">{selectedProject.company || 'N/A'}</p>
+                      </div>
+                      {/* Progress shown next to Company on mobile only */}
+                      <div className="sm:hidden">
+                        <label className="block text-sm font-semibold text-gray-800 mb-2">Progress</label>
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm text-gray-600">
+                            <span>{getTasksArray(selectedProject.tasks).length} task(s)</span>
+                            <span>{selectedProject.progress || 0}%</span>
+                          </div>
+                          <div className="w-full bg-gray-300 rounded-full h-3">
+                            <div 
+                              className="h-3 bg-blue-500 rounded-full transition-all duration-1000 ease-out"
+                              style={{ width: `${selectedProject.progress || 0}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Assignee full width below on mobile */}
+                      <div className="col-span-2">
+                        <label className="block text-sm font-semibold text-gray-800 mb-2">Assignee</label>
+                        <p className="text-gray-600">{selectedProject.assignee || 'Not assigned'}</p>
                       </div>
                     </div>
 

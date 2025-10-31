@@ -72,8 +72,9 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   // Removed newTeamMember state - no longer needed
-  const [formHeight, setFormHeight] = useState<number | string>('auto'); // Auto height
+  const [formHeight, setFormHeight] = useState<number>(75); // Mobile slide-up height in vh
   const [isDragging, setIsDragging] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
   
   // Removed team member and team selection - no longer needed
 
@@ -99,8 +100,17 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
       });
     }
     setErrors({});
-    setFormHeight('auto'); // Reset form height when opening
+    setFormHeight(75); // Reset height when opening on mobile
   }, [project, isOpen]);
+
+  // Track desktop breakpoint to change modal sizing/behavior
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 1024px)');
+    const update = () => setIsDesktop(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
 
   // Drag handlers for resizing
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -210,17 +220,23 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
         }
       }}
     >
-       <div 
-         className="bg-white rounded-t-2xl lg:rounded-2xl w-full lg:w-auto lg:max-w-2xl shadow-2xl"
-         style={{ 
-           width: '100%',
-           maxHeight: '90vh',
-           boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
-         }}
-       >
+      <div 
+        className="bg-white rounded-t-2xl lg:rounded-2xl w-screen lg:w-auto max-w-none lg:max-w-2xl shadow-2xl overflow-hidden"
+        style={{ 
+          width: '100vw',
+          height: isDesktop ? 'auto' : `${formHeight}vh`,
+          maxHeight: '90vh',
+          boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+        }}
+      >
 
          <div className="flex flex-col h-full">
-           <div className="p-4 lg:p-6 flex-1 overflow-y-auto">
+          {/* Drag handle for mobile to resize like Task form */}
+          <div className="lg:hidden flex items-center justify-center pt-2">
+            <div className="h-1.5 w-12 rounded-full bg-gray-300" onMouseDown={handleMouseDown} />
+          </div>
+
+          <div className="p-4 lg:p-6 flex-1 lg:flex-none overflow-y-auto lg:overflow-visible">
             {/* Header */}
             <div className="flex items-center justify-between mb-4 lg:mb-6">
               <div>
@@ -378,7 +394,7 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
           </div>
 
            {/* Form Actions */}
-           <div className="sticky bottom-0 bg-white border-t rounded-b-2xl border-gray-300 p-1 sm:p-4 z-10 pb-24 sm:pb-4">
+          <div className="sticky lg:static bottom-0 bg-white border-t rounded-b-2xl border-gray-300 p-1 sm:p-4 z-10 pb-24 sm:pb-4 lg:pb-5">
              <div className="flex justify-end space-x-3">
                <Button
                  type="button"
