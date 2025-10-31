@@ -22,7 +22,8 @@ import {
   User,
   X,
   Flag,
-  Building2
+  Building2,
+  Trash2
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -82,15 +83,20 @@ const getTeamCount = (team: string | string[] | undefined): number => {
   return 1;
 };
 
-// Helper function to parse tasks array
-const getTasksArray = (tasks: string | string[] | undefined): string[] => {
+// Helper function to parse tasks array - supports array of strings/objects, JSON string, CSV string, nested lists
+const getTasksArray = (tasks: any): any[] => {
   if (!tasks) return [];
   if (Array.isArray(tasks)) return tasks;
   try {
-    return JSON.parse(tasks);
-  } catch {
-    return [];
-  }
+    const parsed = typeof tasks === 'string' ? JSON.parse(tasks) : tasks;
+    if (Array.isArray(parsed)) return parsed;
+    if (Array.isArray(parsed?.items)) return parsed.items; // common pattern
+    if (Array.isArray(parsed?.data)) return parsed.data; // alternative pattern
+  } catch {}
+  // Try CSV fallback when input is a string of titles
+  const csv = String(tasks).trim();
+  if (csv.length === 0) return [];
+  return csv.split(',').map((s) => s.trim()).filter(Boolean);
 };
 
 // Helper function to parse tags array
@@ -133,6 +139,7 @@ const ProjectsPage = () => {
   const [activePredefinedFilter, setActivePredefinedFilter] = useState('all');
   const [advancedFilters, setAdvancedFilters] = useState<Record<string, string | string[]>>({});
   const [isAdvancedFilterOpen, setIsAdvancedFilterOpen] = useState(false);
+  const [openMenuProjectId, setOpenMenuProjectId] = useState<string | null>(null);
   
   // Advanced Filter State
   const [projectAdvancedFilters, setProjectAdvancedFilters] = useState<ProjectAdvancedFilters>({
@@ -174,14 +181,51 @@ const ProjectsPage = () => {
     setIsLoading(true);
     try {
       console.log('📋 Fetching projects...');
-      const res = await apiService.getProjects();
+      const [projectsRes, tasksRes] = await Promise.all([
+        apiService.getProjects(),
+        apiService.getTasks()
+      ]);
       
-      if (res.success && res.data) {
-        console.log('✅ Projects fetched:', res.data.length);
-        setProjects(res.data);
+      if (projectsRes.success && projectsRes.data) {
+        const projectsData = projectsRes.data;
+        const tasksData = tasksRes.success && Array.isArray(tasksRes.data) ? tasksRes.data : [];
+
+        // Build map of tasks per project by multiple keys
+        const projectTaskMap = new Map<string, { total: number; completed: number }>();
+        tasksData.forEach((t: any) => {
+          const projKeyCandidates = [t.project, t.projectId, t.project_id].filter(Boolean);
+          const isCompleted = (t.status || '').toString().toLowerCase() === 'completed' || t.completed === true || t.done === true;
+          projKeyCandidates.forEach((key: string) => {
+            const k = (key || '').toString();
+            if (!k) return;
+            const current = projectTaskMap.get(k) || { total: 0, completed: 0 };
+            current.total += 1;
+            if (isCompleted) current.completed += 1;
+            projectTaskMap.set(k, current);
+          });
+        });
+
+        // Attach counts to each project using best matching key
+        const augmentedProjects = projectsData.map((p: any) => {
+          const keys = [p.id, p.projectId, p.name, p.title].map(v => (v || '').toString()).filter(Boolean);
+          let counts = { total: 0, completed: 0 };
+          for (const k of keys) {
+            if (projectTaskMap.has(k)) { counts = projectTaskMap.get(k)!; break; }
+          }
+          return {
+            ...p,
+            totalTasks: counts.total,
+            completedTasks: counts.completed,
+            // keep original progress if provided, else derive
+            progress: typeof p.progress === 'number' && p.progress > 0 ? p.progress : (counts.total > 0 ? Math.round((counts.completed / counts.total) * 100) : 0)
+          };
+        });
+
+        console.log('✅ Projects fetched:', augmentedProjects.length);
+        setProjects(augmentedProjects);
       } else {
-        console.error('❌ Failed to fetch projects:', res.error);
-        alert(`Failed to fetch projects: ${res.error || 'Unknown error'}`);
+        console.error('❌ Failed to fetch projects:', projectsRes.error);
+        alert(`Failed to fetch projects: ${projectsRes.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('❌ Error fetching projects:', error);
@@ -319,6 +363,122 @@ const ProjectsPage = () => {
     }
   };
 
+  // Date format helpers for card range
+  const formatShort = (d: string | Date) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
+  const formatWithYear = (d: string | Date) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+
+  // Derive task counts and progress from real fields when available
+  const getTaskCounts = (project: any) => {
+    // Normalize many possible field names from API
+    const num = (v: any) => {
+      const n = typeof v === 'string' ? Number(v) : v;
+      return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : undefined;
+    };
+
+    const totalCandidates = [
+      num(project?.totalTasks),
+      num(project?.tasksTotal),
+      num(project?.taskTotal),
+      num(project?.taskCount),
+      num(project?.tasksCount),
+      num(project?.total_task),
+      num(project?.total_tasks)
+    ];
+    const completedCandidates = [
+      num(project?.completedTasks),
+      num(project?.completedCount),
+      num(project?.doneTasks),
+      num(project?.tasksCompleted),
+      num(project?.completed_tasks)
+    ];
+
+    // Consider multiple possible containers
+    const tasksArr = getTasksArray(
+      project?.tasks ?? project?.taskList ?? project?.todos ?? project?.items
+    );
+    const derivedTotal = tasksArr.length;
+    const derivedCompleted = Array.isArray(tasksArr)
+      ? tasksArr.filter((t: any) => {
+          const status = (t?.status || t?.state || '').toString().toLowerCase();
+          const label = (t?.label || '').toString().toLowerCase();
+          return (
+            t?.completed === true ||
+            t?.isCompleted === true ||
+            t?.done === true ||
+            label === 'done' ||
+            status === 'completed' ||
+            status === 'done' ||
+            status === 'closed'
+          );
+        }).length
+      : 0;
+
+    const total = totalCandidates.find(v => typeof v === 'number') ?? derivedTotal;
+    const completed = completedCandidates.find(v => typeof v === 'number') ??
+      (derivedCompleted || (num(project?.progress) !== undefined && total > 0
+        ? Math.round(((num(project?.progress) as number) / 100) * total)
+        : 0));
+
+    return { completed, total };
+  };
+
+  const getProgressPercent = (project: any) => {
+    const { completed, total } = getTaskCounts(project);
+    if (total > 0) {
+      return Math.round((completed / total) * 100);
+    }
+    return typeof project?.progress === 'number' ? Math.round(project.progress) : 0;
+  };
+
+  // Pretty status chip for card grid
+  const renderStatusChip = (statusRaw: string) => {
+    const status = (statusRaw || '').toLowerCase();
+    let classes = 'bg-gray-100 text-gray-700 border border-gray-200';
+    let Icon = Clock;
+    let label = statusRaw || 'Unknown';
+
+    if (status.includes('progress') || status === 'active') {
+      classes = 'bg-blue-50 text-blue-700 border border-blue-100';
+      Icon = Clock;
+      label = statusRaw || 'In Progress';
+    } else if (status === 'planning') {
+      classes = 'bg-amber-50 text-amber-700 border border-amber-100';
+      Icon = Clock;
+    } else if (status === 'completed' || status === 'done') {
+      classes = 'bg-emerald-50 text-emerald-700 border border-emerald-100';
+      Icon = CheckCircle;
+    } else if (status === 'on hold' || status === 'on-hold' || status === 'paused') {
+      classes = 'bg-rose-50 text-rose-700 border border-rose-100';
+      Icon = Pause;
+    }
+
+    return (
+      <span className={`inline-flex items-center py-1 rounded-full text-[11px] font-medium pl-2 pr-2.5 sm:px-2.5 ${classes}`}>
+        <Icon className="w-3.5 h-3.5 mr-1" />
+        <span className="truncate">{label}</span>
+      </span>
+    );
+  };
+
+  // Pretty priority chip for card grid
+  const renderPriorityChip = (priorityRaw: string) => {
+    const priority = (priorityRaw || '').toLowerCase();
+    let classes = 'bg-gray-100 text-gray-700 border border-gray-200';
+    if (priority === 'high') {
+      classes = 'bg-orange-50 text-orange-700 border border-orange-100';
+    } else if (priority === 'medium') {
+      classes = 'bg-yellow-50 text-yellow-700 border border-yellow-100';
+    } else if (priority === 'low') {
+      classes = 'bg-gray-50 text-gray-700 border border-gray-200';
+    }
+
+    return (
+      <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-medium ${classes}`}>
+        <span className="truncate">{priorityRaw || 'N/A'}</span>
+      </span>
+    );
+  };
+
   // Project preview and edit handlers
   const handleProjectClick = (project: any) => {
     setSelectedProject(project);
@@ -447,6 +607,7 @@ const ProjectsPage = () => {
       if (advancedFilterRef.current && !advancedFilterRef.current.contains(event.target as Node)) {
         setIsAdvancedFilterOpen(false);
       }
+      setOpenMenuProjectId(null);
     };
 
     if (isProjectPreviewOpen || isAdvancedFilterOpen) {
@@ -457,6 +618,22 @@ const ProjectsPage = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [isProjectPreviewOpen, isAdvancedFilterOpen]);
+
+  const handleDeleteProject = async (projectId: string) => {
+    try {
+      const confirmed = window.confirm('Delete this project? This cannot be undone.');
+      if (!confirmed) return;
+      const res = await apiService.deleteProject(projectId);
+      if (res.success) {
+        setOpenMenuProjectId(null);
+        fetchProjects();
+      } else {
+        alert(res.error || 'Failed to delete project');
+      }
+    } catch (error) {
+      alert('Unexpected error while deleting project');
+    }
+  };
 
   // Handle New Project button click from SearchFilterSection
   useEffect(() => {
@@ -536,30 +713,27 @@ const ProjectsPage = () => {
         {viewMode === 'list' ? (
           <div className="space-y-2">
             {filteredProjects.map((project) => (
-              <div key={project.id} className="relative p-2 sm:p-3 bg-white rounded-3xl border border-gray-300 hover:border-gray-400 transition-colors min-h-[100px] sm:min-h-[120px] flex flex-col sm:flex-row sm:items-center cursor-pointer shadow-sm" onClick={() => handleProjectClick(project)}>
+              <div key={project.id} className="relative px-2 py-4 sm:p-3 bg-white rounded-3xl border border-gray-300 hover:border-gray-400 transition-colors min-h-[100px] sm:min-h-[120px] flex flex-col sm:flex-row sm:items-center cursor-pointer shadow-sm" onClick={() => handleProjectClick(project)}>
                 {/* Action Buttons - Top Right Corner */}
                 <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex flex-col items-end space-y-2 z-20">
-                  <div className="flex items-center space-x-1">
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      title="Edit Project"
-                      className="p-2 h-9 w-9 sm:p-2 sm:h-10 sm:w-10"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEditProject(project);
-                      }}
-                    >
-                      <Edit size={18} className="sm:w-[20px] sm:h-[20px]" />
-                    </Button>
+                  <div className="flex items-center space-x-1 relative">
                     <Button 
                       variant="ghost" 
                       size="sm"
                       title="More Options"
                       className="p-2 h-9 w-9 sm:p-2 sm:h-10 sm:w-10"
+                      onClick={(e) => { e.stopPropagation(); setOpenMenuProjectId(prev => prev === project.id ? null : project.id); }}
                     >
                       <MoreVertical size={18} className="sm:w-[20px] sm:h-[20px]" />
                     </Button>
+                    {openMenuProjectId === project.id && (
+                      <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-lg z-30" onClick={(e)=>e.stopPropagation()}>
+                        <button className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-xl flex items-center gap-2 text-sm text-red-600" onClick={()=>handleDeleteProject(project.id)}>
+                          <Trash2 className="w-4 h-4" />
+                          <span>Delete Project</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -584,16 +758,17 @@ const ProjectsPage = () => {
                           <span className="ml-1 text-xs">{project.priority} priority</span>
                         </Badge>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="text-xs text-gray-500">Progress: {project.progress}%</div>
-                          <div className="w-20 bg-gray-200 rounded-full h-1.5">
+                      <div className="flex items-center justify-between gap-2 min-w-0">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <span className="text-xs text-gray-500 whitespace-nowrap">Progress</span>
+                          <div className="w-20 bg-gray-200 rounded-full h-1.5 flex-shrink-0">
                             <div className="h-1.5 bg-blue-500 rounded-full" style={{ width: `${project.progress || 0}%` }}></div>
                           </div>
+                          <span className="text-xs text-gray-500 whitespace-nowrap">{project.progress || 0}%</span>
                         </div>
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-0 flex-shrink-0 ml-2">
                           <User size={12} className="text-gray-500" />
-                          <span className="text-xs text-gray-500">{getTeamCount(project.team)} team(s)</span>
+                          <span className="text-xs text-gray-500 whitespace-nowrap">{getTeamCount(project.team)} team(s)</span>
                         </div>
                       </div>
                     </div>
@@ -640,10 +815,10 @@ const ProjectsPage = () => {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3 lg:gap-3">
             {filteredProjects.map((project) => (
               <Card key={project.id} hover className="relative cursor-pointer rounded-3xl border border-gray-300 hover:border-gray-400" onClick={() => handleProjectClick(project)}>
-                <CardContent className="px-1 py-1 sm:px-2 sm:py-1 lg:px-2 lg:py-0">
+                <CardContent className="px-0 py-0 sm:px-2 sm:py-1 lg:px-2 lg:py-0">
                   <div className="space-y-1 sm:space-y-2 lg:space-y-1.5">
                     {/* Header with Project Icon and Title and Assignee aligned */}
-                    <div className="flex items-center justify-between px-1 sm:px-0">
+                    <div className="flex items-center justify-between px-0 sm:px-0 -mt-0.5">
                       <div className="flex items-center space-x-1 sm:space-x-2 flex-1 min-w-0 mr-2">
                         <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
                           {(project.name || project.title || 'P').charAt(0).toUpperCase()}
@@ -653,11 +828,25 @@ const ProjectsPage = () => {
                           <p className="text-xs text-gray-600 mt-1 hidden sm:block truncate whitespace-nowrap overflow-hidden">{project.description || 'No description'}</p>
                         </div>
                       </div>
-                      {project.assignee && (
-                        <div className="ml-2 mr-1 flex-shrink-0 self-center">
-                          <Avatar name={project.assignee} size="sm" />
-                        </div>
-                      )}
+                      <div className="ml-2 -mr-1 flex-shrink-0 self-start relative">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="p-0.5 h-10 w-10"
+                          title="More options"
+                          onClick={(e) => { e.stopPropagation(); setOpenMenuProjectId(prev => prev === project.id ? null : project.id); }}
+                        >
+                          <MoreVertical className="w-5 h-5" />
+                        </Button>
+                        {openMenuProjectId === project.id && (
+                          <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-lg z-30" onClick={(e)=>e.stopPropagation()}>
+                            <button className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-xl flex items-center gap-2 text-sm text-red-600" onClick={()=>handleDeleteProject(project.id)}>
+                              <Trash2 className="w-4 h-4" />
+                              <span>Delete Project</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     {/* Product Owner & Scrum Master */}
@@ -676,46 +865,44 @@ const ProjectsPage = () => {
                       )}
                     </div>
                     
-                    {/* Status and Priority Badges - Stacked on mobile */}
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 lg:gap-1.5">
-                      <Badge variant={statusColors[project.status as keyof typeof statusColors] as any} size="sm" className="text-xs">
-                        {getStatusIcon(project.status)}
-                        <span className="ml-1 text-xs capitalize">{project.status || 'Unknown'}</span>
-                      </Badge>
-                      <div className="hidden sm:block">
-                        <Badge variant={priorityColors[project.priority as keyof typeof priorityColors] as any} size="sm" className="text-xs">
-                          {getPriorityIcon(project.priority)}
-                        </Badge>
+                    {/* Status and Priority Chips - show on same line in mobile */}
+                    <div className="flex flex-row items-center justify-between gap-1 sm:gap-2 lg:gap-1.5">
+                      {renderStatusChip(project.status)}
+                      <div className="block">
+                        {renderPriorityChip(project.priority)}
                       </div>
                     </div>
                     
-                    {/* Progress - Minimal on mobile */}
-                    <div className="flex items-center justify-between text-xs lg:text-[11px] text-gray-500">
-                      <div className="flex items-center space-x-1">
-                        <Target size={8} className="sm:w-3 sm:h-3" />
-                        <span className="text-xs">{project.progress || 0}%</span>
+                    {/* Progress from real task data */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-xs lg:text-[11px] text-gray-600">
+                        <span>Progress</span>
+                        <span className="font-medium">{getProgressPercent(project)}%</span>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <div className="flex items-center space-x-1">
-                          <User size={8} className="sm:w-3 sm:h-3" />
-                          <span className="text-xs">{getTeamCount(project.team)}</span>
-                        </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div
+                          className="h-2 bg-blue-500 rounded-full transition-all"
+                          style={{ width: `${getProgressPercent(project)}%` }}
+                        ></div>
+                      </div>
+                      <div className="text-xs lg:text-[11px] text-gray-500">
+                        {(() => { const c = getTaskCounts(project); return `${c.completed}/${c.total} tasks`; })()}
                       </div>
                     </div>
                     
                     {/* Assignee */}
                     {/* Assignee avatar moved to top-right corner */}
                     
-                    {/* Timeline - Minimal on mobile */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-1 text-xs lg:text-[11px]">
-                        <Calendar size={8} className="sm:w-3 sm:h-3" />
-                        <span className="text-xs">{new Date(project.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-                      </div>
-                      <div className="flex items-center space-x-1 text-xs">
-                        <Clock size={8} className="sm:w-3 sm:h-3" />
-                        <span className="text-xs">{new Date(project.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-                      </div>
+                    {/* Timeline: Sep 01 → Mar 30, 2025 */}
+                    <div className="flex items-center space-x-2 text-xs lg:text-[11px] text-gray-600 min-w-0">
+                      <Calendar size={8} className="sm:w-3 sm:h-3" />
+                      {/* Mobile: no year; Desktop: include year */}
+                      <span className="text-xs whitespace-nowrap overflow-hidden text-ellipsis sm:hidden">
+                        {formatShort(project.startDate)} <span className="mx-1">→</span> {formatShort(project.endDate)}
+                      </span>
+                      <span className="text-xs whitespace-nowrap overflow-hidden text-ellipsis hidden sm:inline">
+                        {formatShort(project.startDate)} <span className="mx-1">→</span> {formatWithYear(project.endDate)}
+                      </span>
                     </div>
                   </div>
                 </CardContent>

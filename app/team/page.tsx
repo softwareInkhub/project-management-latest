@@ -175,6 +175,7 @@ const TeamsPage = () => {
   const [formHeight, setFormHeight] = useState(80); // Default 80vh
   const [isDragging, setIsDragging] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [openMenuTeamId, setOpenMenuTeamId] = useState<string | null>(null);
   const [teamForm, setTeamForm] = useState({
     name: '',
     description: '',
@@ -515,6 +516,7 @@ const filteredUsers = allUsers.filter(user => {
           userSearchRef.current && !userSearchRef.current.contains(event.target as Node)) {
         setShowUsersDropdown(false);
       }
+      setOpenMenuTeamId(null);
     };
 
     if (showUsersDropdown) {
@@ -525,6 +527,15 @@ const filteredUsers = allUsers.filter(user => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showUsersDropdown]);
+
+  // Close team menu on ESC
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpenMenuTeamId(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   return (
     <AppLayout>
@@ -587,13 +598,13 @@ const filteredUsers = allUsers.filter(user => {
                        </div>
                      </div>
 
-          {/* Status Pills */}
-          <div className="flex flex-wrap gap-2">
+          {/* Status Pills - keep on one line on mobile */}
+          <div className="flex flex-row items-center gap-2 overflow-x-auto whitespace-nowrap scrollbar-hide -mx-1 px-1">
             {Object.entries(statusCounts).map(([status, count]) => (
               <button
                 key={status}
                 onClick={() => setStatusFilter(status)}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors flex-shrink-0 ${
                   statusFilter === status
                     ? 'bg-blue-500 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -609,22 +620,30 @@ const filteredUsers = allUsers.filter(user => {
         {viewMode === 'list' ? (
           <div className="space-y-3">
             {filteredTeams.map((team, index) => (
-              <div key={team.id || `team-${index}`} className="relative p-2 sm:p-3 bg-white rounded-lg border border-gray-300 hover:border-gray-400 transition-colors min-h-[96px] sm:min-h-[112px] flex flex-col sm:flex-row sm:items-center cursor-pointer shadow-sm" onClick={() => handleTeamMenu(team)}>
+              <div key={team.id || `team-${index}`} className="relative px-2 py-3 sm:p-5 bg-white rounded-lg border border-gray-300 hover:border-gray-400 transition-colors min-h-[96px] sm:min-h-[112px] flex flex-col sm:flex-row sm:items-center cursor-pointer shadow-sm" onClick={() => handleTeamMenu(team)}>
                 {/* Action Buttons - Top Right Corner */}
                 <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex flex-col items-end space-y-2 z-20">
-                  <div className="flex items-center space-x-1">
+                  <div className="flex items-center space-x-1 relative">
                     <Button 
                       variant="ghost"
                       size="sm"
                       title="More Options"
-                      className="p-1.5 h-7 w-7 sm:p-2 sm:h-9 sm:w-9"
+                      className="p-1.5 h-7 w-15 sm:p-2 sm:h-9 sm:w-9"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleTeamMenu(team);
+                        setOpenMenuTeamId(prev => prev === team.id ? null : team.id);
                       }}
                     >
                       <MoreVertical size={14} className="sm:w-[18px] sm:h-[18px]" />
                     </Button>
+                    {openMenuTeamId === team.id && (
+                      <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-lg z-30" onClick={(e)=>e.stopPropagation()}>
+                        <button className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-xl flex items-center gap-2 text-sm text-red-600" onClick={()=>handleDeleteTeam(team)}>
+                          <Trash2 className="w-4 h-4" />
+                          <span>Delete Team</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -661,18 +680,42 @@ const filteredUsers = allUsers.filter(user => {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 xl:grid-cols-7 gap-2 sm:gap-3 lg:gap-4">
             {filteredTeams.map((team, index) => (
               <Card key={team.id || `team-${index}`} hover className="cursor-pointer" onClick={() => handleTeamMenu(team)}>
-                <CardContent className="p-1 sm:p-1">
-                   <div className="space-y-1 sm:space-y-2">
-                     {/* Header with Team Icon and Title */}
-                     <div className="flex items-start space-x-1 sm:space-x-2">
-                       <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
-                         <Users className="w-3 h-3 sm:w-4 sm:h-4" />
-                       </div>
-                       <div className="flex-1 min-w-0">
-                         <h4 className="font-medium text-gray-900 text-xs sm:text-sm leading-tight line-clamp-2">{team.name}</h4>
-                         <p className="text-xs text-gray-600 mt-1 line-clamp-1 hidden sm:block">{team.description || 'No description'}</p>
-                       </div>
-                     </div>
+                <CardContent className=" px-1 pb-1 sm:p-0">
+                   <div className="space-y-0.5 sm:space-y-2">
+                    {/* Header with Team Icon, Title, and Menu */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-1 sm:space-x-2 min-w-0">
+                        <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                          <Users className="w-3 h-3 sm:w-4 sm:h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-gray-900 text-xs sm:text-sm leading-tight line-clamp-2">{team.name}</h4>
+                          <p className="text-xs text-gray-600 mt-1 line-clamp-1 hidden sm:block">{team.description || 'No description'}</p>
+                        </div>
+                      </div>
+                      <div className="ml-2 -mr-1 flex-shrink-0 self-start relative">
+                        <Button 
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMenuTeamId(prev => prev === team.id ? null : team.id);
+                          }}
+                          className="p-0 h-8 w-8 sm:p-0.5 sm:h-10 sm:w-10"
+                          title="More options"
+                        >
+                          <MoreVertical className="w-7 h-7 sm:w-5 sm:h-5" />
+                        </Button>
+                        {openMenuTeamId === team.id && (
+                          <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-lg z-30" onClick={(e)=>e.stopPropagation()}>
+                            <button className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-xl flex items-center gap-2 text-sm text-red-600" onClick={()=>handleDeleteTeam(team)}>
+                              <Trash2 className="w-4 h-4" />
+                              <span>Delete Team</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
 
                      {/* Member Count and Status - Stacked on mobile */}
                      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
@@ -686,22 +729,11 @@ const filteredUsers = allUsers.filter(user => {
                      </div>
 
                      {/* Member Avatars */}
-                     {team.members && Array.isArray(team.members) && team.members.length > 0 && (
-                       <div className="flex items-center justify-between">
-                         <MemberAvatars members={team.members} maxVisible={2} />
-                         <Button 
-                           variant="ghost"
-                           size="sm"
-                           onClick={(e) => {
-                             e.stopPropagation();
-                             handleTeamMenu(team);
-                           }}
-                           className="p-1 h-6 w-6"
-                         >
-                           <MoreVertical className="w-3 h-3" />
-                         </Button>
-                       </div>
-                     )}
+                    {team.members && Array.isArray(team.members) && team.members.length > 0 && (
+                      <div className="flex items-center justify-start">
+                        <MemberAvatars members={team.members} maxVisible={2} />
+                      </div>
+                    )}
                    </div>
                  </CardContent>
                </Card>

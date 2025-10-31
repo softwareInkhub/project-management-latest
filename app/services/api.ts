@@ -659,8 +659,9 @@ class ApiService {
   }
 
   async deleteProject(id: string): Promise<ApiResponse<void>> {
-    return this.makeRequest<void>(`?tableName=project-management-projects&id=${id}`, {
+    return this.makeRequest<void>(`?tableName=project-management-projects`, {
       method: 'DELETE',
+      body: JSON.stringify({ id }),
     });
   }
 
@@ -744,8 +745,9 @@ class ApiService {
   }
 
   async deleteTeam(id: string): Promise<ApiResponse<void>> {
-    return this.makeRequest<void>(`?tableName=project-management-teams&id=${id}`, {
+    return this.makeRequest<void>(`?tableName=project-management-teams`, {
       method: 'DELETE',
+      body: JSON.stringify({ id }),
     });
   }
 
