@@ -174,6 +174,7 @@ const TeamsPage = () => {
   const [tagInput, setTagInput] = useState('');
   const [formHeight, setFormHeight] = useState(80); // Default 80vh
   const [isDragging, setIsDragging] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
   const [teamForm, setTeamForm] = useState({
     name: '',
     description: '',
@@ -249,6 +250,15 @@ const TeamsPage = () => {
       fetchUsers();
     }
   }, [isCreateTeamOpen, fetchUsers]);
+
+  // Track desktop breakpoint for modal sizing/behavior
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 1024px)');
+    const update = () => setIsDesktop(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
 
   // Filter teams
   const filteredTeams = teams.filter(team => {
@@ -865,15 +875,21 @@ const filteredUsers = allUsers.filter(user => {
           }}
         >
           <div 
-            className="bg-white rounded-t-2xl lg:rounded-2xl w-full lg:w-auto lg:max-w-2xl shadow-2xl"
+            className="bg-white rounded-t-2xl lg:rounded-2xl w-screen max-w-none lg:w-auto lg:max-w-2xl shadow-2xl overflow-hidden"
             style={{ 
-              width: '100%',
+              width: '100vw',
+              height: isDesktop ? 'auto' : `${formHeight}vh`,
               maxHeight: '90vh',
               boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
             }}
           >
             <div className="flex flex-col h-full">
-              <div className="p-4 lg:p-6 flex-1 overflow-y-auto">
+              {/* Drag handle for mobile to resize */}
+              <div className="lg:hidden flex items-center justify-center pt-2">
+                <div className="h-1.5 w-12 rounded-full bg-gray-300" onMouseDown={handleMouseDown} />
+              </div>
+
+              <div className="p-4 lg:p-6 flex-1 lg:flex-none overflow-y-auto lg:overflow-visible">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-4 lg:mb-6">
                   <div>
@@ -978,8 +994,8 @@ const filteredUsers = allUsers.filter(user => {
                     Team Members
                   </label>
                   
-                  {/* Search Input */}
-                  <div className="relative mb-3">
+                  {/* Search Input + Upward Dropdown (mobile) */}
+                  <div className="relative mb-3 lg:mb-0">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                     <input
                       ref={userSearchRef}
@@ -990,49 +1006,50 @@ const filteredUsers = allUsers.filter(user => {
                       onFocus={() => setShowUsersDropdown(true)}
                       className="w-full px-4 py-3 pl-10 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                     />
+                    {showUsersDropdown && (
+                      <div
+                        ref={dropdownRef}
+                        className="absolute left-0 right-0 bottom-full mb-2 sm:static sm:mt-2 sm:mb-0 border border-gray-200 rounded-lg bg-white shadow-lg max-h-60 overflow-y-auto z-50"
+                      >
+                        {isLoadingUsers ? (
+                          <div className="p-4 text-center text-gray-500">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                            Loading users...
+                          </div>
+                        ) : filteredUsers.length > 0 ? (
+                          <div className="py-2">
+                            {filteredUsers.map((user, index) => (
+                              <button
+                                key={getStableUserId(user) || user.email || `user-${index}`}
+                                type="button"
+                                onClick={() => addMember(user)}
+                                className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center space-x-3 transition-colors"
+                              >
+                                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                                  {(user.name || user.username || user.email || '?').charAt(0).toUpperCase()}
+                                </div>
+                                <div className="flex-1">
+                                  <p className="font-medium text-gray-900">
+                                    {user.name || user.username || user.email}
+                                  </p>
+                                  {user.email && user.name && (
+                                    <p className="text-sm text-gray-500">{user.email}</p>
+                                  )}
+                                </div>
+                                <div className="text-blue-600">
+                                  <User className="w-4 h-4" />
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="p-4 text-center text-gray-500">
+                            {usersSearch.trim() ? 'No users found matching your search' : 'No users available'}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-
-                  {/* Users List Dropdown */}
-                  {showUsersDropdown && (
-                    <div ref={dropdownRef} className="border border-gray-200 rounded-lg bg-white shadow-lg max-h-60 overflow-y-auto mb-3">
-                      {isLoadingUsers ? (
-                        <div className="p-4 text-center text-gray-500">
-                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                          Loading users...
-                        </div>
-                      ) : filteredUsers.length > 0 ? (
-                        <div className="py-2">
-                          {filteredUsers.map((user, index) => (
-                            <button
-                              key={getStableUserId(user) || user.email || `user-${index}`}
-                              type="button"
-                              onClick={() => addMember(user)}
-                              className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center space-x-3 transition-colors"
-                            >
-                              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                                {(user.name || user.username || user.email || '?').charAt(0).toUpperCase()}
-                              </div>
-                              <div className="flex-1">
-                                <p className="font-medium text-gray-900">
-                                  {user.name || user.username || user.email}
-                                </p>
-                                {user.email && user.name && (
-                                  <p className="text-sm text-gray-500">{user.email}</p>
-                                )}
-                              </div>
-                              <div className="text-blue-600">
-                                <User className="w-4 h-4" />
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="p-4 text-center text-gray-500">
-                          {usersSearch.trim() ? 'No users found matching your search' : 'No users available'}
-                        </div>
-                      )}
-                    </div>
-                  )}
                   
                   {/* Selected Members Display */}
                   {teamForm.members.length > 0 && (
@@ -1062,7 +1079,7 @@ const filteredUsers = allUsers.filter(user => {
               </div>
 
               {/* Form Actions */}
-              <div className="sticky bottom-0 bg-white border-t rounded-b-2xl border-gray-300 p-1 sm:p-4 z-10 pb-24 sm:pb-5">
+              <div className="sticky lg:static bottom-0 bg-white border-t rounded-b-2xl border-gray-300 p-1 sm:p-4 z-10 pb-24 sm:pb-5 lg:pb-2">
                 <div className="flex justify-end space-x-3">
                   <Button
                     type="button"
