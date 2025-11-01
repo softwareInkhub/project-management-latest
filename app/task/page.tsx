@@ -3136,8 +3136,12 @@ const TasksPage = () => {
                       <MoreVertical size={18} />
                     </Button>
                     {openDropdown === task.id && (
-                      <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-30" onClick={(e)=>e.stopPropagation()}>
-                        <button className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-xl flex items-center gap-2 text-sm text-red-600" onClick={()=>{ handleDeleteTask(task); setOpenDropdown(null); }}>
+                      <div 
+                        data-dropdown-menu
+                        className="absolute right-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-30" 
+                        onClick={(e)=>e.stopPropagation()}
+                      >
+                        <button className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-xl flex items-center gap-2 text-sm text-red-600" onClick={(e)=>{ e.stopPropagation(); handleDeleteTask(task); setOpenDropdown(null); }}>
                           <Trash2 className="w-4 h-4" />
                           <span>Delete Task</span>
                         </button>
@@ -3906,7 +3910,11 @@ const TasksPage = () => {
                           <MoreVertical className="w-5 h-5" />
                         </Button>
                         {openDropdown === task.id && (
-                          <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-lg z-30" onClick={(e)=>e.stopPropagation()}>
+                          <div 
+                            data-dropdown-menu
+                            className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-lg z-30" 
+                            onClick={(e)=>e.stopPropagation()}
+                          >
                             <button className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-xl flex items-center gap-2 text-sm text-red-600" onClick={(e)=>{e.stopPropagation(); handleDeleteTask(task); setOpenDropdown(null);}}>
                               <Trash2 className="w-4 h-4" />
                               <span>Delete Task</span>
@@ -5056,7 +5064,7 @@ const TasksPage = () => {
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && taskToDelete && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 bg-opacity-50"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 bg-opacity-50"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               cancelDeleteTask();

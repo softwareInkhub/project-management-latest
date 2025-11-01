@@ -449,7 +449,7 @@ class ApiService {
       console.error('Failed to get task data before deletion:', error);
     }
 
-    const result = await this.makeRequest<void>(`?tableName=project-management-tasks`, {
+    const result = await this.makeRequest<void>(`?tableName=project-management-tasks&id=${id}`, {
       method: 'DELETE',
       body: JSON.stringify({ id }),
     });
@@ -659,7 +659,7 @@ class ApiService {
   }
 
   async deleteProject(id: string): Promise<ApiResponse<void>> {
-    return this.makeRequest<void>(`?tableName=project-management-projects`, {
+    return this.makeRequest<void>(`?tableName=project-management-projects&id=${id}`, {
       method: 'DELETE',
       body: JSON.stringify({ id }),
     });
@@ -745,7 +745,7 @@ class ApiService {
   }
 
   async deleteTeam(id: string): Promise<ApiResponse<void>> {
-    return this.makeRequest<void>(`?tableName=project-management-teams`, {
+    return this.makeRequest<void>(`?tableName=project-management-teams&id=${id}`, {
       method: 'DELETE',
       body: JSON.stringify({ id }),
     });
