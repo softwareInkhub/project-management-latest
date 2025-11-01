@@ -1662,17 +1662,14 @@ const TasksPage = () => {
   const handleCreateTask = () => {
     setFormHeight(80); // Reset to default height
     setIsTaskFormOpen(true);
-    setIsFormAnimating(true); // Start with form off-screen (translate-y-full)
     
     // Fetch users, teams, and projects when opening form
     fetchUsers();
     fetchTeams();
     fetchProjects();
     
-    // Trigger slide-up animation after a brief delay
-    setTimeout(() => {
-      setIsFormAnimating(false); // Animate to visible (translate-y-0)
-    }, 10);
+    // Open immediately without animation delay
+    setIsFormAnimating(false); // Show modal immediately
   };
 
   const handleCreateSubtask = () => {
@@ -1685,7 +1682,7 @@ const TasksPage = () => {
     setIsTaskPreviewOpen(false);
     setIsPreviewAnimating(true);
     
-    // Wait for preview to close, then open form
+    // Wait for preview to close, then open form (reduced delay for faster transition)
     setTimeout(() => {
       console.log('🔄 Opening subtask form for new task (parent:', parentTask?.title, ')');
       
@@ -1698,19 +1695,16 @@ const TasksPage = () => {
       setFormHeight(80); // Reset to default height
       setIsTaskFormOpen(true);
       setIsCreatingSubtask(true);
-      setIsFormAnimating(true); // Start with form off-screen (translate-y-full)
       
       // Fetch users, teams, and projects when opening form
       fetchUsers();
       fetchTeams();
       fetchProjects();
       
-      // Trigger slide-up animation after a brief delay
-      setTimeout(() => {
-        console.log('✅ Subtask form should be visible now');
-        setIsFormAnimating(false); // Animate to visible (translate-y-0)
-      }, 10);
-    }, 300); // Wait for preview close animation
+      // Open immediately without animation delay
+      setIsFormAnimating(false); // Show form immediately
+      console.log('✅ Subtask form should be visible now');
+    }, 100); // Reduced from 300ms to 100ms to match faster transition
   };
 
   const handleTaskFormSubmit = async (taskData: Partial<Task>) => {
@@ -2459,7 +2453,7 @@ const TasksPage = () => {
       setSelectedTask(null); // Clear selected task when closing form
       setIsCreatingSubtask(false); // Reset subtask creation flag
       setParentTaskForSubtask(null); // Clear parent task reference
-    }, 300);
+    }, 200); // Reduced from 300ms to 200ms for faster close
   };
 
   // Drag handlers for form height
@@ -2860,7 +2854,7 @@ const TasksPage = () => {
       setIsTaskPreviewOpen(false);
       setIsPreviewAnimating(false);
       setSelectedTask(null);
-    }, 300);
+    }, 200); // Reduced from 300ms to 200ms for faster close
   };
 
   // Close task form and preview when clicking outside and handle drag events
@@ -3126,7 +3120,7 @@ const TasksPage = () => {
             {filteredTasks.map((task) => (
               <div
                 key={task.id}
-                className="relative px-2 py-4 sm:p-3 bg-white rounded-3xl border border-gray-300 hover:border-gray-400 transition-colors min-h-[90px] sm:min-h-[110px] flex flex-col sm:flex-row sm:items-start cursor-pointer shadow-sm"
+                className="relative px-2 py-4 sm:p-3 bg-white rounded-3xl border-[0.5px] border-gray-200 hover:border-gray-300 transition-colors min-h-[90px] sm:min-h-[110px] flex flex-col sm:flex-row sm:items-start cursor-pointer shadow-sm"
                 onClick={() => handleTaskClick(task)}
               >
                 {/* Action button */}
@@ -3239,7 +3233,7 @@ const TasksPage = () => {
                       <span className="text-gray-600">{task.estimatedHours || 0}h</span>
 
                       <span className="text-gray-700 font-semibold">Comments:</span>
-                      <span className="text-gray-600">{(() => { try { const c = JSON.parse(task.comments); return Array.isArray(c) ? c.length : parseInt(task.comments)||0; } catch { return parseInt(task.comments)||0; } })()}</span>
+                      <span className="text-gray-600">{(() => { try { const c = JSON.parse(task.comments); return Array.isArray(c) ? c.length : parseInt(task.comments) || 0; } catch { return parseInt(task.comments) || 0; } })()}</span>
 
                       <span className="text-gray-700 font-semibold">Subtasks:</span>
                       <span className="text-gray-600">{(() => { try { const s = JSON.parse(task.subtasks); return Array.isArray(s) ? s.length : 0; } catch { return 0; } })()}</span>
@@ -4003,8 +3997,8 @@ const TasksPage = () => {
       {/* Task Form - Modal on desktop, slide-up on mobile */}
       {isTaskFormOpen && (
         <div 
-          className={`fixed inset-0 z-50 flex items-end lg:items-center justify-center transition-opacity duration-300 ${
-            isFormAnimating ? 'bg-opacity-0' : 'bg-black/70 bg-opacity-50'
+          className={`fixed inset-0 z-50 flex items-end lg:items-center justify-center ${
+            isFormAnimating ? 'transition-opacity duration-200 opacity-0' : 'bg-black/70 bg-opacity-50'
           }`}
           style={{ backdropFilter: 'blur(2px)' }}
           onClick={(e) => {
@@ -4015,8 +4009,8 @@ const TasksPage = () => {
         >
           <div 
             ref={taskFormRef}
-            className={`bg-white rounded-t-2xl lg:rounded-2xl shadow-2xl w-full transform transition-all duration-300 ease-out ${
-              isFormAnimating ? 'translate-y-full lg:translate-y-0 lg:scale-95' : 'translate-y-0 lg:scale-100'
+            className={`bg-white rounded-t-2xl lg:rounded-2xl shadow-2xl w-full transform ${
+              isFormAnimating ? 'transition-all duration-200 ease-out translate-y-full lg:translate-y-0 lg:scale-95' : ''
             } lg:max-w-4xl lg:w-auto`}
             style={{ 
               width: '100%',
@@ -4047,15 +4041,15 @@ const TasksPage = () => {
 
       {/* Task Preview - Modal on desktop, slide-up on mobile */}
       {isTaskPreviewOpen && selectedTask && (
-        <div className={`fixed inset-0 z-50 flex items-end lg:items-center justify-center transition-opacity duration-300 ${
-          isPreviewAnimating ? 'bg-opacity-0' : 'bg-black/70 bg-opacity-50'
+        <div className={`fixed inset-0 z-50 flex items-end lg:items-center justify-center ${
+          isPreviewAnimating ? 'transition-opacity duration-200 opacity-0' : 'bg-black/70 bg-opacity-50'
         }`}
         style={{ backdropFilter: 'blur(2px)' }}>
           <div 
             ref={taskPreviewRef}
             data-task-preview
-            className={`transform transition-all duration-300 ease-out ${
-              isPreviewAnimating ? 'translate-y-full lg:translate-y-0 lg:scale-95' : 'translate-y-0 lg:scale-100'
+            className={`transform ${
+              isPreviewAnimating ? 'transition-all duration-200 ease-out translate-y-full lg:translate-y-0 lg:scale-95' : ''
             } w-full lg:max-w-4xl lg:w-auto`}
             style={{ 
               width: '100%',
