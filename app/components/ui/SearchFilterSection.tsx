@@ -100,11 +100,32 @@ export const SearchFilterSection = <T extends string = string>({
 }: SearchFilterSectionProps<T>) => {
   const [isAdvancedFilterOpen, setIsAdvancedFilterOpen] = useState(false);
   const [isSettingsDropdownOpen, setIsSettingsDropdownOpen] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0, openUpward: false });
   const advancedFilterRef = useRef<HTMLDivElement>(null);
   const filterButtonRef = useRef<HTMLButtonElement>(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
   const settingsDropdownRef = useRef<HTMLDivElement>(null);
   const activeFilters = filters.filter(filter => filter.value !== 'all' && filter.value !== '');
+
+  // Calculate dropdown position using fixed positioning
+  useEffect(() => {
+    if (isSettingsDropdownOpen && settingsButtonRef.current) {
+      const buttonRect = settingsButtonRef.current.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      const viewportWidth = window.innerWidth;
+      const spaceBelow = viewportHeight - buttonRect.bottom;
+      const estimatedDropdownHeight = 280; // Approximate height of dropdown with 7 items
+      const dropdownWidth = 256; // 16rem = 256px
+      
+      const openUpward = spaceBelow < estimatedDropdownHeight && buttonRect.top > estimatedDropdownHeight;
+      
+      setDropdownPosition({
+        top: openUpward ? buttonRect.top - estimatedDropdownHeight - 8 : buttonRect.bottom + 8,
+        right: viewportWidth - buttonRect.right,
+        openUpward
+      });
+    }
+  }, [isSettingsDropdownOpen]);
 
   // Close advanced filters and settings dropdown when clicking outside
   useEffect(() => {
@@ -239,12 +260,19 @@ export const SearchFilterSection = <T extends string = string>({
                 
                 {/* Settings Dropdown */}
                 {isSettingsDropdownOpen && (
-                  <div ref={settingsDropdownRef} className="absolute right-0 top-full mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-                    <div className="p-4">
-                      <h3 className="text-sm font-medium text-gray-900 mb-3">Filter Columns</h3>
-                      <div className="space-y-2">
+                  <div 
+                    ref={settingsDropdownRef} 
+                    className="fixed w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-[9999]"
+                    style={{
+                      top: `${dropdownPosition.top}px`,
+                      right: `${dropdownPosition.right}px`
+                    }}
+                  >
+                    <div className="p-3">
+                      <h3 className="text-sm font-medium text-gray-900 mb-2">Filter Columns</h3>
+                      <div className="space-y-1.5">
                         {availableFilterColumns.map((column) => (
-                          <label key={column.key} className="flex items-center space-x-2 cursor-pointer">
+                          <label key={column.key} className="flex items-center space-x-2 cursor-pointer py-0.5">
                             <input
                               type="checkbox"
                               checked={visibleFilterColumns.includes(column.key)}

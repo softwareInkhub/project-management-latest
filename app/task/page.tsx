@@ -676,8 +676,8 @@ const TasksPage = () => {
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [projectFilter, setProjectFilter] = useState('all');
   const [viewMode, setViewMode] = useState<'list' | 'card'>(() => {
-    // Default to list view on all devices (mobile and desktop)
-    return 'list';
+    // Default to card view on all devices (mobile and desktop)
+    return 'card';
   });
   const [activePredefinedFilter, setActivePredefinedFilter] = useState('all');
   const [advancedFilters, setAdvancedFilters] = useState<Record<string, string | string[]>>({});
