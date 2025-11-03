@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { apiService } from '../services/api';
 import { 
   Plus, 
@@ -23,7 +23,8 @@ import {
   X,
   Flag,
   Building2,
-  Trash2
+  Trash2,
+  Tag
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -160,6 +161,17 @@ const ProjectsPage = () => {
     'projectScope', 'status', 'priority', 'dateRange'
   ]);
 
+  // Quick Filter State - stores the selected values for each quick filter
+  const [quickFilterValues, setQuickFilterValues] = useState<Record<string, string | string[] | { from: string; to: string }>>({
+    projectScope: 'all',
+    status: [],
+    priority: [],
+    company: [],
+    dateRange: 'all',
+    tags: [],
+    additionalFilters: []
+  });
+
   // Available filter columns with icons
   const availableFilterColumns = [
     { key: 'projectScope', label: 'Project Scope', icon: <FolderKanban className="w-4 h-4" /> },
@@ -175,6 +187,123 @@ const ProjectsPage = () => {
   const { openTab } = useTabs();
   const { isCollapsed } = useSidebar();
   const { user } = useAuth();
+
+  // Handler for quick filter changes
+  const handleQuickFilterChange = useCallback((key: string, value: string | string[] | { from: string; to: string }) => {
+    setQuickFilterValues(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  }, []);
+
+  // Compute unique companies from projects
+  const uniqueCompanies = useMemo(() => {
+    const companySet = new Set<string>();
+    projects.forEach(project => {
+      if (project.company) {
+        companySet.add(project.company);
+      }
+    });
+    return Array.from(companySet).sort();
+  }, [projects]);
+
+  // Compute unique tags from projects
+  const uniqueTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    projects.forEach(project => {
+      const projectTags = getTagsArray(project.tags);
+      projectTags.forEach(tag => tagSet.add(tag));
+    });
+    return Array.from(tagSet).sort();
+  }, [projects]);
+
+  // Quick Filters configuration - defines the dropdowns with their options
+  const quickFilters = useMemo(() => [
+    {
+      key: 'projectScope',
+      label: 'Projects',
+      icon: <FolderKanban className="w-4 h-4" />,
+      options: [
+        { value: 'all', label: 'All Projects' },
+        { value: 'my', label: 'My Projects' },
+        { value: 'active', label: 'Active Projects' }
+      ],
+      type: 'default' as const,
+      multiple: false
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      icon: <CheckCircle className="w-4 h-4" />,
+      options: [
+        { value: 'Planning', label: 'Planning' },
+        { value: 'Active', label: 'Active' },
+        { value: 'On Hold', label: 'On Hold' },
+        { value: 'Completed', label: 'Completed' }
+      ],
+      type: 'default' as const,
+      multiple: true
+    },
+    {
+      key: 'priority',
+      label: 'Priority',
+      icon: <Flag className="w-4 h-4" />,
+      options: [
+        { value: 'High', label: 'High Priority' },
+        { value: 'Medium', label: 'Medium Priority' },
+        { value: 'Low', label: 'Low Priority' }
+      ],
+      type: 'default' as const,
+      multiple: true
+    },
+    {
+      key: 'company',
+      label: 'Company',
+      icon: <Building2 className="w-4 h-4" />,
+      options: uniqueCompanies.map(company => ({
+        value: company,
+        label: company,
+        count: projects.filter(p => p.company === company).length
+      })),
+      type: 'default' as const,
+      multiple: true,
+      showCount: true
+    },
+    {
+      key: 'dateRange',
+      label: 'Date Range',
+      icon: <Calendar className="w-4 h-4" />,
+      options: [],
+      type: 'date' as const,
+      multiple: false
+    },
+    {
+      key: 'tags',
+      label: 'Tags',
+      icon: <Tag className="w-4 h-4" />,
+      options: uniqueTags.map(tag => ({
+        value: tag,
+        label: tag,
+        count: projects.filter(p => getTagsArray(p.tags).includes(tag)).length
+      })),
+      type: 'default' as const,
+      multiple: true,
+      showCount: true
+    },
+    {
+      key: 'additionalFilters',
+      label: 'Additional Filters',
+      icon: <Filter className="w-4 h-4" />,
+      options: [
+        { value: 'hasTasks', label: 'Has Tasks' },
+        { value: 'overdue', label: 'Overdue' },
+        { value: 'noAssignee', label: 'No Assignee' },
+        { value: 'highProgress', label: 'High Progress (>70%)' }
+      ],
+      type: 'default' as const,
+      multiple: true
+    }
+  ], [projects, uniqueCompanies, uniqueTags]);
 
   // Fetch projects from API
   const fetchProjects = useCallback(async () => {
@@ -341,7 +470,107 @@ const ProjectsPage = () => {
       matchesProjectAdvanced = false;
     }
     
-    return matchesSearch && matchesStatus && matchesPriority && matchesPredefined && matchesAdvanced && matchesProjectAdvanced;
+    // Apply quick filters
+    let matchesQuickFilters = true;
+    
+    // Project Scope filter
+    const projectScopeValue = quickFilterValues.projectScope;
+    if (projectScopeValue && projectScopeValue !== 'all') {
+      const currentUserId = user?.userId || user?.email;
+      if (projectScopeValue === 'my' && currentUserId) {
+        matchesQuickFilters = matchesQuickFilters && (
+          project.assignee === currentUserId || 
+          project.assignee?.includes(currentUserId)
+        );
+      } else if (projectScopeValue === 'active') {
+        matchesQuickFilters = matchesQuickFilters && project.status === 'Active';
+      }
+    }
+    
+    // Status filter (multiple)
+    const statusValues = quickFilterValues.status;
+    if (Array.isArray(statusValues) && statusValues.length > 0) {
+      matchesQuickFilters = matchesQuickFilters && statusValues.includes(project.status);
+    }
+    
+    // Priority filter (multiple)
+    const priorityValues = quickFilterValues.priority;
+    if (Array.isArray(priorityValues) && priorityValues.length > 0) {
+      matchesQuickFilters = matchesQuickFilters && priorityValues.includes(project.priority);
+    }
+    
+    // Company filter (multiple)
+    const companyValues = quickFilterValues.company;
+    if (Array.isArray(companyValues) && companyValues.length > 0) {
+      matchesQuickFilters = matchesQuickFilters && companyValues.includes(project.company);
+    }
+    
+    // Date Range filter
+    const dateRangeValue = quickFilterValues.dateRange;
+    if (dateRangeValue && dateRangeValue !== 'all') {
+      const projectStartDate = new Date(project.startDate);
+      const projectEndDate = new Date(project.endDate);
+      projectStartDate.setHours(0, 0, 0, 0);
+      projectEndDate.setHours(0, 0, 0, 0);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Handle custom date range object
+      if (typeof dateRangeValue === 'object' && 'from' in dateRangeValue && 'to' in dateRangeValue) {
+        const fromDate = new Date(dateRangeValue.from);
+        fromDate.setHours(0, 0, 0, 0);
+        const toDate = new Date(dateRangeValue.to);
+        toDate.setHours(23, 59, 59, 999);
+        // Check if project overlaps with the date range
+        matchesQuickFilters = matchesQuickFilters && (projectStartDate <= toDate && projectEndDate >= fromDate);
+      } else if (typeof dateRangeValue === 'string') {
+        // Handle preset date ranges
+        if (dateRangeValue === 'today') {
+          const tomorrow = new Date(today);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          matchesQuickFilters = matchesQuickFilters && (projectStartDate <= tomorrow && projectEndDate >= today);
+        } else if (dateRangeValue === 'thisWeek') {
+          const weekEnd = new Date(today);
+          weekEnd.setDate(weekEnd.getDate() + 7);
+          matchesQuickFilters = matchesQuickFilters && (projectStartDate <= weekEnd && projectEndDate >= today);
+        } else if (dateRangeValue === 'thisMonth') {
+          const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+          matchesQuickFilters = matchesQuickFilters && (projectStartDate <= monthEnd && projectEndDate >= today);
+        } else if (dateRangeValue === 'next7Days') {
+          const sevenDaysLater = new Date(today);
+          sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
+          matchesQuickFilters = matchesQuickFilters && (projectStartDate <= sevenDaysLater && projectEndDate >= today);
+        }
+      }
+    }
+    
+    // Tags filter (multiple)
+    const tagsValues = quickFilterValues.tags;
+    if (Array.isArray(tagsValues) && tagsValues.length > 0) {
+      const projectTags = getTagsArray(project.tags);
+      matchesQuickFilters = matchesQuickFilters && tagsValues.some(tag => 
+        projectTags.includes(tag)
+      );
+    }
+    
+    // Additional Filters (multiple)
+    const additionalFiltersValues = quickFilterValues.additionalFilters;
+    if (Array.isArray(additionalFiltersValues) && additionalFiltersValues.length > 0) {
+      additionalFiltersValues.forEach(filter => {
+        if (filter === 'hasTasks') {
+          matchesQuickFilters = matchesQuickFilters && getTasksArray(project.tasks).length > 0;
+        } else if (filter === 'overdue') {
+          matchesQuickFilters = matchesQuickFilters && new Date(project.endDate) < new Date() && project.status !== 'Completed';
+        } else if (filter === 'noAssignee') {
+          matchesQuickFilters = matchesQuickFilters && (!project.assignee || project.assignee === '');
+        } else if (filter === 'highProgress') {
+          const progress = getProgressPercent(project);
+          matchesQuickFilters = matchesQuickFilters && progress > 70;
+        }
+      });
+    }
+    
+    return matchesSearch && matchesStatus && matchesPriority && matchesPredefined && matchesAdvanced && matchesProjectAdvanced && matchesQuickFilters;
   });
 
   const getStatusIcon = (status: string) => {
@@ -607,17 +836,27 @@ const ProjectsPage = () => {
       if (advancedFilterRef.current && !advancedFilterRef.current.contains(event.target as Node)) {
         setIsAdvancedFilterOpen(false);
       }
-      setOpenMenuProjectId(null);
+      
+      // Close menu dropdown if clicking outside
+      if (openMenuProjectId) {
+        const target = event.target as HTMLElement;
+        const isClickInsideMenu = target.closest('.absolute.right-0.top-full') !== null;
+        const isClickOnButton = target.closest('button[title="More Options"]') !== null || target.closest('button[title="More options"]') !== null;
+        
+        if (!isClickInsideMenu && !isClickOnButton) {
+          setOpenMenuProjectId(null);
+        }
+      }
     };
 
-    if (isProjectPreviewOpen || isAdvancedFilterOpen) {
+    if (isProjectPreviewOpen || isAdvancedFilterOpen || openMenuProjectId) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isProjectPreviewOpen, isAdvancedFilterOpen]);
+  }, [isProjectPreviewOpen, isAdvancedFilterOpen, openMenuProjectId]);
 
   const handleDeleteProject = async (projectId: string) => {
     try {
@@ -650,7 +889,7 @@ const ProjectsPage = () => {
 
   return (
     <AppLayout>
-      <div className="w-full px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 overflow-x-hidden">
+      <div className="w-full min-h-full px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 overflow-x-hidden">
 
 
         {/* Filters and Search */}
@@ -661,6 +900,7 @@ const ProjectsPage = () => {
           filters={[]}
           variant="modern"
           showActiveFilters={true}
+          hideFilterIcon={true}
           onAdvancedFilterChange={handleAdvancedFilterChange}
           onApplyAdvancedFilters={() => {}}
           onClearAdvancedFilters={clearAllAdvancedFilters}
@@ -678,6 +918,9 @@ const ProjectsPage = () => {
           availableFilterColumns={availableFilterColumns}
           visibleFilterColumns={visibleFilterColumns}
           onFilterColumnsChange={setVisibleFilterColumns}
+          quickFilters={quickFilters}
+          quickFilterValues={quickFilterValues}
+          onQuickFilterChange={handleQuickFilterChange}
           viewToggle={{
             currentView: viewMode,
             views: [
@@ -711,7 +954,7 @@ const ProjectsPage = () => {
 
         {/* Projects Grid */}
         {viewMode === 'list' ? (
-          <div className="space-y-2">
+          <div className="space-y-2 min-h-[600px]">
             {filteredProjects.map((project) => (
               <div key={project.id} className="relative px-2 py-4 sm:p-3 bg-white rounded-3xl border border-gray-300 hover:border-gray-400 transition-colors min-h-[100px] sm:min-h-[120px] flex flex-col sm:flex-row sm:items-center cursor-pointer shadow-sm" onClick={() => handleProjectClick(project)}>
                 {/* Action Buttons - Top Right Corner */}
@@ -812,11 +1055,11 @@ const ProjectsPage = () => {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3 lg:gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3 lg:gap-3 min-h-[100px]">
             {filteredProjects.map((project) => (
               <Card key={project.id} hover className="relative cursor-pointer rounded-3xl border border-gray-300 hover:border-gray-400" onClick={() => handleProjectClick(project)}>
-                <CardContent className="px-0 py-0 sm:px-2 sm:py-1 lg:px-2 lg:py-0">
-                  <div className="space-y-1 sm:space-y-2 lg:space-y-1.5">
+                <CardContent className="px-0 py-0 pb-3 sm:px-2 sm:py-1 sm:pb-3 lg:px-0 lg:py-0 lg:pb-1">
+                  <div className="space-y-1 sm:space-y-2 lg:space-y-1">
                     {/* Header with Project Icon and Title and Assignee aligned */}
                     <div className="flex items-center justify-between px-0 sm:px-0 -mt-0.5">
                       <div className="flex items-center space-x-1 sm:space-x-2 flex-1 min-w-0 mr-2">
@@ -913,15 +1156,15 @@ const ProjectsPage = () => {
 
         {/* Loading State */}
         {isLoading && (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="text-center py-12 min-h-[400px] flex flex-col items-center justify-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
             <p className="text-gray-600">Loading projects...</p>
           </div>
         )}
 
         {/* Empty State */}
         {!isLoading && filteredProjects.length === 0 && (
-          <div className="text-center py-12">
+          <div className="text-center py-12 min-h-[400px] flex flex-col items-center justify-center">
             <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <FolderKanban className="w-12 h-12 text-gray-400" />
             </div>

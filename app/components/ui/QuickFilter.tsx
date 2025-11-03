@@ -62,10 +62,24 @@ export const QuickFilter: React.FC<QuickFilterProps> = ({
   useEffect(() => {
     if ((isOpen || showCustomDatePicker) && buttonRef.current && window.innerWidth < 1024) {
       const rect = buttonRef.current.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const modalWidth = showCustomDatePicker ? 300 : Math.max(200, rect.width);
+      
+      // Calculate left position, ensuring it doesn't overflow viewport
+      let left = rect.left;
+      
+      // If modal would overflow right edge, shift it left
+      if (left + modalWidth > viewportWidth - 16) { // 16px padding from edge
+        left = Math.max(16, viewportWidth - modalWidth - 16);
+      }
+      
+      // Ensure modal doesn't go off left edge
+      left = Math.max(16, left);
+      
       setMobileDropdownPosition({
         top: rect.bottom + 8,
-        left: rect.left,
-        width: Math.max(200, rect.width)
+        left: left,
+        width: Math.min(modalWidth, viewportWidth - 32) // Ensure width fits in viewport
       });
     }
   }, [isOpen, showCustomDatePicker]);
@@ -191,7 +205,7 @@ export const QuickFilter: React.FC<QuickFilterProps> = ({
           {/* Mobile Dropdown - Fixed positioning */}
           <div
             ref={mobileDropdownRef}
-            className="lg:hidden fixed min-w-[200px] bg-white rounded-lg shadow-lg border border-gray-200 z-[9999] py-2"
+            className="lg:hidden fixed bg-white rounded-lg shadow-lg border border-gray-200 z-[9999] py-2 max-w-[calc(100vw-32px)]"
             style={{
               top: `${mobileDropdownPosition.top}px`,
               left: `${mobileDropdownPosition.left}px`,
@@ -315,10 +329,11 @@ export const QuickFilter: React.FC<QuickFilterProps> = ({
           {/* Mobile Date Picker */}
           <div
             ref={mobileDatePickerRef}
-            className="lg:hidden fixed min-w-[300px] bg-white rounded-lg shadow-lg border border-gray-200 z-[9999] p-4"
+            className="lg:hidden fixed bg-white rounded-lg shadow-lg border border-gray-200 z-[9999] p-4 max-w-[calc(100vw-32px)]"
             style={{
               top: `${mobileDropdownPosition.top}px`,
-              left: `${mobileDropdownPosition.left}px`
+              left: `${mobileDropdownPosition.left}px`,
+              width: `${mobileDropdownPosition.width}px`
             }}
           >
             <div className="flex items-center justify-between mb-3">
