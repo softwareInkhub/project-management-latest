@@ -189,7 +189,7 @@ export const SearchFilterSection = <T extends string = string>({
               placeholder={searchPlaceholder}
               value={searchValue}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="w-48 sm:w-64 lg:w-80 pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-2xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
+              className="w-48 sm:w-64 lg:w-80 pl-10 pr-4 py-3 bg-gray-100 border border-gray-300 rounded-2xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
             />
           </div>
           

@@ -593,6 +593,82 @@ const AssigneeAvatars = ({ names, maxVisible = 2 }: { names: string[]; maxVisibl
   );
 };
 
+// Helper function to parse subtasks array - supports array of strings/objects, JSON string, CSV string
+const getSubtasksArray = (subtasks: any, allTasks: Task[] = []): any[] => {
+  if (!subtasks) return [];
+  if (Array.isArray(subtasks)) return subtasks;
+  try {
+    const parsed = typeof subtasks === 'string' ? JSON.parse(subtasks) : subtasks;
+    if (Array.isArray(parsed)) {
+      // If parsed array contains IDs, fetch the actual task objects
+      if (parsed.length > 0 && allTasks.length > 0) {
+        return parsed.map((subtaskId: string) => {
+          const subtask = allTasks.find(t => t.id === subtaskId);
+          return subtask || subtaskId;
+        });
+      }
+      return parsed;
+    }
+  } catch {}
+  // Try CSV fallback
+  const csv = String(subtasks).trim();
+  if (csv.length === 0) return [];
+  const ids = csv.split(',').map((s) => s.trim()).filter(Boolean);
+  if (ids.length > 0 && allTasks.length > 0) {
+    return ids.map((subtaskId: string) => {
+      const subtask = allTasks.find(t => t.id === subtaskId);
+      return subtask || subtaskId;
+    });
+  }
+  return ids;
+};
+
+// Helper function to count completed vs total subtasks
+const getTaskProgressCounts = (task: any, allTasks: Task[] = []): { completed: number; total: number } => {
+  const subtasksArr = getSubtasksArray(task?.subtasks, allTasks);
+  const total = subtasksArr.length;
+  
+  if (total === 0) {
+    // If no subtasks, consider the task's own status
+    const isCompleted = (task?.status || '').toString().toLowerCase() === 'completed' || task?.completed === true || task?.done === true;
+    return { completed: isCompleted ? 1 : 0, total: 1 };
+  }
+  
+  const completed = subtasksArr.filter((subtask: any) => {
+    // If subtask is just an ID string, find the actual task
+    if (typeof subtask === 'string') {
+      const actualSubtask = allTasks.find(t => t.id === subtask);
+      if (actualSubtask) {
+        subtask = actualSubtask;
+      } else {
+        return false; // Can't determine status of unknown subtask
+      }
+    }
+    
+    const status = (subtask?.status || '').toString().toLowerCase();
+    return (
+      subtask?.completed === true ||
+      subtask?.isCompleted === true ||
+      subtask?.done === true ||
+      status === 'completed' ||
+      status === 'done' ||
+      status === 'closed'
+    );
+  }).length;
+  
+  return { completed, total };
+};
+
+// Helper function to calculate progress percentage for a task based on subtasks
+const getTaskProgressPercent = (task: any, allTasks: Task[] = []): number => {
+  const { completed, total } = getTaskProgressCounts(task, allTasks);
+  if (total > 0) {
+    return Math.round((completed / total) * 100);
+  }
+  // Fallback to task's own progress field if available
+  return typeof task?.progress === 'number' ? Math.round(task.progress) : 0;
+};
+
 const TasksPage = () => {
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
@@ -630,7 +706,6 @@ const TasksPage = () => {
     { key: 'priority', label: 'Priority Level', icon: <Flag className="w-4 h-4 text-green-500" /> },
     { key: 'project', label: 'Project', icon: <FolderOpen className="w-4 h-4 text-orange-500" /> },
     { key: 'dueDateRange', label: 'Date Range', icon: <Calendar className="w-4 h-4 text-blue-500" /> },
-    { key: 'timeEstimateRange', label: 'Time Estimates', icon: <Clock className="w-4 h-4 text-purple-500" /> },
     { key: 'tags', label: 'Tags', icon: <Tag className="w-4 h-4 text-orange-500" /> },
     { key: 'additionalFilters', label: 'Additional Filters', icon: <Filter className="w-4 h-4 text-green-500" /> }
   ];
@@ -3936,27 +4011,35 @@ const TasksPage = () => {
                       </div>
                     </div>
                     
-                    {/* Progress from task progress field */}
+                    {/* Progress from subtasks completion (like project section) */}
                     <div className="space-y-1">
                       <div className="flex items-center justify-between text-xs lg:text-[11px] text-gray-600">
                         <span>Progress</span>
-                        <span className="font-medium">{task.progress || 0}%</span>
+                        <span className="font-medium">{getTaskProgressPercent(task, tasks)}%</span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div
                           className="h-2 bg-blue-500 rounded-full transition-all"
-                          style={{ width: `${task.progress || 0}%` }}
+                          style={{ width: `${getTaskProgressPercent(task, tasks)}%` }}
                         ></div>
                       </div>
                       <div className="text-xs lg:text-[11px] text-gray-500">
-                        {task.estimatedHours || 0}h • {(() => {
-                          try {
-                            const commentsArray = JSON.parse(task.comments);
-                            return Array.isArray(commentsArray) ? commentsArray.length : parseInt(task.comments) || 0;
-                          } catch (e) {
-                            return parseInt(task.comments) || 0;
+                        {(() => { 
+                          const c = getTaskProgressCounts(task, tasks); 
+                          const subtasksArr = getSubtasksArray(task.subtasks, tasks);
+                          if (subtasksArr.length > 0) {
+                            return `${c.completed}/${c.total} subtasks`;
+                          } else {
+                            return `${task.estimatedHours || 0}h • ${(() => {
+                              try {
+                                const commentsArray = JSON.parse(task.comments);
+                                return Array.isArray(commentsArray) ? commentsArray.length : parseInt(task.comments) || 0;
+                              } catch (e) {
+                                return parseInt(task.comments) || 0;
+                              }
+                            })()} comments`;
                           }
-                        })()} comments
+                        })()}
                       </div>
                     </div>
                     
