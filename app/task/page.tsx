@@ -696,8 +696,19 @@ const TasksPage = () => {
   });
   const [isAdvancedFilterModalOpen, setIsAdvancedFilterModalOpen] = useState(false);
   const [visibleFilterColumns, setVisibleFilterColumns] = useState<string[]>([
-    'taskScope', 'status', 'priority', 'project', 'dueDateRange'
+    'status', 'priority', 'project', 'dueDateRange'
   ]);
+
+  // Quick Filter State - stores the selected values for each quick filter
+  const [quickFilterValues, setQuickFilterValues] = useState<Record<string, string | string[] | { from: string; to: string }>>({
+    taskScope: 'all',
+    status: [],
+    priority: [],
+    project: [],
+    dueDateRange: 'all',
+    tags: [],
+    additionalFilters: []
+  });
 
   // Available filter columns with icons
   const availableFilterColumns = [
@@ -709,6 +720,15 @@ const TasksPage = () => {
     { key: 'tags', label: 'Tags', icon: <Tag className="w-4 h-4 text-orange-500" /> },
     { key: 'additionalFilters', label: 'Additional Filters', icon: <Filter className="w-4 h-4 text-green-500" /> }
   ];
+
+  // Handler for quick filter changes
+  const handleQuickFilterChange = (key: string, value: string | string[] | { from: string; to: string }) => {
+    setQuickFilterValues(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
   const [sortOption, setSortOption] = useState<SortOption>({ field: 'dueDate', direction: 'asc' });
   
   // Column sorting and filtering state
@@ -886,6 +906,119 @@ const TasksPage = () => {
   const taskPreviewRef = useRef<HTMLDivElement>(null);
   const { openTab } = useTabs();
   const { isCollapsed } = useSidebar();
+
+  // Get unique projects from tasks and allProjects for the dropdown
+  const uniqueProjects = useMemo(() => {
+    const projectSet = new Set<string>();
+    tasks.forEach(task => {
+      if (task.project) projectSet.add(task.project);
+    });
+    allProjects.forEach(project => {
+      if (project.name) projectSet.add(project.name);
+    });
+    return Array.from(projectSet).sort();
+  }, [tasks, allProjects]);
+
+  // Get unique tags from all tasks
+  const uniqueTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    tasks.forEach(task => {
+      if (task.tags) {
+        // Split tags by comma and trim whitespace
+        const taskTags = task.tags.split(',').map(tag => tag.trim()).filter(Boolean);
+        taskTags.forEach(tag => tagSet.add(tag));
+      }
+    });
+    return Array.from(tagSet).sort();
+  }, [tasks]);
+
+  // Quick Filters configuration - defines the dropdowns with their options
+  const quickFilters = useMemo(() => [
+    {
+      key: 'taskScope',
+      label: 'Tasks',
+      icon: <CheckCircle className="w-4 h-4" />,
+      options: [
+        { value: 'all', label: 'All Tasks' },
+        { value: 'my', label: 'My Tasks' },
+        { value: 'unassigned', label: 'Unassigned' }
+      ],
+      type: 'default' as const,
+      multiple: false
+    },
+    {
+      key: 'status',
+      label: 'Task Status',
+      icon: <CheckCircle className="w-4 h-4" />,
+      options: [
+        { value: 'To Do', label: 'To Do' },
+        { value: 'In Progress', label: 'In Progress' },
+        { value: 'Completed', label: 'Completed' },
+        { value: 'Overdue', label: 'Overdue' }
+      ],
+      type: 'default' as const,
+      multiple: true
+    },
+    {
+      key: 'priority',
+      label: 'Priority Level',
+      icon: <Flag className="w-4 h-4" />,
+      options: [
+        { value: 'High', label: 'High Priority' },
+        { value: 'Medium', label: 'Medium Priority' },
+        { value: 'Low', label: 'Low Priority' }
+      ],
+      type: 'default' as const,
+      multiple: true
+    },
+    {
+      key: 'project',
+      label: 'Project',
+      icon: <FolderOpen className="w-4 h-4" />,
+      options: uniqueProjects.map(proj => ({
+        value: proj,
+        label: proj,
+        count: tasks.filter(t => t.project === proj).length
+      })),
+      type: 'default' as const,
+      multiple: true,
+      showCount: true
+    },
+    {
+      key: 'dueDateRange',
+      label: 'Date Range',
+      icon: <Calendar className="w-4 h-4" />,
+      options: [],
+      type: 'date' as const,
+      multiple: false
+    },
+    {
+      key: 'tags',
+      label: 'Tags',
+      icon: <Tag className="w-4 h-4" />,
+      options: uniqueTags.map(tag => ({
+        value: tag,
+        label: tag,
+        count: tasks.filter(t => t.tags?.includes(tag)).length
+      })),
+      type: 'default' as const,
+      multiple: true,
+      showCount: true
+    },
+    {
+      key: 'additionalFilters',
+      label: 'Additional Filters',
+      icon: <Filter className="w-4 h-4" />,
+      options: [
+        { value: 'hasComments', label: 'Has Comments' },
+        { value: 'hasSubtasks', label: 'Has Subtasks' },
+        { value: 'noAssignee', label: 'No Assignee' },
+        { value: 'hasAttachments', label: 'Has Attachments' }
+      ],
+      type: 'default' as const,
+      multiple: true
+    }
+  ], [tasks, uniqueProjects, uniqueTags]);
 
   // API Functions
   const fetchTasks = async () => {
@@ -1391,6 +1524,108 @@ const TasksPage = () => {
       // Apply advanced filters
       const matchesAdvancedFilters = applyAdvancedFilters(task);
       
+      // Apply quick filters
+      let matchesQuickFilters = true;
+      
+      // Task Scope filter
+      const taskScopeValue = quickFilterValues.taskScope;
+      if (taskScopeValue && taskScopeValue !== 'all') {
+        const currentUserId = user?.userId || user?.email;
+        if (taskScopeValue === 'my' && currentUserId) {
+          matchesQuickFilters = matchesQuickFilters && (
+            task.assignee === currentUserId || 
+            (task.assignedUsers?.includes(currentUserId) || false) ||
+            (task.assignedTeams?.some((teamId: string) => 
+              allTeams.find(team => team.id === teamId)?.members?.includes(currentUserId)
+            ) || false)
+          );
+        } else if (taskScopeValue === 'unassigned') {
+          matchesQuickFilters = matchesQuickFilters && (!task.assignee || task.assignee === '');
+        }
+      }
+      
+      // Status filter (multiple)
+      const statusValues = quickFilterValues.status;
+      if (Array.isArray(statusValues) && statusValues.length > 0) {
+        matchesQuickFilters = matchesQuickFilters && statusValues.includes(task.status);
+      }
+      
+      // Priority filter (multiple)
+      const priorityValues = quickFilterValues.priority;
+      if (Array.isArray(priorityValues) && priorityValues.length > 0) {
+        matchesQuickFilters = matchesQuickFilters && priorityValues.includes(task.priority);
+      }
+      
+      // Project filter (multiple)
+      const projectValues = quickFilterValues.project;
+      if (Array.isArray(projectValues) && projectValues.length > 0) {
+        matchesQuickFilters = matchesQuickFilters && projectValues.includes(task.project);
+      }
+      
+      // Date Range filter
+      const dateRangeValue = quickFilterValues.dueDateRange;
+      if (dateRangeValue && dateRangeValue !== 'all') {
+        const taskDate = new Date(task.dueDate);
+        taskDate.setHours(0, 0, 0, 0);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        // Handle custom date range object
+        if (typeof dateRangeValue === 'object' && 'from' in dateRangeValue && 'to' in dateRangeValue) {
+          const fromDate = new Date(dateRangeValue.from);
+          fromDate.setHours(0, 0, 0, 0);
+          const toDate = new Date(dateRangeValue.to);
+          toDate.setHours(23, 59, 59, 999);
+          matchesQuickFilters = matchesQuickFilters && (taskDate >= fromDate && taskDate <= toDate);
+        } else if (typeof dateRangeValue === 'string') {
+          // Handle preset date ranges
+          if (dateRangeValue === 'today') {
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            matchesQuickFilters = matchesQuickFilters && (taskDate >= today && taskDate < tomorrow);
+          } else if (dateRangeValue === 'thisWeek') {
+            const weekEnd = new Date(today);
+            weekEnd.setDate(weekEnd.getDate() + 7);
+            matchesQuickFilters = matchesQuickFilters && (taskDate >= today && taskDate < weekEnd);
+          } else if (dateRangeValue === 'thisMonth') {
+            const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            matchesQuickFilters = matchesQuickFilters && (taskDate >= today && taskDate <= monthEnd);
+          } else if (dateRangeValue === 'next7Days') {
+            const sevenDaysLater = new Date(today);
+            sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
+            matchesQuickFilters = matchesQuickFilters && (taskDate >= today && taskDate <= sevenDaysLater);
+          }
+        }
+      }
+      
+      // Tags filter (multiple)
+      const tagsValues = quickFilterValues.tags;
+      if (Array.isArray(tagsValues) && tagsValues.length > 0) {
+        matchesQuickFilters = matchesQuickFilters && tagsValues.some(tag => 
+          task.tags?.includes(tag)
+        );
+      }
+      
+      // Additional Filters (multiple)
+      const additionalFiltersValues = quickFilterValues.additionalFilters;
+      if (Array.isArray(additionalFiltersValues) && additionalFiltersValues.length > 0) {
+        additionalFiltersValues.forEach(filter => {
+          if (filter === 'hasComments') {
+            const commentCount = parseInt(task.comments) || 0;
+            matchesQuickFilters = matchesQuickFilters && commentCount > 0;
+          } else if (filter === 'hasSubtasks') {
+            const subtasks = getSubtasksArray(task.subtasks, tasks);
+            matchesQuickFilters = matchesQuickFilters && subtasks.length > 0;
+          } else if (filter === 'noAssignee') {
+            matchesQuickFilters = matchesQuickFilters && (!task.assignee || task.assignee === '');
+          } else if (filter === 'hasAttachments') {
+            // Assuming attachments would be stored in a task field
+            const hasAttachments = (task as any).attachments && (task as any).attachments.length > 0;
+            matchesQuickFilters = matchesQuickFilters && Boolean(hasAttachments);
+          }
+        });
+      }
+      
       // Apply column filters
       const matchesColumnFilters = Object.entries(columnFilters).every(([column, filterValue]) => {
         if (!filterValue) return true;
@@ -1425,9 +1660,9 @@ const TasksPage = () => {
         }
       });
       
-      return matchesSearch && matchesPredefined && matchesAdvancedFilters && matchesColumnFilters;
+      return matchesSearch && matchesPredefined && matchesAdvancedFilters && matchesQuickFilters && matchesColumnFilters;
     }));
-  }, [tasks, searchTerm, activePredefinedFilter, user, allTeams, advancedFilterState, columnFilters, columnSorts, sortOption]);
+  }, [tasks, searchTerm, activePredefinedFilter, user, allTeams, advancedFilterState, columnFilters, columnSorts, sortOption, quickFilterValues]);
 
   const getStatusIcon = (status: string) => {
     const config = getStatusConfig(status);
@@ -3018,10 +3253,10 @@ const TasksPage = () => {
 
   return (
     <AppLayout onCreateTask={handleCreateTask}>
-      <div className="w-full px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8 overflow-x-hidden">
+      <div className="w-full h-full px-3 sm:px-4 lg:px-8 py-3 sm:py-4 lg:py-4 overflow-x-hidden">
 
         {/* Analytics Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-4">
           {/* Total Tasks */}
           <StatsCard
             title="Total Tasks"
@@ -3066,6 +3301,7 @@ const TasksPage = () => {
           searchPlaceholder="Search tasks..."
           variant="modern"
           showActiveFilters={true}
+          hideFilterIcon={true}
           predefinedFilters={predefinedFilters}
           onAdvancedFilterChange={handleAdvancedFilterChange}
           onApplyAdvancedFilters={handleApplyAdvancedFilters}
@@ -3083,6 +3319,9 @@ const TasksPage = () => {
           availableFilterColumns={availableFilterColumns}
           visibleFilterColumns={visibleFilterColumns}
           onFilterColumnsChange={setVisibleFilterColumns}
+          quickFilters={quickFilters}
+          quickFilterValues={quickFilterValues}
+          onQuickFilterChange={handleQuickFilterChange}
           viewToggle={{
             currentView: viewMode,
             views: [
@@ -3191,7 +3430,7 @@ const TasksPage = () => {
 
         {/* New List (card-style) view for tasks */}
         {!isLoading && !error && viewMode === 'list' && (
-          <div className="pt-0 sm:pt-3 md:pt-2 space-y-2">
+          <div className="pt-0 sm:pt-3 md:pt-2 space-y-2 pb-4">
             {filteredTasks.map((task) => (
               <div
                 key={task.id}
@@ -3958,7 +4197,7 @@ const TasksPage = () => {
              </div>
            </>
         ) : (!isLoading && !error && viewMode === 'card') ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3 lg:gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3 lg:gap-3 pb-4">
             {filteredTasks.map((task) => (
               <Card key={task.id} hover className="relative cursor-pointer rounded-3xl border border-gray-300 hover:border-gray-400" onClick={() => handleTaskClick(task)}>
                 <CardContent className="px-0 py-0 sm:px-2 sm:py-1 lg:px-2 lg:py-0">

@@ -61,6 +61,7 @@ interface InlineAdvancedFiltersProps {
   projects: any[];
   visibleColumns?: string[];
   currentUser?: any;
+  hideHeaderIcon?: boolean;
 }
 
 const InlineAdvancedFilters: React.FC<InlineAdvancedFiltersProps> = ({
@@ -74,7 +75,8 @@ const InlineAdvancedFilters: React.FC<InlineAdvancedFiltersProps> = ({
   teams,
   projects,
   visibleColumns = ['taskScope', 'status', 'priority', 'project', 'dueDateRange'],
-  currentUser
+  currentUser,
+  hideHeaderIcon = false
 }) => {
   const [localFilters, setLocalFilters] = useState<AdvancedFilters>(filters);
 
@@ -223,7 +225,7 @@ const InlineAdvancedFilters: React.FC<InlineAdvancedFiltersProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center space-x-2">
-          <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+          {!hideHeaderIcon && <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>}
           <h3 className="text-base font-semibold text-gray-900">Advanced Filters</h3>
           <span className="text-xs text-gray-500">({getActiveFilterCount()} active)</span>
         </div>

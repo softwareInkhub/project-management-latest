@@ -60,17 +60,17 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, onCreateTask }) 
 
   return (
     <SidebarContext.Provider value={{ isCollapsed, toggleSidebar }}>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 overflow-x-hidden">
+      <div className="h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden flex">
         {/* Sidebar */}
         <Sidebar isMobileOpen={isMobileMenuOpen} onMobileClose={closeMobileMenu} />
         
         {/* Main Content */}
-        <div className={`transition-all duration-300 ${isCollapsed ? 'lg:ml-16' : 'lg:ml-64'} min-h-screen`}>
+        <div className={`flex-1 flex flex-col h-screen overflow-hidden transition-all duration-300 ${isCollapsed ? 'lg:ml-16' : 'lg:ml-64'}`}>
           {/* Top Navigation */}
           <Navigation onMobileMenuClick={toggleMobileMenu} />
           
-          {/* Page Content */}
-          <main className="flex-1 overflow-x-hidden pb-24 lg:pb-0">
+          {/* Page Content - Scrollable */}
+          <main className="flex-1 overflow-y-auto overflow-x-hidden pb-24 lg:pb-0">
             {children}
           </main>
         </div>

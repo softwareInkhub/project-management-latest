@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Filter, Search, Settings, ChevronDown } from 'lucide-react';
+import { Filter, Search, Settings, ChevronDown, Calendar, CheckCircle, Flag, FolderOpen, X } from 'lucide-react';
 import { Input } from './Input';
 import { Select } from './Select';
 import { ViewToggle } from './ViewToggle';
 import { FilterDropdown } from './FilterDropdown';
 import { FilterChip } from './FilterChip';
+import { QuickFilter } from './QuickFilter';
 import InlineAdvancedFilters from './InlineAdvancedFilters';
 
 interface FilterOption {
@@ -24,6 +25,16 @@ interface PredefinedFilter {
   count?: number;
   isActive: boolean;
   onClick: () => void;
+}
+
+interface QuickFilterData {
+  key: string;
+  label: string;
+  icon?: React.ReactNode;
+  options: FilterOption[];
+  type?: 'default' | 'date';
+  multiple?: boolean;
+  showCount?: boolean;
 }
 
 interface SearchFilterSectionProps<T extends string = string> {
@@ -59,6 +70,10 @@ interface SearchFilterSectionProps<T extends string = string> {
   availableFilterColumns?: Array<{key: string, label: string, icon: React.ReactNode}>;
   visibleFilterColumns?: string[];
   onFilterColumnsChange?: (columns: string[]) => void;
+  // Quick filters props
+  quickFilters?: QuickFilterData[];
+  quickFilterValues?: Record<string, string | string[] | { from: string; to: string }>;
+  onQuickFilterChange?: (key: string, value: string | string[] | { from: string; to: string }) => void;
   viewToggle?: {
     currentView: T;
     views: ViewOption<T>[];
@@ -66,6 +81,7 @@ interface SearchFilterSectionProps<T extends string = string> {
   };
   variant?: 'default' | 'modern';
   showActiveFilters?: boolean;
+  hideFilterIcon?: boolean;
   className?: string;
 }
 
@@ -93,9 +109,13 @@ export const SearchFilterSection = <T extends string = string>({
   availableFilterColumns = [],
   visibleFilterColumns = [],
   onFilterColumnsChange,
+  quickFilters = [],
+  quickFilterValues = {},
+  onQuickFilterChange,
   viewToggle,
   variant = 'modern',
   showActiveFilters = true,
+  hideFilterIcon = false,
   className = ''
 }: SearchFilterSectionProps<T>) => {
   const [isAdvancedFilterOpen, setIsAdvancedFilterOpen] = useState(false);
@@ -197,13 +217,87 @@ export const SearchFilterSection = <T extends string = string>({
     type: 'multiple' as const
   }));
 
+  // Get visible quick filters based on visibleFilterColumns
+  const visibleQuickFilters = quickFilters.filter(qf => 
+    visibleFilterColumns.includes(qf.key)
+  );
+
+  // Get active quick filter tags
+  const getActiveQuickFilterTags = () => {
+    const tags: Array<{ key: string; value: string; label: string; filterLabel: string }> = [];
+    
+    visibleQuickFilters.forEach(filter => {
+      const filterValue = quickFilterValues[filter.key];
+      
+      if (Array.isArray(filterValue) && filterValue.length > 0) {
+        filterValue.forEach(val => {
+          const option = filter.options.find(opt => opt.value === val);
+          if (option) {
+            tags.push({
+              key: filter.key,
+              value: val,
+              label: option.label,
+              filterLabel: filter.label
+            });
+          }
+        });
+      } else if (typeof filterValue === 'object' && filterValue !== null && 'from' in filterValue && 'to' in filterValue) {
+        // Handle custom date range
+        const from = new Date(filterValue.from).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const to = new Date(filterValue.to).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        tags.push({
+          key: filter.key,
+          value: 'custom',
+          label: `${from} - ${to}`,
+          filterLabel: filter.label
+        });
+      } else if (filterValue && filterValue !== 'all' && filterValue !== '') {
+        const option = filter.options.find(opt => opt.value === filterValue);
+        if (option) {
+          tags.push({
+            key: filter.key,
+            value: filterValue as string,
+            label: option.label,
+            filterLabel: filter.label
+          });
+        }
+      }
+    });
+    
+    return tags;
+  };
+
+  const activeQuickFilterTags = getActiveQuickFilterTags();
+
+  const handleRemoveQuickFilter = (key: string, value: string) => {
+    if (!onQuickFilterChange) return;
+    
+    const currentValue = quickFilterValues[key];
+    
+    if (Array.isArray(currentValue)) {
+      const newValues = currentValue.filter(v => v !== value);
+      onQuickFilterChange(key, newValues);
+    } else {
+      onQuickFilterChange(key, 'all');
+    }
+  };
+
+  const handleClearAllQuickFilters = () => {
+    if (!onQuickFilterChange) return;
+    
+    visibleQuickFilters.forEach(filter => {
+      onQuickFilterChange(filter.key, filter.multiple ? [] : 'all');
+    });
+  };
+
   return (
     <div className={`${className}`}>
       {/* Mobile-First Layout - Exact Match to Reference */}
       <div className="space-y-4 mb-6">
-        {/* Search Bar with Filter and Settings Icons - Responsive Width Search */}
+        {/* Row 1: Search Bar and Action Buttons - Always on same line */}
         <div className="flex items-center space-x-3">
-          <div className="relative">
+          {/* Search Bar */}
+          <div className="relative flex-shrink-0">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
               type="text"
@@ -214,11 +308,11 @@ export const SearchFilterSection = <T extends string = string>({
             />
           </div>
           
-          {/* Spacer to push icons to the right */}
+          {/* Spacer to push action buttons to the right */}
           <div className="flex-1"></div>
           
-          {/* New Project Button, View Toggle, Settings, and Filter Buttons - Positioned at End */}
-          <div className="flex items-center space-x-2">
+          {/* Action Buttons - Always stay on this line */}
+          <div className="flex items-center space-x-2 flex-shrink-0">
               {/* New Item Button - Hidden on mobile */}
               {viewToggle && (
                 <button
@@ -292,26 +386,47 @@ export const SearchFilterSection = <T extends string = string>({
               </div>
               
               {/* Filter Button */}
-              <button 
-                ref={filterButtonRef}
-                onClick={() => {
-                  if (showInlineAdvancedFilters) {
-                    setIsAdvancedFilterOpen(!isAdvancedFilterOpen);
-                  } else if (onOpenAdvancedFilterModal) {
-                    onOpenAdvancedFilterModal();
-                  } else {
-                    setIsAdvancedFilterOpen(!isAdvancedFilterOpen);
-                  }
-                }}
-                className={`p-2 rounded-lg transition-colors ${
-                  isAdvancedFilterOpen ? 'text-blue-700 bg-blue-50' : 'text-blue-600 hover:text-blue-700 hover:bg-gray-50'
-                }`}
-              >
-                <Filter className="w-5 h-5" />
-              </button>
+              {!hideFilterIcon && (
+                <button 
+                  ref={filterButtonRef}
+                  onClick={() => {
+                    if (showInlineAdvancedFilters) {
+                      setIsAdvancedFilterOpen(!isAdvancedFilterOpen);
+                    } else if (onOpenAdvancedFilterModal) {
+                      onOpenAdvancedFilterModal();
+                    } else {
+                      setIsAdvancedFilterOpen(!isAdvancedFilterOpen);
+                    }
+                  }}
+                  className={`p-2 rounded-lg transition-colors ${
+                    isAdvancedFilterOpen ? 'text-blue-700 bg-blue-50' : 'text-blue-600 hover:text-blue-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <Filter className="w-5 h-5" />
+                </button>
+              )}
           </div>
         </div>
 
+        {/* Row 2: Quick Filters - Always below the search/action row */}
+        {visibleQuickFilters.length > 0 && (
+          <div className="flex items-center gap-3 overflow-x-auto lg:overflow-visible lg:flex-wrap scrollbar-hide pb-1">
+            {visibleQuickFilters.map(filter => (
+              <QuickFilter
+                key={filter.key}
+                label={filter.label}
+                icon={filter.icon}
+                options={filter.options}
+                value={quickFilterValues[filter.key] || (filter.multiple ? [] : 'all')}
+                onChange={(value) => onQuickFilterChange?.(filter.key, value)}
+                multiple={filter.multiple}
+                showCount={filter.showCount}
+                type={filter.type}
+                className="flex-shrink-0"
+              />
+            ))}
+          </div>
+        )}
 
         {/* Advanced Filters - Inline */}
         {isAdvancedFilterOpen && showInlineAdvancedFilters && (
@@ -327,7 +442,8 @@ export const SearchFilterSection = <T extends string = string>({
               teams: teams,
               projects: projects,
               visibleColumns: visibleFilterColumns,
-              currentUser: currentUser
+              currentUser: currentUser,
+              hideHeaderIcon: hideFilterIcon
             })
           ) : (
             <InlineAdvancedFilters
@@ -342,6 +458,7 @@ export const SearchFilterSection = <T extends string = string>({
               projects={projects}
               visibleColumns={visibleFilterColumns}
               currentUser={currentUser}
+              hideHeaderIcon={hideFilterIcon}
             />
           )
         )}
@@ -391,6 +508,35 @@ export const SearchFilterSection = <T extends string = string>({
 
 
       </div>
+
+      {/* Active Quick Filter Tags */}
+      {activeQuickFilterTags.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          {activeQuickFilterTags.map((tag, index) => (
+            <div
+              key={`${tag.key}-${tag.value}-${index}`}
+              className="flex items-center space-x-2 px-3 py-1.5 bg-gray-100 rounded-full text-sm text-gray-700"
+            >
+              <span className="font-medium">{tag.filterLabel}:</span>
+              <span>{tag.label}</span>
+              <button
+                onClick={() => handleRemoveQuickFilter(tag.key, tag.value)}
+                className="ml-1 text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+          {activeQuickFilterTags.length > 0 && (
+            <button
+              onClick={handleClearAllQuickFilters}
+              className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              Clear all
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Applied Advanced Filters */}
       {Object.keys(advancedFilters).length > 0 && (

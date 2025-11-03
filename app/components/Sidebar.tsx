@@ -60,7 +60,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onMobile
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className={`flex items-center justify-between border-b border-gray-300 dark:border-gray-700 transition-all duration-300 h-21 ${
+      <div className={`flex items-center justify-between border-b border-gray-300 dark:border-gray-700 transition-all duration-300 h-20 ${
         isCollapsed ? 'p-4' : 'p-6'
       }`}>
         {!isCollapsed && (

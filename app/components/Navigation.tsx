@@ -21,10 +21,8 @@ export const Navigation: React.FC<NavigationProps> = ({ onMobileMenuClick }) => 
   const isDashboard = pathname === '/Dashboard' || pathname === '/';
   const isProjects = pathname === '/project';
   
-  // Reduce navbar padding only on Dashboard
-  const navPaddingClass = isDashboard
-    ? 'px-2 sm:px-3 lg:px-4 py-5 lg:py-4'
-    : 'px-3 sm:px-4 lg:px-6 py-5 lg:py-5.5';
+  // Fixed navbar height to match sidebar border alignment - 80px (h-20)
+  const navPaddingClass = 'px-3 sm:px-4 lg:px-6 h-20 pt-4';
   
   // Get page title based on current route
   const getPageTitle = () => {
