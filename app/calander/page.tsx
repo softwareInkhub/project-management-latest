@@ -77,8 +77,10 @@ export default function CalendarPage() {
   const [dragStartDate, setDragStartDate] = useState<Date | null>(null);
   const [viewMode, setViewMode] = useState<'month' | 'week'>('week');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [tasks, setTasks] = useState<any[]>([]);
   const [draggedItem, setDraggedItem] = useState<{type: 'sprint' | 'task' | 'project', id: string, edge: 'start' | 'end'} | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
   
   // Filters state
   const [filters, setFilters] = useState({
@@ -139,6 +141,21 @@ export default function CalendarPage() {
     };
     checkStatus();
   }, [user]);
+
+  // Detect mobile screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+      // Auto-collapse sidebar on mobile
+      if (window.innerWidth < 768) {
+        setIsSidebarCollapsed(true);
+      }
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const loadData = async () => {
     setLoading(true);
@@ -690,14 +707,24 @@ export default function CalendarPage() {
   return (
     <AppLayout>
       <div className="w-full h-full flex bg-gray-50 relative">
+        {/* Mobile Sidebar Overlay */}
+        {isMobile && isMobileSidebarOpen && (
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 z-[9999]"
+            onClick={() => setIsMobileSidebarOpen(false)}
+          />
+        )}
+
         {/* Sidebar */}
         <div 
           className={`bg-white border-r border-gray-200 flex flex-col overflow-y-auto transition-all duration-300 ${
-            isSidebarCollapsed ? 'w-0' : 'w-80'
+            isMobile 
+              ? `fixed inset-0 w-full transform ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'} z-[10000]`
+              : isSidebarCollapsed ? 'w-0' : 'w-80'
           }`}
-          style={{ minWidth: isSidebarCollapsed ? '0' : '320px' }}
+          style={{ minWidth: isMobile ? '100%' : (isSidebarCollapsed ? '0' : '320px') }}
         >
-          {!isSidebarCollapsed && (
+          {((isMobile && isMobileSidebarOpen) || (!isMobile && !isSidebarCollapsed)) && (
             <>
               {/* Sidebar Header */}
               <div className="p-4 border-b border-gray-200">
@@ -713,12 +740,26 @@ export default function CalendarPage() {
                         <LinkIcon className="w-4 h-4" />
                       </Button>
                     )}
+                    {/* Mobile Close Button */}
+                    {isMobile && (
+                      <button
+                        onClick={() => setIsMobileSidebarOpen(false)}
+                        className="p-2 hover:bg-gray-100 rounded-lg"
+                      >
+                        <XCircle className="w-5 h-5 text-gray-700" />
+                      </button>
+                    )}
                   </div>
                 </div>
                 
                 <div className="flex gap-2">
                   <Button 
                     onClick={(e) => {
+                      // Close mobile sidebar first
+                      if (isMobile) {
+                        setIsMobileSidebarOpen(false);
+                      }
+                      
                       // Center the form on viewport
                       const viewportWidth = window.innerWidth;
                       const viewportHeight = window.innerHeight;
@@ -736,7 +777,17 @@ export default function CalendarPage() {
                     <Plus className="w-4 h-4 mr-2" />
                     Event
                   </Button>
-                  <Button onClick={() => setShowSprintForm(true)} variant="outline" className="flex-1">
+                  <Button 
+                    onClick={() => {
+                      // Close mobile sidebar first
+                      if (isMobile) {
+                        setIsMobileSidebarOpen(false);
+                      }
+                      setShowSprintForm(true);
+                    }} 
+                    variant="outline" 
+                    className="flex-1"
+                  >
                     <Target className="w-4 h-4 mr-2" />
                     Sprint
                   </Button>
@@ -946,61 +997,81 @@ export default function CalendarPage() {
           )}
         </div>
         
-        {/* Sidebar Toggle Button - Attached to sidebar edge */}
-        <button
-          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          className="absolute bg-white border border-gray-200 hover:bg-gray-100 z-30 shadow-md transition-all duration-300 flex items-center justify-center rounded-r-md"
-          style={{ 
-            left: isSidebarCollapsed ? '0px' : '320px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            width: '24px',
-            height: '48px',
-            borderLeft: 'none'
-          }}
-          title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        >
-          {isSidebarCollapsed ? (
-            <ChevronRight className="w-4 h-4 text-gray-700" />
-          ) : (
-            <ChevronLeft className="w-4 h-4 text-gray-700" />
-          )}
-        </button>
+        {/* Sidebar Toggle Button */}
+        {!isMobile && (
+          <button
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            className="absolute bg-white border border-gray-200 hover:bg-gray-100 z-30 shadow-md transition-all duration-300 flex items-center justify-center rounded-r-md"
+            style={{ 
+              left: isSidebarCollapsed ? '0px' : '320px',
+              top: '70px',
+              width: '28px',
+              height: '28px',
+              borderLeft: 'none',
+              borderRadius: '0 6px 6px 0'
+            }}
+            title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {isSidebarCollapsed ? (
+              <ChevronRight className="w-4 h-4 text-gray-700" />
+            ) : (
+              <ChevronLeft className="w-4 h-4 text-gray-700" />
+            )}
+          </button>
+        )}
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="p-4 bg-white border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <h1 className="text-2xl font-bold text-gray-900">{weekRange}</h1>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={handlePrevWeek}>
-                    <ChevronLeft className="w-4 h-4" />
+          <div className="p-2 md:p-4 bg-white border-b border-gray-200">
+            <div className="flex items-center justify-between gap-2">
+              {/* Left Section */}
+              <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
+                {/* Mobile Menu Button */}
+                {isMobile && (
+                  <button
+                    onClick={() => setIsMobileSidebarOpen(true)}
+                    className="p-2 hover:bg-gray-100 rounded-lg"
+                  >
+                    <CalendarIcon className="w-5 h-5 text-gray-700" />
+                  </button>
+                )}
+                
+                <h1 className="text-sm md:text-2xl font-bold text-gray-900 truncate">
+                  {isMobile ? weekDays[0].toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : weekRange}
+                </h1>
+                
+                {/* Navigation Buttons */}
+                <div className="flex items-center gap-1 md:gap-2">
+                  <Button variant="outline" size="sm" onClick={handlePrevWeek} className="p-1 md:p-2">
+                    <ChevronLeft className="w-3 h-3 md:w-4 md:h-4" />
                   </Button>
-                  <Button variant="outline" size="sm" onClick={handleTodayWeek}>
+                  <Button variant="outline" size="sm" onClick={handleTodayWeek} className="hidden md:block">
                     Today
                   </Button>
-                  <Button variant="outline" size="sm" onClick={handleNextWeek}>
-                    <ChevronRight className="w-4 h-4" />
+                  <Button variant="outline" size="sm" onClick={handleNextWeek} className="p-1 md:p-2">
+                    <ChevronRight className="w-3 h-3 md:w-4 md:h-4" />
                   </Button>
                 </div>
               </div>
               
-              <div className="flex items-center gap-2">
+              {/* Right Section - View Toggle */}
+              <div className="flex items-center gap-1 md:gap-2">
                 <Button
                   variant={viewMode === 'week' ? 'primary' : 'outline'}
                   size="sm"
                   onClick={() => setViewMode('week')}
+                  className="text-xs md:text-sm px-2 md:px-3"
                 >
-                  Week
+                  {isMobile ? 'W' : 'Week'}
                 </Button>
                 <Button
                   variant={viewMode === 'month' ? 'primary' : 'outline'}
                   size="sm"
                   onClick={() => setViewMode('month')}
+                  className="text-xs md:text-sm px-2 md:px-3"
                 >
-                  Month
+                  {isMobile ? 'M' : 'Month'}
               </Button>
             </div>
             </div>
@@ -1009,21 +1080,23 @@ export default function CalendarPage() {
           {/* Week View */}
           {viewMode === 'week' && (
             <div className="flex-1 overflow-auto bg-white">
-              <div className="min-w-[800px]">
+              <div className={isMobile ? 'min-w-full' : 'min-w-[800px]'}>
                 {/* Week header with day names and dates */}
-                <div className="grid grid-cols-8 border-b border-gray-200 sticky top-0 bg-white z-10">
-                  <div className="w-20 border-r border-gray-200"></div>
-                  {weekDays.map((day, index) => {
+                <div className={`grid border-b border-gray-200 sticky top-0 bg-white z-10 ${
+                  isMobile ? 'grid-cols-4' : 'grid-cols-8'
+                }`}>
+                  <div className={`${isMobile ? 'w-12' : 'w-20'} border-r border-gray-200`}></div>
+                  {(isMobile ? weekDays.slice(0, 3) : weekDays).map((day, index) => {
                     const isTodayDate = isToday(day);
                     return (
                       <div
                         key={index}
-                        className="flex-1 text-center py-3 border-r border-gray-200"
+                        className="flex-1 text-center py-2 md:py-3 border-r border-gray-200"
                       >
                         <div className={`text-xs font-medium ${isTodayDate ? 'text-blue-600' : 'text-gray-500'}`}>
                           {day.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}
                         </div>
-                        <div className={`text-2xl font-semibold mt-1 ${isTodayDate ? 'text-blue-600' : 'text-gray-900'}`}>
+                        <div className={`text-lg md:text-2xl font-semibold mt-1 ${isTodayDate ? 'text-blue-600' : 'text-gray-900'}`}>
                           {day.getDate()}
                         </div>
                       </div>
@@ -1034,14 +1107,16 @@ export default function CalendarPage() {
                 {/* Time slots grid */}
                 <div className="relative">
                   {timeSlots.map((hour) => (
-                    <div key={hour} className="grid grid-cols-8 border-b border-gray-200" style={{ minHeight: '60px' }}>
+                    <div key={hour} className={`grid border-b border-gray-200 ${
+                      isMobile ? 'grid-cols-4' : 'grid-cols-8'
+                    }`} style={{ minHeight: isMobile ? '50px' : '60px' }}>
                       {/* Time label */}
-                      <div className="w-20 border-r border-gray-200 text-right pr-2 text-xs text-gray-500 pt-1">
+                      <div className={`${isMobile ? 'w-12' : 'w-20'} border-r border-gray-200 text-right pr-1 md:pr-2 text-xs text-gray-500 pt-1`}>
                         {hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`}
                       </div>
 
                       {/* Day columns */}
-                      {weekDays.map((day, dayIndex) => {
+                      {(isMobile ? weekDays.slice(0, 3) : weekDays).map((day, dayIndex) => {
                         const dayEvents = filters.showEvents ? getEventsForDateAndHour(day, hour) : [];
                         const daySprints = filters.showSprints ? getSprintsForDate(day) : [];
                         const dayTasks = filters.showTasks ? getTasksForDate(day) : [];
@@ -1101,36 +1176,44 @@ export default function CalendarPage() {
                             {dayEvents.map((event) => (
                               <div
                                 key={event.id}
-                                className="text-xs p-1 mb-1 bg-blue-500 text-white rounded shadow cursor-pointer hover:bg-blue-600"
+                                className={`text-xs p-1 mb-1 bg-blue-500 text-white rounded shadow cursor-pointer hover:bg-blue-600 ${
+                                  isMobile ? 'text-[10px]' : 'text-xs'
+                                }`}
                                 title={`${event.title}\n${event.start.toLocaleTimeString()} - ${event.end.toLocaleTimeString()}`}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                 }}
                               >
                                 <div className="font-medium truncate">{event.title}</div>
-                                <div className="text-xs opacity-90">
-                                  {event.start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                                </div>
+                                {!isMobile && (
+                                  <div className="text-xs opacity-90">
+                                    {event.start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                                  </div>
+                                )}
                               </div>
                             ))}
 
                             {/* Tasks for this day (only show at 9 AM) */}
                             {hour === 9 && dayTasks.length > 0 && (
-                              <div className="text-xs space-y-1">
-                                {dayTasks.slice(0, 3).map((task) => (
+                              <div className={`space-y-1 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
+                                {dayTasks.slice(0, isMobile ? 2 : 3).map((task) => (
                                   <div
                                     key={task.id}
-                                    className={`${getTaskPriorityColor(task.priority)} text-white rounded px-1 py-0.5 truncate text-xs flex items-center gap-1 relative group cursor-pointer hover:opacity-90`}
+                                    className={`${getTaskPriorityColor(task.priority)} text-white rounded px-1 py-0.5 truncate flex items-center gap-1 relative group cursor-pointer hover:opacity-90 ${
+                                      isMobile ? 'text-[10px]' : 'text-xs'
+                                    }`}
                                     title={`Task: ${task.title} - ${task.priority || 'no'} priority - Due: ${task.due_date || task.dueDate || 'N/A'}`}
-                                    draggable
-                                    onDragStart={() => handleTaskDragStart(task, 'end')}
+                                    draggable={!isMobile}
+                                    onDragStart={() => !isMobile && handleTaskDragStart(task, 'end')}
                                   >
-                                    <CheckCircle className="w-3 h-3" />
+                                    <CheckCircle className={isMobile ? 'w-2 h-2' : 'w-3 h-3'} />
                                     <span className="flex-1 truncate">{task.title}</span>
                                     {/* Drag handle */}
-                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <div className="w-1 h-3 bg-white bg-opacity-70 rounded"></div>
-                                    </div>
+                                    {!isMobile && (
+                                      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="w-1 h-3 bg-white bg-opacity-70 rounded"></div>
+                                      </div>
+                                    )}
                                   </div>
                                 ))}
                               </div>
@@ -1138,8 +1221,8 @@ export default function CalendarPage() {
 
                             {/* Sprints indicator (only show at first hour) */}
                             {hour === 1 && daySprints.length > 0 && (
-                              <div className="text-xs space-y-1">
-                                {daySprints.slice(0, 2).map((sprint) => {
+                              <div className={`space-y-1 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
+                                {daySprints.slice(0, isMobile ? 1 : 2).map((sprint) => {
                                   const startDate = new Date(sprint.start_date);
                                   const endDate = new Date(sprint.end_date);
                                   const isStart = day.toDateString() === startDate.toDateString();
@@ -1148,21 +1231,25 @@ export default function CalendarPage() {
                                   return (
                                     <div
                                       key={sprint.id}
-                                      className={`${getSprintColor(sprint.id)} text-white rounded px-1 py-0.5 text-xs flex items-center gap-1 relative group cursor-pointer hover:opacity-90`}
+                                      className={`${getSprintColor(sprint.id)} text-white rounded px-1 py-0.5 flex items-center gap-1 relative group cursor-pointer hover:opacity-90 ${
+                                        isMobile ? 'text-[10px]' : 'text-xs'
+                                      }`}
                                       title={`${sprint.name} - ${sprint.status}\nStart: ${sprint.start_date}\nEnd: ${sprint.end_date}`}
-                                      draggable
+                                      draggable={!isMobile}
                                       onDragStart={() => {
-                                        handleSprintDragStart(sprint, day, 'move');
-                                        setDraggedItem({ type: 'sprint', id: sprint.id, edge: 'end' });
+                                        if (!isMobile) {
+                                          handleSprintDragStart(sprint, day, 'move');
+                                          setDraggedItem({ type: 'sprint', id: sprint.id, edge: 'end' });
+                                        }
                                       }}
                                     >
-                                      <Target className="w-3 h-3" />
+                                      <Target className={isMobile ? 'w-2 h-2' : 'w-3 h-3'} />
                                       <span className="flex-1 truncate">{sprint.name}</span>
                                       {/* Drag indicators */}
-                                      {isStart && (
+                                      {!isMobile && isStart && (
                                         <div className="absolute -left-1 top-0 bottom-0 w-2 bg-white bg-opacity-50 rounded-l cursor-ew-resize opacity-0 group-hover:opacity-100"></div>
                                       )}
-                                      {isEnd && (
+                                      {!isMobile && isEnd && (
                                         <div className="absolute -right-1 top-0 bottom-0 w-2 bg-white bg-opacity-50 rounded-r cursor-ew-resize opacity-0 group-hover:opacity-100"></div>
                                       )}
                                     </div>
@@ -1173,8 +1260,8 @@ export default function CalendarPage() {
 
                             {/* Projects indicator (only show at 8 AM) */}
                             {hour === 8 && dayProjects.length > 0 && (
-                              <div className="text-xs space-y-1">
-                                {dayProjects.slice(0, 2).map((project) => {
+                              <div className={`space-y-1 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
+                                {dayProjects.slice(0, isMobile ? 1 : 2).map((project) => {
                                   const projData = project as any;
                                   const startDateStr = project.startDate || projData['start_date'];
                                   const endDateStr = project.endDate || projData['end_date'];
@@ -1186,18 +1273,20 @@ export default function CalendarPage() {
                                   return (
                                     <div
                                       key={project.id}
-                                      className={`${getProjectColor(project.id)} text-white rounded px-1 py-0.5 text-xs flex items-center gap-1 relative group cursor-pointer hover:opacity-90`}
+                                      className={`${getProjectColor(project.id)} text-white rounded px-1 py-0.5 flex items-center gap-1 relative group cursor-pointer hover:opacity-90 ${
+                                        isMobile ? 'text-[10px]' : 'text-xs'
+                                      }`}
                                       title={`Project: ${project.name}\n${startDate ? `Start: ${startDate}` : ''}\n${endDate ? `End: ${endDate}` : ''}`}
-                                      draggable
-                                      onDragStart={() => handleProjectDragStart(project, endDate ? 'end' : 'start')}
+                                      draggable={!isMobile}
+                                      onDragStart={() => !isMobile && handleProjectDragStart(project, endDate ? 'end' : 'start')}
                                     >
-                                      <Activity className="w-3 h-3" />
+                                      <Activity className={isMobile ? 'w-2 h-2' : 'w-3 h-3'} />
                                       <span className="flex-1 truncate">{project.name}</span>
                                       {/* Drag indicators */}
-                                      {isStart && (
+                                      {!isMobile && isStart && (
                                         <div className="absolute -left-1 top-0 bottom-0 w-2 bg-white bg-opacity-50 rounded-l cursor-ew-resize opacity-0 group-hover:opacity-100"></div>
                                       )}
-                                      {isEnd && (
+                                      {!isMobile && isEnd && (
                                         <div className="absolute -right-1 top-0 bottom-0 w-2 bg-white bg-opacity-50 rounded-r cursor-ew-resize opacity-0 group-hover:opacity-100"></div>
                                       )}
                                     </div>
@@ -1217,24 +1306,24 @@ export default function CalendarPage() {
 
           {/* Month View (Original Calendar) */}
           {viewMode === 'month' && (
-            <div className="flex-1 overflow-auto p-4">
+            <div className="flex-1 overflow-auto p-2 md:p-4">
               {sprints.length > 0 && (
                 <Card className="mb-4">
-                  <div className="p-4">
-                    <h3 className="text-sm font-medium text-gray-700 mb-3">Active Sprints</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {sprints.slice(0, 6).map(sprint => (
-                        <div key={sprint.id} className="flex items-center gap-2 text-xs">
-                          <div className={`w-3 h-3 rounded ${getSprintColor(sprint.id)}`}></div>
-                          <span className="text-gray-600">{sprint.name}</span>
-                          <span className={`px-1 py-0.5 rounded text-xs ${getSprintStatusColor(sprint.status)} text-white`}>
+                  <div className="p-2 md:p-4">
+                    <h3 className="text-xs md:text-sm font-medium text-gray-700 mb-2 md:mb-3">Active Sprints</h3>
+                    <div className="flex flex-wrap gap-1 md:gap-2">
+                      {sprints.slice(0, isMobile ? 3 : 6).map(sprint => (
+                        <div key={sprint.id} className="flex items-center gap-1 md:gap-2 text-[10px] md:text-xs">
+                          <div className={`w-2 h-2 md:w-3 md:h-3 rounded ${getSprintColor(sprint.id)}`}></div>
+                          <span className="text-gray-600 truncate max-w-[80px] md:max-w-none">{sprint.name}</span>
+                          <span className={`px-1 py-0.5 rounded text-[10px] md:text-xs ${getSprintStatusColor(sprint.status)} text-white`}>
                             {sprint.status}
                           </span>
                         </div>
                       ))}
-                      {sprints.length > 6 && (
-                        <div className="text-xs text-gray-500">
-                          +{sprints.length - 6} more sprints
+                      {sprints.length > (isMobile ? 3 : 6) && (
+                        <div className="text-[10px] md:text-xs text-gray-500">
+                          +{sprints.length - (isMobile ? 3 : 6)} more
                         </div>
                       )}
                     </div>
@@ -1243,11 +1332,11 @@ export default function CalendarPage() {
               )}
 
               <Card>
-                <div className="p-4">
-                  <div className="grid grid-cols-7 gap-2">
+                <div className="p-2 md:p-4">
+                  <div className="grid grid-cols-7 gap-1 md:gap-2">
                     {/* Day headers */}
-                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                      <div key={day} className="text-center text-sm font-semibold text-gray-600 py-2">
+                    {(isMobile ? ['S', 'M', 'T', 'W', 'T', 'F', 'S'] : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']).map((day, i) => (
+                      <div key={i} className="text-center text-xs md:text-sm font-semibold text-gray-600 py-1 md:py-2">
                         {day}
                       </div>
                     ))}
@@ -1261,19 +1350,19 @@ export default function CalendarPage() {
                       return (
                         <div
                           key={index}
-                          className={`min-h-24 p-2 border rounded-lg transition-all cursor-pointer relative ${
+                          className={`min-h-16 md:min-h-24 p-1 md:p-2 border rounded-lg transition-all cursor-pointer relative ${
                             date ? 'hover:bg-blue-50 hover:border-blue-300' : 'bg-gray-50'
                           } ${isTodayDate ? 'bg-blue-100 border-blue-500' : 'border-gray-200'}`}
                           onClick={() => date && setSelectedDate(date)}
                         >
                           {date && (
                             <>
-                              <div className={`text-sm font-medium ${isTodayDate ? 'text-blue-600' : 'text-gray-900'}`}>
+                              <div className={`text-xs md:text-sm font-medium ${isTodayDate ? 'text-blue-600' : 'text-gray-900'}`}>
                                 {date.getDate()}
                               </div>
                               
                               {/* Sprint Timeline Bars */}
-                              {daySprints.length > 0 && filters.showSprints && (
+                              {daySprints.length > 0 && filters.showSprints && !isMobile && (
                                 <div className="mt-1 space-y-1">
                                   {daySprints.slice(0, 2).map(sprint => (
                                     <div
@@ -1288,7 +1377,7 @@ export default function CalendarPage() {
                               )}
                               
                               {/* Regular Events */}
-                              {dayEvents.length > 0 && filters.showEvents && (
+                              {dayEvents.length > 0 && filters.showEvents && !isMobile && (
                                 <div className="mt-1 space-y-1">
                                   {dayEvents.slice(0, 2).map(event => (
                                     <div
@@ -1299,6 +1388,18 @@ export default function CalendarPage() {
                                       {event.title}
                                     </div>
                                   ))}
+                                </div>
+                              )}
+
+                              {/* Mobile: Show indicators instead of full items */}
+                              {isMobile && (daySprints.length > 0 || dayEvents.length > 0) && (
+                                <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 flex gap-0.5">
+                                  {daySprints.length > 0 && filters.showSprints && (
+                                    <div className="w-1 h-1 bg-green-500 rounded-full"></div>
+                                  )}
+                                  {dayEvents.length > 0 && filters.showEvents && (
+                                    <div className="w-1 h-1 bg-blue-500 rounded-full"></div>
+                                  )}
                                 </div>
                               )}
                             </>
@@ -1315,313 +1416,202 @@ export default function CalendarPage() {
 
         {/* Sprint Form Modal */}
         {showSprintForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900">Create Sprint</h2>
-                  <button
-                    onClick={() => setShowSprintForm(false)}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <XCircle className="w-6 h-6" />
-                  </button>
+          <div 
+            className="fixed inset-0 z-[99999] flex items-end lg:items-center justify-center bg-black/70 bg-opacity-50"
+            style={{ backdropFilter: 'blur(2px)' }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setShowSprintForm(false);
+                resetSprintForm();
+              }
+            }}
+          >
+            <div 
+              className="bg-white rounded-t-2xl lg:rounded-2xl w-full lg:w-auto lg:max-w-2xl shadow-2xl max-h-[90vh] overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex flex-col h-full max-h-[90vh]">
+                {/* Header - Sticky */}
+                <div className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-4 rounded-t-2xl lg:rounded-t-2xl">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Create Sprint</h2>
+                      <p className="text-sm text-gray-500 mt-1">Set up a new sprint for your team</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setShowSprintForm(false);
+                        resetSprintForm();
+                      }}
+                      className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                      <XCircle className="w-6 h-6" />
+                    </button>
+                  </div>
                 </div>
 
-                <form onSubmit={handleCreateSprint} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                {/* Form Content - Scrollable */}
+                <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
+                  <form onSubmit={handleCreateSprint} className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Sprint Name *
+                        </label>
+                        <input
+                          type="text"
+                          value={sprintFormData.name}
+                          onChange={(e) => setSprintFormData(prev => ({ ...prev, name: e.target.value }))}
+                          placeholder="Enter sprint name"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Status
+                        </label>
+                        <select
+                          value={sprintFormData.status}
+                          onChange={(e) => setSprintFormData(prev => ({ ...prev, status: e.target.value as any }))}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                          <option value="planned">Planned</option>
+                          <option value="active">Active</option>
+                          <option value="completed">Completed</option>
+                        </select>
+                      </div>
+                    </div>
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Sprint Name *
+                        Goal
                       </label>
-                      <input
-                        type="text"
-                        value={sprintFormData.name}
-                        onChange={(e) => setSprintFormData(prev => ({ ...prev, name: e.target.value }))}
-                        placeholder="Enter sprint name"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        required
+                      <textarea
+                        value={sprintFormData.goal}
+                        onChange={(e) => setSprintFormData(prev => ({ ...prev, goal: e.target.value }))}
+                        placeholder="Enter sprint goal"
+                        rows={3}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                       />
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Status
-                      </label>
-                      <select
-                        value={sprintFormData.status}
-                        onChange={(e) => setSprintFormData(prev => ({ ...prev, status: e.target.value as any }))}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      >
-                        <option value="planned">Planned</option>
-                        <option value="active">Active</option>
-                        <option value="completed">Completed</option>
-                      </select>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Start Date *
+                        </label>
+                        <input
+                          type="date"
+                          value={sprintFormData.start_date}
+                          onChange={(e) => setSprintFormData(prev => ({ ...prev, start_date: e.target.value }))}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Duration (Weeks)
+                        </label>
+                        <select
+                          value={sprintFormData.duration_weeks}
+                          onChange={(e) => setSprintFormData(prev => ({ ...prev, duration_weeks: parseInt(e.target.value) }))}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                          <option value={1}>1 Week</option>
+                          <option value={2}>2 Weeks</option>
+                          <option value={3}>3 Weeks</option>
+                          <option value={4}>4 Weeks</option>
+                        </select>
+                      </div>
                     </div>
-                  </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Goal
-                    </label>
-                    <textarea
-                      value={sprintFormData.goal}
-                      onChange={(e) => setSprintFormData(prev => ({ ...prev, goal: e.target.value }))}
-                      placeholder="Enter sprint goal"
-                      rows={3}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Project *
+                        </label>
+                        <select
+                          value={sprintFormData.project_id}
+                          onChange={(e) => setSprintFormData(prev => ({ ...prev, project_id: e.target.value }))}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          required
+                        >
+                          <option value="">Select Project</option>
+                          {projects.map((project, index) => (
+                            <option key={project.id || `project-${index}`} value={project.id}>
+                              {project.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Team *
+                        </label>
+                        <select
+                          value={sprintFormData.team_id}
+                          onChange={(e) => setSprintFormData(prev => ({ ...prev, team_id: e.target.value }))}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          required
+                        >
+                          <option value="">Select Team</option>
+                          {teams.map((team, index) => (
+                            <option key={team.id || `team-${index}`} value={team.id}>
+                              {team.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
 
-                  <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Start Date *
+                        Velocity (Story Points)
                       </label>
                       <input
-                        type="date"
-                        value={sprintFormData.start_date}
-                        onChange={(e) => setSprintFormData(prev => ({ ...prev, start_date: e.target.value }))}
+                        type="number"
+                        value={sprintFormData.velocity}
+                        onChange={(e) => setSprintFormData(prev => ({ ...prev, velocity: parseInt(e.target.value) || 0 }))}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        required
+                        min="0"
                       />
                     </div>
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Duration (Weeks)
+                        Retrospective Notes
                       </label>
-                      <select
-                        value={sprintFormData.duration_weeks}
-                        onChange={(e) => setSprintFormData(prev => ({ ...prev, duration_weeks: parseInt(e.target.value) }))}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      >
-                        <option value={1}>1 Week</option>
-                        <option value={2}>2 Weeks</option>
-                        <option value={3}>3 Weeks</option>
-                        <option value={4}>4 Weeks</option>
-                      </select>
+                      <textarea
+                        value={sprintFormData.retrospective_notes}
+                        onChange={(e) => setSprintFormData(prev => ({ ...prev, retrospective_notes: e.target.value }))}
+                        placeholder="Enter retrospective notes"
+                        rows={3}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                      />
                     </div>
-                  </div>
+                  </form>
+                </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Project *
-                      </label>
-                      <select
-                        value={sprintFormData.project_id}
-                        onChange={(e) => setSprintFormData(prev => ({ ...prev, project_id: e.target.value }))}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        required
-                      >
-                        <option value="">Select Project</option>
-                        {projects.map((project, index) => (
-                          <option key={project.id || `project-${index}`} value={project.id}>
-                            {project.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Team *
-                      </label>
-                      <select
-                        value={sprintFormData.team_id}
-                        onChange={(e) => setSprintFormData(prev => ({ ...prev, team_id: e.target.value }))}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        required
-                      >
-                        <option value="">Select Team</option>
-                        {teams.map((team, index) => (
-                          <option key={team.id || `team-${index}`} value={team.id}>
-                            {team.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Velocity (Story Points)
-                    </label>
-                    <input
-                      type="number"
-                      value={sprintFormData.velocity}
-                      onChange={(e) => setSprintFormData(prev => ({ ...prev, velocity: parseInt(e.target.value) || 0 }))}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      min="0"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Retrospective Notes
-                    </label>
-                    <textarea
-                      value={sprintFormData.retrospective_notes}
-                      onChange={(e) => setSprintFormData(prev => ({ ...prev, retrospective_notes: e.target.value }))}
-                      placeholder="Enter retrospective notes"
-                      rows={3}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  <div className="flex gap-3 pt-4">
+                {/* Footer - Sticky */}
+                <div className="sticky bottom-0 bg-white border-t border-gray-200 px-4 sm:px-6 py-4 rounded-b-2xl lg:rounded-b-2xl">
+                  <div className="flex flex-col sm:flex-row gap-3">
                     <Button
                       type="submit"
+                      onClick={handleCreateSprint}
                       disabled={loading}
-                      className="flex-1"
+                      className="flex-1 order-2 sm:order-1"
                     >
                       {loading ? 'Creating...' : 'Create Sprint'}
                     </Button>
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => setShowSprintForm(false)}
-                      className="flex-1"
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </form>
-              </div>
-            </Card>
-          </div>
-        )}
-
-        {/* Event Form Popup - Small Floating */}
-        {showEventForm && (
-          <>
-            {/* Backdrop for closing */}
-            <div 
-              className="fixed inset-0 z-40" 
-              onClick={() => setShowEventForm(false)}
-            />
-            
-            {/* Floating Popup */}
-            <div 
-              className="fixed z-50 bg-white rounded-lg shadow-2xl border border-gray-200"
-              style={{
-                top: eventFormPosition ? `${eventFormPosition.y}px` : '50%',
-                left: eventFormPosition ? `${eventFormPosition.x}px` : '50%',
-                transform: eventFormPosition ? 'none' : 'translate(-50%, -50%)',
-                width: '400px',
-                maxHeight: '85vh',
-                overflowY: 'auto'
-              }}
-            >
-              <div className="p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Create Event</h3>
-                  <button
-                    onClick={() => setShowEventForm(false)}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <XCircle className="w-5 h-5" />
-                  </button>
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Title *
-                    </label>
-                    <input
-                      type="text"
-                      value={eventTitle}
-                      onChange={(e) => setEventTitle(e.target.value)}
-                      placeholder="Event title"
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Description
-                    </label>
-                    <textarea
-                      value={eventDescription}
-                      onChange={(e) => setEventDescription(e.target.value)}
-                      placeholder="Event description"
-                      rows={2}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Date *
-                    </label>
-                    <input
-                      type="date"
-                      value={eventDate}
-                      onChange={(e) => setEventDate(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                        Start *
-                      </label>
-                      <input
-                        type="time"
-                        value={eventStartTime}
-                        onChange={(e) => setEventStartTime(e.target.value)}
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                        End *
-                      </label>
-                      <input
-                        type="time"
-                        value={eventEndTime}
-                        onChange={(e) => setEventEndTime(e.target.value)}
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Location
-                    </label>
-                    <input
-                      type="text"
-                      value={eventLocation}
-                      onChange={(e) => setEventLocation(e.target.value)}
-                      placeholder="Location or online"
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  {isConnected && (
-                    <div className="bg-blue-50 border border-blue-200 rounded p-2">
-                      <p className="text-xs text-blue-800 flex items-center gap-1">
-                        <CalendarIcon className="w-3 h-3" />
-                        Will sync with Google Calendar
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="flex gap-2 pt-2">
-                    <Button
-                      onClick={handleCreateEvent}
-                      disabled={loading}
-                      className="flex-1"
-                      size="sm"
-                    >
-                      {loading ? 'Creating...' : 'Create'}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowEventForm(false)}
-                      className="flex-1"
-                      size="sm"
+                      onClick={() => {
+                        setShowSprintForm(false);
+                        resetSprintForm();
+                      }}
+                      className="flex-1 order-1 sm:order-2"
                     >
                       Cancel
                     </Button>
@@ -1629,7 +1619,153 @@ export default function CalendarPage() {
                 </div>
               </div>
             </div>
-          </>
+          </div>
+        )}
+
+        {/* Event Form Modal */}
+        {showEventForm && (
+          <div 
+            className="fixed inset-0 z-[99999] flex items-end lg:items-center justify-center bg-black/70 bg-opacity-50"
+            style={{ backdropFilter: 'blur(2px)' }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setShowEventForm(false);
+              }
+            }}
+          >
+            <div 
+              className="bg-white rounded-t-2xl lg:rounded-2xl w-full lg:w-[480px] shadow-2xl max-h-[90vh] overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex flex-col h-full max-h-[90vh]">
+                {/* Header - Sticky */}
+                <div className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-4 rounded-t-2xl lg:rounded-t-2xl">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xl sm:text-2xl font-bold text-gray-900">Create Event</h3>
+                      <p className="text-sm text-gray-500 mt-1">Schedule a new calendar event</p>
+                    </div>
+                    <button
+                      onClick={() => setShowEventForm(false)}
+                      className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                      <XCircle className="w-6 h-6" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Form Content - Scrollable */}
+                <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Title *
+                      </label>
+                      <input
+                        type="text"
+                        value={eventTitle}
+                        onChange={(e) => setEventTitle(e.target.value)}
+                        placeholder="Event title"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Description
+                      </label>
+                      <textarea
+                        value={eventDescription}
+                        onChange={(e) => setEventDescription(e.target.value)}
+                        placeholder="Event description"
+                        rows={3}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Date *
+                      </label>
+                      <input
+                        type="date"
+                        value={eventDate}
+                        onChange={(e) => setEventDate(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Start *
+                        </label>
+                        <input
+                          type="time"
+                          value={eventStartTime}
+                          onChange={(e) => setEventStartTime(e.target.value)}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          End *
+                        </label>
+                        <input
+                          type="time"
+                          value={eventEndTime}
+                          onChange={(e) => setEventEndTime(e.target.value)}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Location
+                      </label>
+                      <input
+                        type="text"
+                        value={eventLocation}
+                        onChange={(e) => setEventLocation(e.target.value)}
+                        placeholder="Location or online"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    {isConnected && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <p className="text-sm text-blue-800 flex items-center gap-2">
+                          <CalendarIcon className="w-4 h-4" />
+                          Will sync with Google Calendar
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Footer - Sticky */}
+                <div className="sticky bottom-0 bg-white border-t border-gray-200 px-4 sm:px-6 py-4 rounded-b-2xl lg:rounded-b-2xl">
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <Button
+                      onClick={handleCreateEvent}
+                      disabled={loading}
+                      className="flex-1 order-2 sm:order-1"
+                    >
+                      {loading ? 'Creating...' : 'Create'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowEventForm(false)}
+                      className="flex-1 order-1 sm:order-2"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </AppLayout>
