@@ -4,7 +4,15 @@ import {
   Menu,
   Bell,
   Search,
-  TrendingUp
+  TrendingUp,
+  Building2,
+  Briefcase,
+  Users,
+  Calendar as CalendarIcon,
+  CheckSquare,
+  BookOpen,
+  FolderOpen,
+  Settings as SettingsIcon
 } from 'lucide-react';
 import { Avatar } from './ui/Avatar';
 import { Button } from './ui/Button';
@@ -30,12 +38,31 @@ export const Navigation: React.FC<NavigationProps> = ({ onMobileMenuClick }) => 
     if (isProjects) return 'Projects';
     if (pathname === '/task') return 'Tasks';
     if (pathname === '/sprint-stories') return 'Sprint & Stories';
+    if (pathname === '/companies') return 'Companies';
+    if (pathname === '/departments') return 'Departments';
     if (pathname === '/team') return 'Team';
     if (pathname === '/calander') return 'Calendar';
     if (pathname === '/notifications') return 'Notifications';
     if (pathname === '/settings') return 'Settings';
     return 'ProjectFlow';
   };
+
+  // Get page icon based on current route
+  const getPageIcon = () => {
+    if (isDashboard) return TrendingUp;
+    if (isProjects) return FolderOpen;
+    if (pathname === '/task') return CheckSquare;
+    if (pathname === '/sprint-stories') return BookOpen;
+    if (pathname === '/companies') return Building2;
+    if (pathname === '/departments') return Briefcase;
+    if (pathname === '/team') return Users;
+    if (pathname === '/calander') return CalendarIcon;
+    if (pathname === '/notifications') return Bell;
+    if (pathname === '/settings') return SettingsIcon;
+    return TrendingUp;
+  };
+
+  const PageIcon = getPageIcon();
 
   return (
     <nav className={`bg-white dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700 ${navPaddingClass} w-full sticky top-0 z-30`}>
@@ -52,7 +79,7 @@ export const Navigation: React.FC<NavigationProps> = ({ onMobileMenuClick }) => 
           {/* Page Title */}
           <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
             <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
-              <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+              <PageIcon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </div>
             <div className="min-w-0 flex-1">
               <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white truncate">

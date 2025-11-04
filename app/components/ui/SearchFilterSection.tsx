@@ -79,6 +79,10 @@ interface SearchFilterSectionProps<T extends string = string> {
     views: ViewOption<T>[];
     onChange: (view: T) => void;
   };
+  actionButton?: {
+    label: string;
+    onClick: () => void;
+  };
   variant?: 'default' | 'modern';
   showActiveFilters?: boolean;
   hideFilterIcon?: boolean;
@@ -113,6 +117,7 @@ export const SearchFilterSection = <T extends string = string>({
   quickFilterValues = {},
   onQuickFilterChange,
   viewToggle,
+  actionButton,
   variant = 'modern',
   showActiveFilters = true,
   hideFilterIcon = false,
@@ -313,8 +318,21 @@ export const SearchFilterSection = <T extends string = string>({
           
           {/* Action Buttons - Always stay on this line */}
           <div className="flex items-center space-x-2 flex-shrink-0">
-              {/* New Item Button - Hidden on mobile */}
-              {viewToggle && (
+              {/* Action Button - Hidden on mobile */}
+              {actionButton && (
+                <button
+                  onClick={actionButton.onClick}
+                  className="hidden lg:flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex-shrink-0"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span>{actionButton.label}</span>
+                </button>
+              )}
+              
+              {/* Fallback: Old New Item Button - Hidden on mobile */}
+              {!actionButton && viewToggle && (
                 <button
                   onClick={() => {
                     // This will be handled by the parent component
