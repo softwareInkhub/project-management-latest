@@ -906,9 +906,9 @@ const Dashboard = () => {
         )}
 
         {/* Modern Stats Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6 mb-4 sm:mb-6 lg:mb-6 lg:-mt-4">
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-2 sm:gap-4 lg:gap-6 mb-4 sm:mb-6 lg:mb-6 lg:-mt-4">
           <div
-            className="group relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-4 lg:pb-1 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 cursor-pointer"
+            className="group relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg sm:rounded-2xl p-2 sm:p-4 lg:p-3 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 cursor-pointer"
             onClick={() => router.push('/project')}
             role="button"
             tabIndex={0}
@@ -917,55 +917,35 @@ const Dashboard = () => {
           >
             <div className="absolute top-0 right-0 w-16 h-16 sm:w-20 sm:h-20 bg-white/10 rounded-full -translate-y-10 translate-x-10"></div>
             <div className="relative z-10">
-              <div className="flex items-center justify-between mb-2 sm:mb-4">
-                <div className="flex items-center">
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-10 lg:h-10 bg-white/20 rounded-lg sm:rounded-xl flex items-center justify-center">
-                    <FolderKanban className="w-4 h-4 sm:w-5 sm:h-5 lg:w-5 lg:h-5 text-white" />
-                  </div>
-                  <div className="hidden lg:block ml-3">
-                    <h3 className="text-white font-semibold text-base mb-0.5">Total Projects</h3>
-                    <p className="text-blue-100 text-sm">across all teams</p>
-                  </div>
-                  <div className="lg:hidden ml-3">
-                    <h3 className="text-white font-semibold text-sm">Total Projects</h3>
-                  </div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <div className="w-6 h-6 sm:w-10 sm:h-10 bg-white/20 rounded-md sm:rounded-lg flex items-center justify-center flex-shrink-0">
+                  <FolderKanban className="w-3 h-3 sm:w-5 sm:h-5 text-white" />
                 </div>
-                <div className="text-right">
-                  <div className="text-xl sm:text-2xl font-bold text-white lg:block hidden">
-                    {dashboardData.stats.totalProjects}
-                  </div>
-                  <div className="text-blue-100 text-xs sm:text-sm lg:block hidden">
-                    {dashboardData.stats.totalProjects > 0 ? (
-                      <span className="flex items-center justify-end">
-                        <ArrowUp className="w-2 h-2 sm:w-3 sm:h-3 mr-1" />
-                        <span className="text-xs">+{dashboardData.stats.projectGrowth || 0}%</span>
-                      </span>
-                    ) : (
-                      <span className="text-xs">No projects</span>
-                    )}
-                  </div>
+                <div>
+                  <h3 className="text-white font-semibold text-xs sm:text-base">Total Projects</h3>
+                  <p className="text-blue-100 text-[10px] sm:text-xs">across all teams</p>
                 </div>
               </div>
-              <div className="lg:hidden flex items-center justify-between mt-2">
-                <div className="text-xl font-bold text-white">
-                  {dashboardData.stats.totalProjects}
-                </div>
-                <div className="text-blue-100 text-xs">
+              <div className="flex items-center justify-between">
+                <div className="text-blue-100 text-[10px] sm:text-sm">
                   {dashboardData.stats.totalProjects > 0 ? (
                     <span className="flex items-center">
-                      <ArrowUp className="w-2 h-2 mr-1" />
+                      <ArrowUp className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
                       <span>+{dashboardData.stats.projectGrowth || 0}%</span>
                     </span>
                   ) : (
                     <span>No projects</span>
                   )}
                 </div>
+                <div className="text-xl sm:text-2xl font-bold text-white">
+                  {dashboardData.stats.totalProjects}
+                </div>
               </div>
             </div>
           </div>
 
           <div
-            className="group relative overflow-hidden bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-4 lg:pb-1 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 cursor-pointer"
+            className="group relative overflow-hidden bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg sm:rounded-2xl p-2 sm:p-4 lg:p-3 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 cursor-pointer"
             onClick={() => router.push('/task')}
             role="button"
             tabIndex={0}
@@ -974,55 +954,35 @@ const Dashboard = () => {
           >
             <div className="absolute top-0 right-0 w-16 h-16 sm:w-20 sm:h-20 bg-white/10 rounded-full -translate-y-10 translate-x-10"></div>
             <div className="relative z-10">
-              <div className="flex items-center justify-between mb-2 sm:mb-4">
-                <div className="flex items-center">
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-10 lg:h-10 bg-white/20 rounded-lg sm:rounded-xl flex items-center justify-center">
-                    <CheckSquare className="w-4 h-4 sm:w-5 sm:h-5 lg:w-5 lg:h-5 text-white" />
-                  </div>
-                  <div className="hidden lg:block ml-3">
-                    <h3 className="text-white font-semibold text-base mb-0.5">Active Tasks</h3>
-                    <p className="text-emerald-100 text-sm">currently in progress</p>
-                  </div>
-                  <div className="lg:hidden ml-3">
-                    <h3 className="text-white font-semibold text-sm">Active Tasks</h3>
-                  </div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <div className="w-6 h-6 sm:w-10 sm:h-10 bg-white/20 rounded-md sm:rounded-lg flex items-center justify-center flex-shrink-0">
+                  <CheckSquare className="w-3 h-3 sm:w-5 sm:h-5 text-white" />
                 </div>
-                <div className="text-right">
-                  <div className="text-xl sm:text-2xl font-bold text-white lg:block hidden">
-                    {dashboardData.stats.activeTasks}
-                  </div>
-                  <div className="text-emerald-100 text-xs sm:text-sm lg:block hidden">
-                    {dashboardData.stats.activeTasks > 0 ? (
-                      <span className="flex items-center justify-end">
-                        <ArrowUp className="w-2 h-2 sm:w-3 sm:h-3 mr-1" />
-                        <span className="text-xs">+{dashboardData.stats.taskGrowth || 0} today</span>
-                      </span>
-                    ) : (
-                      <span className="text-xs">All done!</span>
-                    )}
-                  </div>
+                <div>
+                  <h3 className="text-white font-semibold text-xs sm:text-base">Active Tasks</h3>
+                  <p className="text-emerald-100 text-[10px] sm:text-xs">currently in progress</p>
                 </div>
               </div>
-              <div className="lg:hidden flex items-center justify-between mt-2">
-                <div className="text-xl font-bold text-white">
-                  {dashboardData.stats.activeTasks}
-                </div>
-                <div className="text-emerald-100 text-xs">
+              <div className="flex items-center justify-between">
+                <div className="text-emerald-100 text-[10px] sm:text-sm">
                   {dashboardData.stats.activeTasks > 0 ? (
                     <span className="flex items-center">
-                      <ArrowUp className="w-2 h-2 mr-1" />
+                      <ArrowUp className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
                       <span>+{dashboardData.stats.taskGrowth || 0} today</span>
                     </span>
                   ) : (
                     <span>All done!</span>
                   )}
                 </div>
+                <div className="text-xl sm:text-2xl font-bold text-white">
+                  {dashboardData.stats.activeTasks}
+                </div>
               </div>
             </div>
           </div>
 
           <div
-            className="group relative overflow-hidden bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-4 lg:pb-1 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 cursor-pointer"
+            className="group relative overflow-hidden bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg sm:rounded-2xl p-2 sm:p-4 lg:p-3 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 cursor-pointer"
             onClick={() => router.push('/team')}
             role="button"
             tabIndex={0}
@@ -1031,230 +991,146 @@ const Dashboard = () => {
           >
             <div className="absolute top-0 right-0 w-16 h-16 sm:w-20 sm:h-20 bg-white/10 rounded-full -translate-y-10 translate-x-10"></div>
             <div className="relative z-10">
-              <div className="flex items-center justify-between mb-2 sm:mb-4">
-                <div className="flex items-center">
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-10 lg:h-10 bg-white/20 rounded-lg sm:rounded-xl flex items-center justify-center">
-                    <Users className="w-4 h-4 sm:w-5 sm:h-5 lg:w-5 lg:h-5 text-white" />
-                  </div>
-                  <div className="hidden lg:block ml-3">
-                    <h3 className="text-white font-semibold text-base mb-0.5">Team Members</h3>
-                    <p className="text-purple-100 text-sm">across all teams</p>
-                  </div>
-                  <div className="lg:hidden ml-3">
-                    <h3 className="text-white font-semibold text-sm">Team Members</h3>
-                  </div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <div className="w-6 h-6 sm:w-10 sm:h-10 bg-white/20 rounded-md sm:rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Users className="w-3 h-3 sm:w-5 sm:h-5 text-white" />
                 </div>
-                <div className="text-right">
-                  <div className="text-xl sm:text-2xl font-bold text-white lg:block hidden">
-                    {dashboardData.stats.teamMembers}
-                  </div>
-                  <div className="text-purple-100 text-xs sm:text-sm lg:block hidden">
-                    {dashboardData.stats.teamMembers > 0 ? (
-                      <span className="flex items-center justify-end">
-                        <ArrowUp className="w-2 h-2 sm:w-3 sm:h-3 mr-1" />
-                        <span className="text-xs">+{dashboardData.stats.userGrowth || 0} new</span>
-                      </span>
-                    ) : (
-                      <span className="text-xs">No members</span>
-                    )}
-                  </div>
+                <div>
+                  <h3 className="text-white font-semibold text-xs sm:text-base">Team Members</h3>
+                  <p className="text-purple-100 text-[10px] sm:text-xs">across all teams</p>
                 </div>
               </div>
-              <div className="lg:hidden flex items-center justify-between mt-2">
-                <div className="text-xl font-bold text-white">
-                  {dashboardData.stats.teamMembers}
-                </div>
-                <div className="text-purple-100 text-xs">
+              <div className="flex items-center justify-between">
+                <div className="text-purple-100 text-[10px] sm:text-sm">
                   {dashboardData.stats.teamMembers > 0 ? (
                     <span className="flex items-center">
-                      <ArrowUp className="w-2 h-2 mr-1" />
+                      <ArrowUp className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
                       <span>+{dashboardData.stats.userGrowth || 0} new</span>
                     </span>
                   ) : (
                     <span>No members</span>
                   )}
                 </div>
+                <div className="text-xl sm:text-2xl font-bold text-white">
+                  {dashboardData.stats.teamMembers}
+                </div>
               </div>
             </div>
           </div>
 
           <div
-            className="group relative overflow-hidden bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-4 lg:pb-1 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 cursor-pointer"
+            className="group relative overflow-hidden bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg sm:rounded-2xl p-2 sm:p-4 lg:p-3 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 cursor-pointer"
             onClick={() => router.push('/sprint-stories')}
             role="button"
             tabIndex={0}
             onKeyDown={(e) => { if (e.key === 'Enter') router.push('/sprint-stories'); }}
             title="View Sprints"
           >
-            <div className="absolute top-0 right-0 w-16 h-16 sm:w-20 sm:h-20 bg-white/10 rounded-full -translate-y-10 translate-x-10"></div>
-            <div className="relative z-10">
-              <div className="flex items-center justify-between mb-2 sm:mb-4">
-                <div className="flex items-center">
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-10 lg:h-10 bg-white/20 rounded-lg sm:rounded-xl flex items-center justify-center">
-                    <Target className="w-4 h-4 sm:w-5 sm:h-5 lg:w-5 lg:h-5 text-white" />
-                  </div>
-                  <div className="hidden lg:block ml-3">
-                    <h3 className="text-white font-semibold text-base mb-0.5">Completion Rate</h3>
-                    <p className="text-orange-100 text-sm">overall progress</p>
-                  </div>
-                  <div className="lg:hidden ml-3">
-                    <h3 className="text-white font-semibold text-sm">Completion Rate</h3>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-xl sm:text-2xl font-bold text-white lg:block hidden">
-                    {dashboardData.stats.completionRate}%
-                  </div>
-                  <div className="text-orange-100 text-xs sm:text-sm lg:block hidden">
-                    {dashboardData.stats.completionRate > 0 ? (
-                      <span className="flex items-center justify-end">
-                        {dashboardData.stats.completionRate >= 80 ? (
-                          <ArrowUp className="w-2 h-2 sm:w-3 sm:h-3 mr-1" />
-                        ) : (
-                          <ArrowDown className="w-2 h-2 sm:w-3 sm:h-3 mr-1" />
-                        )}
-                        <span className="text-xs">{dashboardData.stats.completionRate >= 80 ? '+5%' : 'Needs work'}</span>
-                      </span>
-                    ) : (
-                      <span className="text-xs">No tasks</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="lg:hidden flex items-center justify-between mt-2">
-                <div className="text-xl font-bold text-white">
-                  {dashboardData.stats.completionRate}%
-                </div>
-                <div className="text-orange-100 text-xs">
-                  {dashboardData.stats.completionRate > 0 ? (
-                    <span className="flex items-center">
-                      {dashboardData.stats.completionRate >= 80 ? (
-                        <ArrowUp className="w-2 h-2 mr-1" />
-                      ) : (
-                        <ArrowDown className="w-2 h-2 mr-1" />
-                      )}
-                      <span>{dashboardData.stats.completionRate >= 80 ? '+5%' : 'Needs work'}</span>
-                    </span>
-                  ) : (
-                    <span>No tasks</span>
-                  )}
-                </div>
-              </div>
-            </div>
+            <div className="absolute top-0 right-0 w-12 h-12 sm:w-20 sm:h-20 bg-white/10 rounded-full -translate-y-6 translate-x-6 sm:-translate-y-10 sm:translate-x-10"></div>
+             <div className="relative z-10">
+               <div className="flex items-center gap-1.5 sm:gap-2 mb-1">
+                 <div className="w-6 h-6 sm:w-10 sm:h-10 bg-white/20 rounded-md sm:rounded-lg flex items-center justify-center flex-shrink-0">
+                   <Target className="w-3 h-3 sm:w-5 sm:h-5 text-white" />
+                 </div>
+                 <div>
+                   <h3 className="text-white font-semibold text-xs sm:text-base lg:text-base">Completion Rate</h3>
+                   <p className="text-orange-100 text-[10px] sm:text-xs lg:text-xs">overall progress</p>
+                 </div>
+               </div>
+               <div className="flex items-center justify-between">
+                 <div className="text-orange-100 text-[10px] sm:text-sm">
+                   {dashboardData.stats.completionRate > 0 ? (
+                     <span className="flex items-center">
+                       {dashboardData.stats.completionRate >= 80 ? (
+                         <ArrowUp className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
+                       ) : (
+                         <ArrowDown className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
+                       )}
+                       <span>{dashboardData.stats.completionRate >= 80 ? '+5%' : 'Needs work'}</span>
+                     </span>
+                   ) : (
+                     <span>No tasks</span>
+                   )}
+                 </div>
+                 <div className="text-xl sm:text-2xl font-bold text-white">
+                   {dashboardData.stats.completionRate}%
+                 </div>
+               </div>
+             </div>
           </div>
 
           <div
-            className="group relative overflow-hidden bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-4 lg:pb-1 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 cursor-pointer"
+            className="group relative overflow-hidden bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg sm:rounded-2xl p-2 sm:p-4 lg:p-3 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 cursor-pointer"
             onClick={() => router.push('/companies')}
             role="button"
             tabIndex={0}
             onKeyDown={(e) => { if (e.key === 'Enter') router.push('/companies'); }}
             title="View Companies"
           >
-            <div className="absolute top-0 right-0 w-16 h-16 sm:w-20 sm:h-20 bg-white/10 rounded-full -translate-y-10 translate-x-10"></div>
-            <div className="relative z-10">
-              <div className="flex items-center justify-between mb-2 sm:mb-4">
-                <div className="flex items-center">
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-10 lg:h-10 bg-white/20 rounded-lg sm:rounded-xl flex items-center justify-center">
-                    <Building2 className="w-4 h-4 sm:w-5 sm:h-5 lg:w-5 lg:h-5 text-white" />
-                  </div>
-                  <div className="hidden lg:block ml-3">
-                    <h3 className="text-white font-semibold text-base mb-0.5">Companies</h3>
-                    <p className="text-indigo-100 text-sm">active organizations</p>
-                  </div>
-                  <div className="lg:hidden ml-3">
-                    <h3 className="text-white font-semibold text-sm">Companies</h3>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-xl sm:text-2xl font-bold text-white lg:block hidden">
-                    {dashboardData.stats.totalCompanies}
-                  </div>
-                  <div className="text-indigo-100 text-xs sm:text-sm lg:block hidden">
-                    {dashboardData.stats.activeCompanies > 0 ? (
-                      <span className="flex items-center justify-end">
-                        <CheckSquare className="w-2 h-2 sm:w-3 sm:h-3 mr-1" />
-                        <span className="text-xs">{dashboardData.stats.activeCompanies} active</span>
-                      </span>
-                    ) : (
-                      <span className="text-xs">No companies</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="lg:hidden flex items-center justify-between mt-2">
-                <div className="text-xl font-bold text-white">
-                  {dashboardData.stats.totalCompanies}
-                </div>
-                <div className="text-indigo-100 text-xs">
-                  {dashboardData.stats.activeCompanies > 0 ? (
-                    <span className="flex items-center">
-                      <CheckSquare className="w-2 h-2 mr-1" />
-                      <span>{dashboardData.stats.activeCompanies} active</span>
-                    </span>
-                  ) : (
-                    <span>No companies</span>
-                  )}
-                </div>
-              </div>
-            </div>
+            <div className="absolute top-0 right-0 w-12 h-12 sm:w-20 sm:h-20 bg-white/10 rounded-full -translate-y-6 translate-x-6 sm:-translate-y-10 sm:translate-x-10"></div>
+             <div className="relative z-10">
+               <div className="flex items-center gap-1.5 sm:gap-2 mb-1">
+                 <div className="w-6 h-6 sm:w-10 sm:h-10 bg-white/20 rounded-md sm:rounded-lg flex items-center justify-center flex-shrink-0">
+                   <Building2 className="w-3 h-3 sm:w-5 sm:h-5 text-white" />
+                 </div>
+                 <div>
+                   <h3 className="text-white font-semibold text-xs sm:text-base lg:text-base">Companies</h3>
+                   <p className="text-indigo-100 text-[10px] sm:text-xs lg:text-xs">active organizations</p>
+                 </div>
+               </div>
+               <div className="flex items-center justify-between">
+                 <div className="text-indigo-100 text-[10px] sm:text-sm">
+                   {dashboardData.stats.activeCompanies > 0 ? (
+                     <span className="flex items-center">
+                       <CheckSquare className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
+                       <span>{dashboardData.stats.activeCompanies} active</span>
+                     </span>
+                   ) : (
+                     <span>No companies</span>
+                   )}
+                 </div>
+                 <div className="text-xl sm:text-2xl font-bold text-white">
+                   {dashboardData.stats.totalCompanies}
+                 </div>
+               </div>
+             </div>
           </div>
 
           <div
-            className="group relative overflow-hidden bg-gradient-to-br from-violet-500 to-violet-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-4 lg:pb-1 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 cursor-pointer"
+            className="group relative overflow-hidden bg-gradient-to-br from-violet-500 to-violet-600 rounded-lg sm:rounded-2xl p-2 sm:p-4 lg:p-3 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 cursor-pointer"
             onClick={() => router.push('/departments')}
             role="button"
             tabIndex={0}
             onKeyDown={(e) => { if (e.key === 'Enter') router.push('/departments'); }}
             title="View Departments"
           >
-            <div className="absolute top-0 right-0 w-16 h-16 sm:w-20 sm:h-20 bg-white/10 rounded-full -translate-y-10 translate-x-10"></div>
-            <div className="relative z-10">
-              <div className="flex items-center justify-between mb-2 sm:mb-4">
-                <div className="flex items-center">
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-10 lg:h-10 bg-white/20 rounded-lg sm:rounded-xl flex items-center justify-center">
-                    <Briefcase className="w-4 h-4 sm:w-5 sm:h-5 lg:w-5 lg:h-5 text-white" />
-                  </div>
-                  <div className="hidden lg:block ml-3">
-                    <h3 className="text-white font-semibold text-base mb-0.5">Departments</h3>
-                    <p className="text-violet-100 text-sm">across companies</p>
-                  </div>
-                  <div className="lg:hidden ml-3">
-                    <h3 className="text-white font-semibold text-sm">Departments</h3>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-xl sm:text-2xl font-bold text-white lg:block hidden">
-                    {dashboardData.stats.totalDepartments}
-                  </div>
-                  <div className="text-violet-100 text-xs sm:text-sm lg:block hidden">
-                    {dashboardData.stats.activeDepartments > 0 ? (
-                      <span className="flex items-center justify-end">
-                        <CheckSquare className="w-2 h-2 sm:w-3 sm:h-3 mr-1" />
-                        <span className="text-xs">{dashboardData.stats.activeDepartments} active</span>
-                      </span>
-                    ) : (
-                      <span className="text-xs">No departments</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="lg:hidden flex items-center justify-between mt-2">
-                <div className="text-xl font-bold text-white">
-                  {dashboardData.stats.totalDepartments}
-                </div>
-                <div className="text-violet-100 text-xs">
-                  {dashboardData.stats.activeDepartments > 0 ? (
-                    <span className="flex items-center">
-                      <CheckSquare className="w-2 h-2 mr-1" />
-                      <span>{dashboardData.stats.activeDepartments} active</span>
-                    </span>
-                  ) : (
-                    <span>No departments</span>
-                  )}
-                </div>
-              </div>
-            </div>
+            <div className="absolute top-0 right-0 w-12 h-12 sm:w-20 sm:h-20 bg-white/10 rounded-full -translate-y-6 translate-x-6 sm:-translate-y-10 sm:translate-x-10"></div>
+             <div className="relative z-10">
+               <div className="flex items-center gap-1.5 sm:gap-2 mb-1">
+                 <div className="w-6 h-6 sm:w-10 sm:h-10 bg-white/20 rounded-md sm:rounded-lg flex items-center justify-center flex-shrink-0">
+                   <Briefcase className="w-3 h-3 sm:w-5 sm:h-5 text-white" />
+                 </div>
+                 <div>
+                   <h3 className="text-white font-semibold text-xs sm:text-base lg:text-base">Departments</h3>
+                   <p className="text-violet-100 text-[10px] sm:text-xs lg:text-xs">across companies</p>
+                 </div>
+               </div>
+               <div className="flex items-center justify-between">
+                 <div className="text-violet-100 text-[10px] sm:text-sm">
+                   {dashboardData.stats.activeDepartments > 0 ? (
+                     <span className="flex items-center">
+                       <CheckSquare className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
+                       <span>{dashboardData.stats.activeDepartments} active</span>
+                     </span>
+                   ) : (
+                     <span>No departments</span>
+                   )}
+                 </div>
+                 <div className="text-xl sm:text-2xl font-bold text-white">
+                   {dashboardData.stats.totalDepartments}
+                 </div>
+               </div>
+             </div>
           </div>
         </div>
 
