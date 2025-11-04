@@ -15,13 +15,15 @@ import {
   Users,
   CheckCircle,
   XCircle,
-  Building2
+  Building2,
+  Settings
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
 import { StatsCard } from '../components/ui/StatsCard';
+import { SearchFilterSection } from '../components/ui/SearchFilterSection';
 import { ViewToggle } from '../components/ui/ViewToggle';
 import { AppLayout } from '../components/AppLayout';
 import { useAuth } from '../hooks/useAuth';
@@ -41,9 +43,19 @@ const DepartmentsPage = () => {
   const [companyFilter, setCompanyFilter] = useState('all');
   const [viewMode, setViewMode] = useState<'list' | 'card'>('card');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [editingDepartment, setEditingDepartment] = useState<DepartmentWithCompany | null>(null);
+  const [viewingDepartment, setViewingDepartment] = useState<DepartmentWithCompany | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Quick filter state
+  const [quickFilterValues, setQuickFilterValues] = useState<Record<string, string | string[] | { from: string; to: string }>>({
+    status: [],
+    tags: [],
+    dateRange: 'all'
+  });
+  const [visibleFilterColumns, setVisibleFilterColumns] = useState<string[]>(['status', 'tags', 'dateRange']);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -103,16 +115,69 @@ const DepartmentsPage = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Get unique tags from all departments
+  const allTags = useMemo(() => {
+    const tagsSet = new Set<string>();
+    departments.forEach(dept => {
+      if (dept.tags && Array.isArray(dept.tags)) {
+        dept.tags.forEach(tag => tagsSet.add(tag));
+      }
+    });
+    return Array.from(tagsSet).sort();
+  }, [departments]);
+
+  // Handler for quick filter changes
+  const handleQuickFilterChange = (key: string, value: string | string[] | { from: string; to: string }) => {
+    setQuickFilterValues(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
   // Filter departments
   const filteredDepartments = useMemo(() => {
     return departments.filter(dept => {
+      // Search filter
       const matchesSearch = dept.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            dept.description?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      // Status filter (from dropdown)
       const matchesStatus = statusFilter === 'all' || dept.active === statusFilter;
+      
+      // Company filter
       const matchesCompany = companyFilter === 'all' || dept.companyId === companyFilter;
-      return matchesSearch && matchesStatus && matchesCompany;
+      
+      // Quick filter: Status
+      const statusQuickFilter = quickFilterValues.status as string[];
+      const matchesStatusQuick = !statusQuickFilter || statusQuickFilter.length === 0 || 
+                                  statusQuickFilter.includes(dept.active);
+      
+      // Quick filter: Tags
+      const tagsQuickFilter = quickFilterValues.tags as string[];
+      const matchesTags = !tagsQuickFilter || tagsQuickFilter.length === 0 ||
+                         (dept.tags && dept.tags.some(tag => tagsQuickFilter.includes(tag)));
+      
+      // Quick filter: Date Range
+      const dateRangeFilter = quickFilterValues.dateRange;
+      let matchesDateRange = true;
+      if (dateRangeFilter && dateRangeFilter !== 'all') {
+        const deptDate = new Date(dept.createdAt);
+        const now = new Date();
+        
+        if (dateRangeFilter === 'today') {
+          matchesDateRange = deptDate.toDateString() === now.toDateString();
+        } else if (dateRangeFilter === 'week') {
+          const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          matchesDateRange = deptDate >= weekAgo;
+        } else if (dateRangeFilter === 'month') {
+          const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          matchesDateRange = deptDate >= monthAgo;
+        }
+      }
+      
+      return matchesSearch && matchesStatus && matchesCompany && matchesStatusQuick && matchesTags && matchesDateRange;
     });
-  }, [departments, searchTerm, statusFilter, companyFilter]);
+  }, [departments, searchTerm, statusFilter, companyFilter, quickFilterValues]);
 
   // Stats
   const stats = useMemo(() => {
@@ -173,6 +238,13 @@ const DepartmentsPage = () => {
     setOpenMenuId(null);
   };
 
+  // Handle view
+  const handleView = (department: DepartmentWithCompany) => {
+    setViewingDepartment(department);
+    setIsViewModalOpen(true);
+    setOpenMenuId(null);
+  };
+
   // Reset form
   const resetForm = () => {
     setFormData({
@@ -207,349 +279,405 @@ const DepartmentsPage = () => {
 
   return (
     <AppLayout>
-      <div className="p-4 sm:p-6 lg:p-8 bg-gradient-to-br from-gray-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 min-h-screen">
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
-                  <Briefcase className="w-7 h-7 text-white" />
-                </div>
-                Departments
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-1">
-                Manage your company departments
-              </p>
-            </div>
-            <Button
-              onClick={() => {
-                resetForm();
-                setIsModalOpen(true);
-              }}
-              className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white"
-            >
-              <Plus className="w-5 h-5 mr-2" />
-              Add Department
-            </Button>
-          </div>
-        </div>
+      <div className="w-full h-full px-3 sm:px-4 lg:px-8 py-3 sm:py-4 lg:py-4 overflow-x-hidden">
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-4">
           <StatsCard
             title="Total Departments"
             value={stats.total}
             icon={Briefcase}
-            className="bg-gradient-to-br from-purple-500 to-purple-600 text-white"
+            iconColor="purple"
+            className="bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200"
           />
           <StatsCard
             title="Active"
             value={stats.active}
             icon={CheckCircle}
-            className="bg-gradient-to-br from-green-500 to-green-600 text-white"
+            iconColor="green"
+            className="bg-gradient-to-r from-green-50 to-green-100 border-green-200"
           />
           <StatsCard
             title="Inactive"
             value={stats.inactive}
             icon={XCircle}
-            className="bg-gradient-to-br from-orange-500 to-orange-600 text-white"
+            iconColor="orange"
+            className="bg-gradient-to-r from-orange-50 to-orange-100 border-orange-200"
           />
           <StatsCard
             title="Total Teams"
             value={stats.totalTeams}
             icon={Users}
-            className="bg-gradient-to-br from-blue-500 to-blue-600 text-white"
+            iconColor="blue"
+            className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
           />
         </div>
 
         {/* Search and Filters */}
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  type="text"
-                  placeholder="Search departments..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
-              <div className="flex gap-2">
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
-                >
-                  <option value="all">All Status</option>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
-                <select
-                  value={companyFilter}
-                  onChange={(e) => setCompanyFilter(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
-                >
-                  <option value="all">All Companies</option>
-                  {companies.map(company => (
-                    <option key={company.id} value={company.id}>
-                      {company.name}
-                    </option>
-                  ))}
-                </select>
-                <ViewToggle
-                  currentView={viewMode}
-                  views={[
-                    {
-                      value: 'list' as const,
-                      label: 'List',
-                      icon: (
-                        <div className="w-3 h-3 flex flex-col space-y-0.5">
-                          <div className="w-full h-0.5 rounded-sm bg-current"></div>
-                          <div className="w-full h-0.5 rounded-sm bg-current"></div>
-                          <div className="w-full h-0.5 rounded-sm bg-current"></div>
-                        </div>
-                      )
-                    },
-                    {
-                      value: 'card' as const,
-                      label: 'Card',
-                      icon: (
-                        <div className="w-3 h-3 grid grid-cols-2 gap-0.5">
-                          <div className="w-1 h-1 rounded-sm bg-current"></div>
-                          <div className="w-1 h-1 rounded-sm bg-current"></div>
-                          <div className="w-1 h-1 rounded-sm bg-current"></div>
-                          <div className="w-1 h-1 rounded-sm bg-current"></div>
-                        </div>
-                      )
-                    }
-                  ]}
-                  onChange={(view) => setViewMode(view)}
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <SearchFilterSection
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="Search departments..."
+          variant="modern"
+          showActiveFilters={true}
+          hideFilterIcon={true}
+          visibleFilterColumns={visibleFilterColumns}
+          onFilterColumnsChange={setVisibleFilterColumns}
+          quickFilters={[
+            {
+              key: 'status',
+              label: 'Status',
+              icon: <CheckCircle className="w-4 h-4 text-green-500" />,
+              options: [
+                { value: 'all', label: 'All Status' },
+                { value: 'active', label: 'Active' },
+                { value: 'inactive', label: 'Inactive' }
+              ],
+              type: 'default',
+              multiple: true
+            },
+            {
+              key: 'tags',
+              label: 'Tags',
+              icon: <Tag className="w-4 h-4 text-orange-500" />,
+              options: [
+                { value: 'all', label: 'All Tags' },
+                ...allTags.map(tag => ({ value: tag, label: tag }))
+              ],
+              type: 'default',
+              multiple: true
+            },
+            {
+              key: 'dateRange',
+              label: 'Created Date',
+              icon: <Calendar className="w-4 h-4 text-blue-500" />,
+              options: [
+                { value: 'all', label: 'All Time' },
+                { value: 'today', label: 'Today' },
+                { value: 'week', label: 'Last 7 Days' },
+                { value: 'month', label: 'Last 30 Days' }
+              ],
+              type: 'date'
+            }
+          ]}
+          quickFilterValues={quickFilterValues}
+          onQuickFilterChange={handleQuickFilterChange}
+          availableFilterColumns={[
+            { key: 'status', label: 'Status', icon: <CheckCircle className="w-4 h-4 text-green-500" /> },
+            { key: 'tags', label: 'Tags', icon: <Tag className="w-4 h-4 text-orange-500" /> },
+            { key: 'dateRange', label: 'Created Date', icon: <Calendar className="w-4 h-4 text-blue-500" /> }
+          ]}
+          viewToggle={{
+            currentView: viewMode,
+            views: [
+              {
+                value: 'list',
+                label: 'List',
+                icon: (
+                  <div className="w-3 h-3 flex flex-col space-y-0.5">
+                    <div className="w-full h-0.5 rounded-sm bg-current"></div>
+                    <div className="w-full h-0.5 rounded-sm bg-current"></div>
+                    <div className="w-full h-0.5 rounded-sm bg-current"></div>
+                  </div>
+                )
+              },
+              {
+                value: 'card',
+                label: 'Card',
+                icon: (
+                  <div className="w-3 h-3 grid grid-cols-2 gap-0.5">
+                    <div className="w-1 h-1 rounded-sm bg-current"></div>
+                    <div className="w-1 h-1 rounded-sm bg-current"></div>
+                    <div className="w-1 h-1 rounded-sm bg-current"></div>
+                    <div className="w-1 h-1 rounded-sm bg-current"></div>
+                  </div>
+                )
+              }
+            ],
+            onChange: (view: 'list' | 'card') => setViewMode(view)
+          }}
+          filters={[
+            {
+              key: 'status',
+              label: 'Status',
+              value: statusFilter,
+              onChange: setStatusFilter,
+              options: [
+                { value: 'all', label: 'All Status' },
+                { value: 'active', label: 'Active' },
+                { value: 'inactive', label: 'Inactive' }
+              ]
+            }
+          ]}
+          actionButton={{
+            label: 'New Department',
+            onClick: () => {
+              resetForm();
+              setIsModalOpen(true);
+            }
+          }}
+        />
 
-        {/* Departments List/Grid */}
-        {isLoading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+        {/* Loading State */}
+        {isLoading && (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading departments...</p>
+            </div>
           </div>
-        ) : filteredDepartments.length === 0 ? (
-          <Card>
-            <CardContent className="text-center py-12">
-              <Briefcase className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500 dark:text-gray-400">No departments found</p>
-            </CardContent>
-          </Card>
-        ) : viewMode === 'card' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        )}
+
+        {/* Card View */}
+        {!isLoading && viewMode === 'card' && filteredDepartments.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3 lg:gap-3 pb-4">
             {filteredDepartments.map((department) => (
-              <Card key={department.id} className="group hover:shadow-xl transition-all duration-300">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3 flex-1">
-                      <div className="w-12 h-12 bg-gradient-to-br from-purple-100 to-purple-200 dark:from-purple-900 dark:to-purple-800 rounded-lg flex items-center justify-center">
-                        <Briefcase className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+              <Card key={department.id} hover className="relative cursor-pointer rounded-3xl border border-gray-300 hover:border-gray-400" onClick={() => handleView(department)}>
+                <CardContent className="px-0 py-0 sm:px-2 sm:py-1 lg:px-2 lg:py-0">
+                  <div className="space-y-1 sm:space-y-2 lg:space-y-1.5">
+                    {/* Header with Department Icon and Name and Action Menu */}
+                    <div className="flex items-center justify-between px-0 sm:px-0 -mt-0.5">
+                      <div className="flex items-center space-x-1 sm:space-x-2 flex-1 min-w-0 mr-2">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                          <Briefcase className="w-4 h-4 sm:w-5 sm:h-5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-gray-900 text-xs sm:text-sm leading-tight truncate whitespace-nowrap">{department.name || 'Untitled Department'}</h4>
+                          <p className="text-xs text-gray-600 mt-1 hidden sm:block truncate whitespace-nowrap overflow-hidden">{department.description || 'No description'}</p>
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-lg text-gray-900 dark:text-white truncate">
-                          {department.name}
-                        </h3>
-                        <Badge variant={department.active === 'active' ? 'success' : 'default'}>
-                          {department.active}
-                        </Badge>
+                      <div className="ml-2 -mr-1 flex-shrink-0 self-start relative" ref={openMenuId === department.id ? menuRef : null}>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="p-0.5 h-10 w-10"
+                          title="More options"
+                          onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === department.id ? null : department.id); }}
+                        >
+                          <MoreVertical className="w-5 h-5" />
+                        </Button>
+                        {openMenuId === department.id && (
+                          <div 
+                            data-dropdown-menu
+                            className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-lg z-30" 
+                            onClick={(e)=>e.stopPropagation()}
+                          >
+                            <button className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-t-xl flex items-center gap-2 text-sm" onClick={(e)=>{e.stopPropagation(); handleView(department); setOpenMenuId(null);}}>
+                              <Eye className="w-4 h-4" />
+                              <span>View</span>
+                            </button>
+                            <button className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm" onClick={(e)=>{e.stopPropagation(); handleEdit(department); setOpenMenuId(null);}}>
+                              <Edit className="w-4 h-4" />
+                              <span>Edit</span>
+                            </button>
+                            <button className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-b-xl flex items-center gap-2 text-sm text-red-600" onClick={(e)=>{e.stopPropagation(); handleDelete(department.id); setOpenMenuId(null);}}>
+                              <Trash2 className="w-4 h-4" />
+                              <span>Delete</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
-                    <div className="relative" ref={openMenuId === department.id ? menuRef : null}>
-                      <button
-                        onClick={() => setOpenMenuId(openMenuId === department.id ? null : department.id)}
-                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                      >
-                        <MoreVertical className="w-5 h-5 text-gray-500" />
-                      </button>
+                    
+                    {/* Status Badge */}
+                    <div className="flex flex-row items-center justify-between gap-1 sm:gap-2 lg:gap-1.5">
+                      <Badge variant={department.active === 'active' ? 'success' : 'default'} size="sm" className="text-[11px]">
+                        {department.active}
+                      </Badge>
+                    </div>
+                    
+                    {/* Company and Teams Count */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-xs lg:text-[11px] text-gray-600">
+                        <span>Company</span>
+                        <span className="font-medium truncate ml-1">{department.companyName}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs lg:text-[11px] text-gray-600">
+                        <span>Teams</span>
+                        <span className="font-medium">{department.teams?.length || 0}</span>
+                      </div>
+                    </div>
+                    
+                    {/* Created Date */}
+                    {department.createdAt && (
+                      <div className="flex items-center space-x-2 text-xs lg:text-[11px] text-gray-600 min-w-0">
+                        <Calendar size={8} className="sm:w-3 sm:h-3" />
+                        <span className="text-xs whitespace-nowrap overflow-hidden text-ellipsis">
+                          {new Date(department.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {/* Tags */}
+                    {department.tags && department.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 pt-1">
+                        {department.tags.slice(0, 2).map((tag, index) => (
+                          <span
+                            key={index}
+                            className="px-1.5 py-0.5 bg-gray-100 text-gray-700 text-[10px] rounded-full"
+                          >
+                            #{tag}
+                          </span>
+                        ))}
+                        {department.tags.length > 2 && (
+                          <span className="px-1.5 py-0.5 bg-gray-100 text-gray-700 text-[10px] rounded-full">
+                            +{department.tags.length - 2}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* List View */}
+        {!isLoading && viewMode === 'list' && filteredDepartments.length > 0 && (
+          <div className="pt-0 sm:pt-3 md:pt-2 space-y-2 pb-4">
+            {filteredDepartments.map((department) => (
+              <div
+                key={department.id}
+                className="relative px-3 py-3 bg-white rounded-2xl border border-gray-200 hover:border-gray-300 transition-colors cursor-pointer shadow-sm"
+                onClick={() => handleView(department)}
+              >
+                <div className="flex items-start gap-3">
+                  {/* Department Icon/Avatar */}
+                  <div className="flex-shrink-0">
+                    <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center text-white">
+                      <Briefcase className="w-6 h-6" />
+                    </div>
+                  </div>
+
+                  {/* Department Details */}
+                  <div className="flex-1 min-w-0 pr-8">
+                    {/* Department Name */}
+                    <h4 className="font-semibold text-gray-900 text-base truncate">
+                      {department.name || 'Untitled Department'}
+                    </h4>
+                    
+                    {/* Description */}
+                    <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                      {department.description || 'No description'}
+                    </p>
+
+                    {/* Badges and Meta Info */}
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      <Badge variant={department.active === 'active' ? 'success' : 'default'} size="sm">
+                        {department.active}
+                      </Badge>
+                      <div className="flex items-center text-xs text-gray-500">
+                        <Building2 className="w-3 h-3 mr-1" />
+                        {department.companyName}
+                      </div>
+                      <div className="flex items-center text-xs text-gray-500">
+                        <Users className="w-3 h-3 mr-1" />
+                        {department.teams?.length || 0} teams
+                      </div>
+                      <div className="flex items-center text-xs text-gray-500">
+                        <Calendar className="w-3 h-3 mr-1" />
+                        {new Date(department.createdAt).toLocaleDateString()}
+                      </div>
+                    </div>
+
+                    {/* Tags */}
+                    {department.tags && department.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {department.tags.map((tag, index) => (
+                          <span
+                            key={index}
+                            className="px-2 py-0.5 bg-gray-100 text-gray-700 text-[10px] rounded-full"
+                          >
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                   {/* Action Menu Button */}
+                   <div className="absolute top-2 right-2 flex items-center z-20">
+                     <div className="relative" ref={openMenuId === department.id ? menuRef : null}>
+                       <Button
+                         variant="ghost"
+                         size="sm"
+                         title="More Options"
+                         className="p-2 h-8 w-10"
+                         onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === department.id ? null : department.id); }}
+                       >
+                         <MoreVertical className="w-5 h-5" />
+                      </Button>
                       {openMenuId === department.id && (
-                        <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-10">
-                          <button
-                            onClick={() => handleEdit(department)}
-                            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                          >
-                            <Edit className="w-4 h-4" />
-                            Edit
+                        <div 
+                          data-dropdown-menu
+                          className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-lg z-30"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-t-xl flex items-center gap-2 text-sm" onClick={(e)=>{e.stopPropagation(); handleView(department); setOpenMenuId(null);}}>
+                            <Eye className="w-4 h-4" />
+                            <span>View</span>
                           </button>
-                          <button
-                            onClick={() => handleDelete(department.id)}
-                            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                          >
+                          <button className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm" onClick={(e)=>{e.stopPropagation(); handleEdit(department); setOpenMenuId(null);}}>
+                            <Edit className="w-4 h-4" />
+                            <span>Edit</span>
+                          </button>
+                          <button className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-b-xl flex items-center gap-2 text-sm text-red-600" onClick={(e)=>{e.stopPropagation(); handleDelete(department.id); setOpenMenuId(null);}}>
                             <Trash2 className="w-4 h-4" />
-                            Delete
+                            <span>Delete</span>
                           </button>
                         </div>
                       )}
                     </div>
                   </div>
-
-                  <div className="mb-4">
-                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-2">
-                      <Building2 className="w-4 h-4" />
-                      <span>{department.companyName}</span>
-                    </div>
-                    <p className="text-gray-600 dark:text-gray-400 text-sm line-clamp-2">
-                      {department.description || 'No description'}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-                      <Users className="w-4 h-4" />
-                      <span>{department.teams?.length || 0} teams</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-                      <Calendar className="w-4 h-4" />
-                      <span>{new Date(department.createdAt).toLocaleDateString()}</span>
-                    </div>
-                  </div>
-
-                  {department.tags && department.tags.length > 0 && (
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {department.tags.map((tag, index) => (
-                        <span
-                          key={index}
-                          className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs rounded-full"
-                        >
-                          #{tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             ))}
           </div>
-        ) : (
-          <Card>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Department
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Company
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Teams
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Created
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                    {filteredDepartments.map((department) => (
-                      <tr key={department.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-gradient-to-br from-purple-100 to-purple-200 dark:from-purple-900 dark:to-purple-800 rounded-lg flex items-center justify-center">
-                              <Briefcase className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                            </div>
-                            <div>
-                              <div className="font-medium text-gray-900 dark:text-white">
-                                {department.name}
-                              </div>
-                              <div className="text-sm text-gray-500 dark:text-gray-400 truncate max-w-xs">
-                                {department.description || 'No description'}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                          <div className="flex items-center gap-2">
-                            <Building2 className="w-4 h-4" />
-                            {department.companyName}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <Badge variant={department.active === 'active' ? 'success' : 'default'}>
-                            {department.active}
-                          </Badge>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                          {department.teams?.length || 0}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                          {new Date(department.createdAt).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <div className="relative inline-block" ref={openMenuId === department.id ? menuRef : null}>
-                            <button
-                              onClick={() => setOpenMenuId(openMenuId === department.id ? null : department.id)}
-                              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                            >
-                              <MoreVertical className="w-5 h-5 text-gray-500" />
-                            </button>
-                            {openMenuId === department.id && (
-                              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-10">
-                                <button
-                                  onClick={() => handleEdit(department)}
-                                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                                >
-                                  <Edit className="w-4 h-4" />
-                                  Edit
-                                </button>
-                                <button
-                                  onClick={() => handleDelete(department.id)}
-                                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                  Delete
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+        )}
+
+        {/* Empty State */}
+        {!isLoading && filteredDepartments.length === 0 && (
+          <div className="text-center py-12">
+            <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Briefcase className="w-12 h-12 text-gray-400" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No departments found</h3>
+            <p className="text-gray-600 mb-6">Try adjusting your search or filter criteria</p>
+            <Button onClick={() => {
+              resetForm();
+              setIsModalOpen(true);
+            }}>Create New Department</Button>
+          </div>
         )}
 
         {/* Modal */}
         {isModalOpen && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-              <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <div 
+            className="fixed inset-0 bg-black/70 flex items-end lg:items-center justify-center z-50 lg:p-4" 
+            style={{ backdropFilter: 'blur(2px)' }}
+            onClick={(e) => {
+              // Close modal when clicking on backdrop
+              if (e.target === e.currentTarget) {
+                setIsModalOpen(false);
+                resetForm();
+              }
+            }}
+          >
+            <div 
+              className="bg-white rounded-t-2xl lg:rounded-2xl shadow-2xl w-full lg:max-w-2xl h-[85vh] lg:h-auto lg:max-h-[95vh] flex flex-col"
+              onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside modal
+            >
+              <div className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-4 rounded-t-2xl z-10 flex-shrink-0">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
                   {editingDepartment ? 'Edit Department' : 'Add Department'}
                 </h2>
-                <button
-                  onClick={() => {
-                    setIsModalOpen(false);
-                    resetForm();
-                  }}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                >
-                  <X className="w-6 h-6 text-gray-500" />
-                </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="p-6 space-y-6">
+              <div className="flex-1 lg:flex-none overflow-y-auto lg:overflow-visible">
+                <div className="p-4 sm:p-6 pb-0 space-y-4 sm:space-y-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Department Name *
                   </label>
                   <input
@@ -557,20 +685,20 @@ const DepartmentsPage = () => {
                     required
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     placeholder="Enter department name"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Company *
                   </label>
                   <select
                     required
                     value={formData.companyId}
                     onChange={(e) => setFormData({ ...formData, companyId: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   >
                     <option value="">Select a company</option>
                     {companies.map(company => (
@@ -582,71 +710,82 @@ const DepartmentsPage = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Description
                   </label>
                   <textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     rows={4}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     placeholder="Enter department description"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Status
-                  </label>
-                  <select
-                    value={formData.active}
-                    onChange={(e) => setFormData({ ...formData, active: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
-                  >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Tags
-                  </label>
-                  <div className="flex gap-2 mb-2">
-                    <input
-                      type="text"
-                      value={tagInput}
-                      onChange={(e) => setTagInput(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
-                      className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
-                      placeholder="Add a tag"
-                    />
-                    <Button type="button" onClick={handleAddTag} variant="outline">
-                      <Plus className="w-4 h-4" />
-                    </Button>
+                {/* Status and Tags in the same row */}
+                <div className="flex gap-2 sm:gap-4">
+                  {/* Status */}
+                  <div className="w-[35%] sm:w-1/2">
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                      Status
+                    </label>
+                    <select
+                      value={formData.active}
+                      onChange={(e) => setFormData({ ...formData, active: e.target.value })}
+                      className="w-full px-2 sm:px-4 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    >
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
                   </div>
-                  {formData.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {formData.tags.map((tag, index) => (
-                        <span
-                          key={index}
-                          className="px-3 py-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 rounded-full text-sm flex items-center gap-2"
-                        >
-                          #{tag}
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveTag(tag)}
-                            className="hover:text-purple-900 dark:hover:text-purple-100"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </span>
-                      ))}
+
+                  {/* Tags */}
+                  <div className="flex-1">
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                      Tags
+                    </label>
+                    <div className="flex gap-1 sm:gap-2">
+                      <input
+                        type="text"
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
+                        className="flex-1 px-2 sm:px-4 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        placeholder="Add a tag"
+                      />
+                      <Button type="button" onClick={handleAddTag} variant="outline" className="px-2 sm:px-3 flex-shrink-0">
+                        <Plus className="w-4 h-4" />
+                      </Button>
                     </div>
-                  )}
+                  </div>
                 </div>
 
-                <div className="flex gap-3 pt-4">
+                {/* Display added tags */}
+                {formData.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {formData.tags.map((tag, index) => (
+                      <span
+                        key={index}
+                        className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm flex items-center gap-2"
+                      >
+                        #{tag}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveTag(tag)}
+                          className="hover:text-purple-900"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                </div>
+              </div>
+
+              {/* Fixed Footer with Buttons */}
+              <div className="sticky lg:static bottom-0 bg-white border-t border-gray-200 rounded-b-2xl px-4 sm:px-6 pt-4 pb-24 sm:pb-4 lg:pb-4 z-10 flex-shrink-0">
+                <div className="flex gap-3">
                   <Button
                     type="button"
                     variant="outline"
@@ -659,16 +798,180 @@ const DepartmentsPage = () => {
                     Cancel
                   </Button>
                   <Button
-                    type="submit"
-                    className="flex-1 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white"
+                    type="button"
+                    onClick={(e) => {
+                      handleSubmit(e as any);
+                    }}
+                    className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
                   >
                     {editingDepartment ? 'Update Department' : 'Create Department'}
                   </Button>
                 </div>
-              </form>
+              </div>
             </div>
           </div>
         )}
+
+        {/* View Modal */}
+        {isViewModalOpen && viewingDepartment && (
+          <div 
+            className="fixed inset-0 bg-black/70 flex items-end lg:items-center justify-center z-50 lg:p-4" 
+            style={{ backdropFilter: 'blur(2px)' }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setIsViewModalOpen(false);
+                setViewingDepartment(null);
+              }
+            }}
+          >
+            <div 
+              className="bg-white rounded-t-2xl lg:rounded-2xl shadow-2xl w-full lg:max-w-2xl h-[80vh] lg:h-auto lg:max-h-[90vh] flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-4 rounded-t-2xl z-10 flex-shrink-0">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Department Details</h2>
+              </div>
+
+              <div className="flex-1 lg:flex-none overflow-y-auto lg:overflow-visible">
+                <div className="p-4 sm:p-6 pb-0 space-y-4 sm:space-y-6">
+                {/* Department Icon and Name */}
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center text-white flex-shrink-0">
+                    <Briefcase className="w-6 h-6 sm:w-8 sm:h-8" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg sm:text-2xl font-bold text-gray-900">{viewingDepartment.name}</h3>
+                    <Badge variant={viewingDepartment.active === 'active' ? 'success' : 'default'} size="sm" className="mt-1">
+                      {viewingDepartment.active}
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description
+                  </label>
+                  <p className="text-gray-900 bg-gray-50 px-4 py-3 rounded-lg border border-gray-200">
+                    {viewingDepartment.description || 'No description provided'}
+                  </p>
+                </div>
+
+                {/* Company and Status */}
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                      Company
+                    </label>
+                    <div className="flex items-center gap-2 bg-gray-50 px-2 sm:px-4 py-3 rounded-lg border border-gray-200 text-gray-900">
+                      <Building2 className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500 flex-shrink-0" />
+                      <span className="text-xs sm:text-sm truncate">{viewingDepartment.companyName}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                      Status
+                    </label>
+                    <div className="bg-gray-50 px-2 sm:px-4 py-2 rounded-lg border border-gray-200">
+                      <Badge variant={viewingDepartment.active === 'active' ? 'success' : 'default'} size="sm">
+                        {viewingDepartment.active}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Teams and Created Date */}
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                      Teams
+                    </label>
+                    <div className="flex items-center gap-2 bg-gray-50 px-2 sm:px-4 py-3 rounded-lg border border-gray-200 text-gray-900">
+                      <Users className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500 flex-shrink-0" />
+                      <span className="text-xs sm:text-sm font-medium">{viewingDepartment.teams?.length || 0}</span>
+                      <span className="text-xs sm:text-sm text-gray-600">team{viewingDepartment.teams?.length !== 1 ? 's' : ''}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                      Created Date
+                    </label>
+                    <div className="flex items-center gap-1 sm:gap-2 bg-gray-50 px-2 sm:px-4 py-3 rounded-lg border border-gray-200 text-gray-900">
+                      <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500 flex-shrink-0" />
+                      <span className="text-xs sm:text-sm truncate">
+                        {new Date(viewingDepartment.createdAt).toLocaleDateString('en-US', { 
+                          year: 'numeric', 
+                          month: 'short', 
+                          day: 'numeric' 
+                        })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tags */}
+                {viewingDepartment.tags && viewingDepartment.tags.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Tags
+                    </label>
+                    <div className="flex flex-wrap gap-2 bg-gray-50 px-4 py-3 rounded-lg border border-gray-200">
+                      {viewingDepartment.tags.map((tag, index) => (
+                        <span
+                          key={index}
+                          className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium"
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                </div>
+              </div>
+
+              {/* Fixed Footer with Buttons */}
+              <div className="sticky lg:static bottom-0 bg-white border-t border-gray-200 rounded-b-2xl px-4 sm:px-6 pt-4 pb-24 sm:pb-4 lg:pb-4 z-10 flex-shrink-0">
+                <div className="flex gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setIsViewModalOpen(false);
+                      setViewingDepartment(null);
+                    }}
+                    className="flex-1"
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setIsViewModalOpen(false);
+                      handleEdit(viewingDepartment);
+                    }}
+                    className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
+                  >
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit Department
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Floating Action Button (Mobile only) */}
+        <button
+          onClick={() => {
+            resetForm();
+            setIsModalOpen(true);
+          }}
+          className="lg:hidden fixed bottom-20 right-4 w-14 h-14 bg-purple-600 hover:bg-purple-700 text-white rounded-full shadow-lg flex items-center justify-center z-40 transition-all duration-200 hover:scale-110"
+          aria-label="Add new department"
+        >
+          <Plus className="w-6 h-6" />
+        </button>
       </div>
     </AppLayout>
   );
