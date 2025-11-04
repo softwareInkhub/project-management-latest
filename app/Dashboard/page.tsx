@@ -18,7 +18,9 @@ import {
   ArrowDown,
   RefreshCw,
   Filter,
-  X
+  X,
+  Building2,
+  Briefcase
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -164,6 +166,8 @@ const Dashboard = () => {
     tasks: [] as any[],
     teams: [] as any[],
     users: [] as any[],
+    companies: [] as any[],
+    departments: [] as any[],
     stats: {
       totalProjects: 0,
       activeTasks: 0,
@@ -171,7 +175,11 @@ const Dashboard = () => {
       completionRate: 0,
       projectGrowth: 0,
       taskGrowth: 0,
-      userGrowth: 0
+      userGrowth: 0,
+      totalCompanies: 0,
+      activeCompanies: 0,
+      totalDepartments: 0,
+      activeDepartments: 0
     },
     loading: true,
     error: null as string | null
@@ -200,25 +208,31 @@ const Dashboard = () => {
       setRefreshing(true);
       console.log('🔄 Fetching dashboard data...');
       
-      const [projectsRes, tasksRes, teamsRes, usersRes] = await Promise.all([
+      const [projectsRes, tasksRes, teamsRes, usersRes, companiesRes, departmentsRes] = await Promise.all([
         apiService.getProjects(),
         apiService.getTasks(),
         apiService.getTeams(),
-        apiService.getUsers()
+        apiService.getUsers(),
+        apiService.getCompanies(),
+        apiService.getDepartments()
       ]);
 
-      console.log('📊 API Responses:', { projectsRes, tasksRes, teamsRes, usersRes });
+      console.log('📊 API Responses:', { projectsRes, tasksRes, teamsRes, usersRes, companiesRes, departmentsRes });
 
       const projects = projectsRes.success ? projectsRes.data || [] : [];
       const tasks = tasksRes.success ? tasksRes.data || [] : [];
       const teams = teamsRes.success ? teamsRes.data || [] : [];
       const users = usersRes.success ? usersRes.data || [] : [];
+      const companies = companiesRes.success ? companiesRes.data || [] : [];
+      const departments = departmentsRes.success ? departmentsRes.data || [] : [];
 
       console.log('📈 Data counts:', { 
         projects: projects.length, 
         tasks: tasks.length, 
         teams: teams.length, 
-        users: users.length 
+        users: users.length,
+        companies: companies.length,
+        departments: departments.length
       });
 
       // Calculate enhanced stats
@@ -233,6 +247,10 @@ const Dashboard = () => {
       const taskGrowth = tasks.length > 0 ? Math.min(tasks.length, 15) : 8;
       const userGrowth = users.length > 0 ? Math.min(users.length, 8) : 2;
 
+      // Calculate company and department stats
+      const activeCompanies = companies.filter(c => c.active === 'active').length;
+      const activeDepartments = departments.filter(d => d.active === 'active').length;
+
       console.log('📊 Calculated stats:', {
         completedTasks,
         inProgressTasks,
@@ -241,7 +259,11 @@ const Dashboard = () => {
         completionRate,
         projectGrowth,
         taskGrowth,
-        userGrowth
+        userGrowth,
+        totalCompanies: companies.length,
+        activeCompanies,
+        totalDepartments: departments.length,
+        activeDepartments
       });
 
       // Filter tasks based on time range and filters
@@ -258,6 +280,8 @@ const Dashboard = () => {
         tasks,
         teams,
         users,
+        companies,
+        departments,
         stats: {
           totalProjects: projects.length,
           activeTasks: tasks.filter(task => task.status !== 'Completed').length,
@@ -265,7 +289,11 @@ const Dashboard = () => {
           completionRate,
           projectGrowth,
           taskGrowth,
-          userGrowth
+          userGrowth,
+          totalCompanies: companies.length,
+          activeCompanies,
+          totalDepartments: departments.length,
+          activeDepartments
         },
         loading: false,
         error: null
@@ -878,7 +906,7 @@ const Dashboard = () => {
         )}
 
         {/* Modern Stats Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-4 sm:mb-6 lg:mb-6 lg:-mt-4">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6 mb-4 sm:mb-6 lg:mb-6 lg:-mt-4">
           <div
             className="group relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-4 lg:pb-1 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 cursor-pointer"
             onClick={() => router.push('/project')}
@@ -1109,6 +1137,120 @@ const Dashboard = () => {
                     </span>
                   ) : (
                     <span>No tasks</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div
+            className="group relative overflow-hidden bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-4 lg:pb-1 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 cursor-pointer"
+            onClick={() => router.push('/companies')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter') router.push('/companies'); }}
+            title="View Companies"
+          >
+            <div className="absolute top-0 right-0 w-16 h-16 sm:w-20 sm:h-20 bg-white/10 rounded-full -translate-y-10 translate-x-10"></div>
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-2 sm:mb-4">
+                <div className="flex items-center">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-10 lg:h-10 bg-white/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                    <Building2 className="w-4 h-4 sm:w-5 sm:h-5 lg:w-5 lg:h-5 text-white" />
+                  </div>
+                  <div className="hidden lg:block ml-3">
+                    <h3 className="text-white font-semibold text-base mb-0.5">Companies</h3>
+                    <p className="text-indigo-100 text-sm">active organizations</p>
+                  </div>
+                  <div className="lg:hidden ml-3">
+                    <h3 className="text-white font-semibold text-sm">Companies</h3>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xl sm:text-2xl font-bold text-white lg:block hidden">
+                    {dashboardData.stats.totalCompanies}
+                  </div>
+                  <div className="text-indigo-100 text-xs sm:text-sm lg:block hidden">
+                    {dashboardData.stats.activeCompanies > 0 ? (
+                      <span className="flex items-center justify-end">
+                        <CheckSquare className="w-2 h-2 sm:w-3 sm:h-3 mr-1" />
+                        <span className="text-xs">{dashboardData.stats.activeCompanies} active</span>
+                      </span>
+                    ) : (
+                      <span className="text-xs">No companies</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="lg:hidden flex items-center justify-between mt-2">
+                <div className="text-xl font-bold text-white">
+                  {dashboardData.stats.totalCompanies}
+                </div>
+                <div className="text-indigo-100 text-xs">
+                  {dashboardData.stats.activeCompanies > 0 ? (
+                    <span className="flex items-center">
+                      <CheckSquare className="w-2 h-2 mr-1" />
+                      <span>{dashboardData.stats.activeCompanies} active</span>
+                    </span>
+                  ) : (
+                    <span>No companies</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div
+            className="group relative overflow-hidden bg-gradient-to-br from-violet-500 to-violet-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-4 lg:pb-1 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 cursor-pointer"
+            onClick={() => router.push('/departments')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter') router.push('/departments'); }}
+            title="View Departments"
+          >
+            <div className="absolute top-0 right-0 w-16 h-16 sm:w-20 sm:h-20 bg-white/10 rounded-full -translate-y-10 translate-x-10"></div>
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-2 sm:mb-4">
+                <div className="flex items-center">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-10 lg:h-10 bg-white/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                    <Briefcase className="w-4 h-4 sm:w-5 sm:h-5 lg:w-5 lg:h-5 text-white" />
+                  </div>
+                  <div className="hidden lg:block ml-3">
+                    <h3 className="text-white font-semibold text-base mb-0.5">Departments</h3>
+                    <p className="text-violet-100 text-sm">across companies</p>
+                  </div>
+                  <div className="lg:hidden ml-3">
+                    <h3 className="text-white font-semibold text-sm">Departments</h3>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xl sm:text-2xl font-bold text-white lg:block hidden">
+                    {dashboardData.stats.totalDepartments}
+                  </div>
+                  <div className="text-violet-100 text-xs sm:text-sm lg:block hidden">
+                    {dashboardData.stats.activeDepartments > 0 ? (
+                      <span className="flex items-center justify-end">
+                        <CheckSquare className="w-2 h-2 sm:w-3 sm:h-3 mr-1" />
+                        <span className="text-xs">{dashboardData.stats.activeDepartments} active</span>
+                      </span>
+                    ) : (
+                      <span className="text-xs">No departments</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="lg:hidden flex items-center justify-between mt-2">
+                <div className="text-xl font-bold text-white">
+                  {dashboardData.stats.totalDepartments}
+                </div>
+                <div className="text-violet-100 text-xs">
+                  {dashboardData.stats.activeDepartments > 0 ? (
+                    <span className="flex items-center">
+                      <CheckSquare className="w-2 h-2 mr-1" />
+                      <span>{dashboardData.stats.activeDepartments} active</span>
+                    </span>
+                  ) : (
+                    <span>No departments</span>
                   )}
                 </div>
               </div>

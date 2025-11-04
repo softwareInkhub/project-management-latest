@@ -105,6 +105,29 @@ interface User {
   updatedAt: string;
 }
 
+interface Company {
+  id: string;
+  name: string;
+  description: string;
+  departments: string[];
+  active: string;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface Department {
+  id: string;
+  name: string;
+  description: string;
+  companyId: string;
+  teams: string[];
+  active: string;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface Sprint {
   id: string; // Partition key
   sprint_id: string;
@@ -813,6 +836,220 @@ class ApiService {
     });
   }
 
+  // Company CRUD Operations
+  async getCompanies(): Promise<ApiResponse<Company[]>> {
+    const result = await this.makeRequest<Company[]>('?tableName=project-management-companies&pagination=true', {
+      method: 'GET',
+    });
+
+    if (result.success && result.data && Array.isArray(result.data)) {
+      return {
+        success: true,
+        data: result.data,
+        error: undefined
+      };
+    }
+
+    return result;
+  }
+
+  async getCompanyById(id: string): Promise<ApiResponse<Company>> {
+    return this.makeRequest<Company>(`?tableName=project-management-companies&id=${id}`, {
+      method: 'GET',
+    });
+  }
+
+  async createCompany(company: Partial<Company>): Promise<ApiResponse<Company>> {
+    const companyId = `company-${Date.now()}`;
+    
+    const payload = {
+      item: {
+        ...company,
+        id: companyId,
+        departments: company.departments || [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+    };
+
+    console.log('🆕 Creating company with ID:', companyId);
+    console.log('📦 Company payload:', payload);
+
+    const result = await this.makeRequest<Company>('?tableName=project-management-companies', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+
+    if (result.success) {
+      const getResult = await this.getCompanyById(companyId);
+      if (getResult.success) {
+        return {
+          success: true,
+          data: getResult.data,
+          error: undefined
+        };
+      }
+    }
+
+    return result;
+  }
+
+  async updateCompany(id: string, updates: Partial<Company>): Promise<ApiResponse<Company>> {
+    console.log('🔄 Updating company with ID:', id);
+    console.log('📝 Update data:', updates);
+    
+    const { id: companyId, createdAt, ...updateableFields } = updates;
+    
+    const payload = {
+      key: {
+        id: id
+      },
+      updates: {
+        ...updateableFields,
+        updatedAt: new Date().toISOString(),
+      }
+    };
+
+    console.log('📦 Update payload:', payload);
+
+    const result = await this.makeRequest<Company>('?tableName=project-management-companies', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+
+    if (result.success && result.data) {
+      return {
+        success: true,
+        data: result.data,
+        error: undefined
+      };
+    }
+
+    return result;
+  }
+
+  async deleteCompany(id: string): Promise<ApiResponse<void>> {
+    return this.makeRequest<void>(`?tableName=project-management-companies&id=${id}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ id }),
+    });
+  }
+
+  // Department CRUD Operations
+  async getDepartments(): Promise<ApiResponse<Department[]>> {
+    const result = await this.makeRequest<Department[]>('?tableName=project-management-departments&pagination=true', {
+      method: 'GET',
+    });
+
+    if (result.success && result.data && Array.isArray(result.data)) {
+      return {
+        success: true,
+        data: result.data,
+        error: undefined
+      };
+    }
+
+    return result;
+  }
+
+  async getDepartmentById(id: string): Promise<ApiResponse<Department>> {
+    return this.makeRequest<Department>(`?tableName=project-management-departments&id=${id}`, {
+      method: 'GET',
+    });
+  }
+
+  async getDepartmentsByCompany(companyId: string): Promise<ApiResponse<Department[]>> {
+    const result = await this.makeRequest<Department[]>(`?tableName=project-management-departments&companyId=${companyId}`, {
+      method: 'GET',
+    });
+
+    if (result.success && result.data && Array.isArray(result.data)) {
+      return {
+        success: true,
+        data: result.data,
+        error: undefined
+      };
+    }
+
+    return result;
+  }
+
+  async createDepartment(department: Partial<Department>): Promise<ApiResponse<Department>> {
+    const departmentId = `dept-${Date.now()}`;
+    
+    const payload = {
+      item: {
+        ...department,
+        id: departmentId,
+        teams: department.teams || [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+    };
+
+    console.log('🆕 Creating department with ID:', departmentId);
+    console.log('📦 Department payload:', payload);
+
+    const result = await this.makeRequest<Department>('?tableName=project-management-departments', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+
+    if (result.success) {
+      const getResult = await this.getDepartmentById(departmentId);
+      if (getResult.success) {
+        return {
+          success: true,
+          data: getResult.data,
+          error: undefined
+        };
+      }
+    }
+
+    return result;
+  }
+
+  async updateDepartment(id: string, updates: Partial<Department>): Promise<ApiResponse<Department>> {
+    console.log('🔄 Updating department with ID:', id);
+    console.log('📝 Update data:', updates);
+    
+    const { id: deptId, createdAt, ...updateableFields } = updates;
+    
+    const payload = {
+      key: {
+        id: id
+      },
+      updates: {
+        ...updateableFields,
+        updatedAt: new Date().toISOString(),
+      }
+    };
+
+    console.log('📦 Update payload:', payload);
+
+    const result = await this.makeRequest<Department>('?tableName=project-management-departments', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+
+    if (result.success && result.data) {
+      return {
+        success: true,
+        data: result.data,
+        error: undefined
+      };
+    }
+
+    return result;
+  }
+
+  async deleteDepartment(id: string): Promise<ApiResponse<void>> {
+    return this.makeRequest<void>(`?tableName=project-management-departments&id=${id}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ id }),
+    });
+  }
+
   // Sprint Operations
   async getSprints(): Promise<ApiResponse<Sprint[]>> {
     const result = await this.makeRequest<Sprint[]>('?tableName=project-management-sprints&pagination=true', {
@@ -1042,4 +1279,4 @@ ${assignmentDetails.join('\n')}`;
 }
 
 export const apiService = new ApiService();
-export type { Task, Project, Team, TeamMember, User, Sprint, Story, ApiResponse };
+export type { Task, Project, Team, TeamMember, User, Sprint, Story, Company, Department, ApiResponse };

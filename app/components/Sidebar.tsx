@@ -18,7 +18,9 @@ import {
   User,
   HelpCircle,
   Calendar,
-  BookOpen
+  BookOpen,
+  Building2,
+  Briefcase
 } from 'lucide-react';
 import { Avatar } from './ui/Avatar';
 import { Button } from './ui/Button';
@@ -31,6 +33,8 @@ const navigation = [
   { name: 'Projects', href: '/project', icon: FolderKanban },
   { name: 'Tasks', href: '/task', icon: CheckSquare },
   { name: 'Sprint & Stories', href: '/sprint-stories', icon: BookOpen },
+  { name: 'Companies', href: '/companies', icon: Building2 },
+  { name: 'Departments', href: '/departments', icon: Briefcase },
   { name: 'Team', href: '/team', icon: Users },
   { name: 'Calendar', href: '/calander', icon: Calendar },
   { name: 'Notifications', href: '/notifications', icon: Bell },
