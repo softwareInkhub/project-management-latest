@@ -3456,13 +3456,28 @@ const TasksPage = () => {
                         className="absolute right-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-30" 
                         onClick={(e)=>e.stopPropagation()}
                       >
+                        <button 
+                          className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-t-xl flex items-center gap-2 text-sm" 
+                          onClick={(e)=>{e.stopPropagation(); handleTaskClick(task); setOpenDropdown(null);}}
+                        >
+                          <Eye className="w-4 h-4" />
+                          <span>View</span>
+                        </button>
+                        <UpdateButton
+                          resource="tasks"
+                          onClick={(e)=>{e?.stopPropagation(); handleEditTask(task); setOpenDropdown(null);}}
+                          className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm"
+                        >
+                          <Edit className="w-4 h-4" />
+                          <span>Edit</span>
+                        </UpdateButton>
                         <DeleteButton
                           resource="tasks"
                           onClick={(e)=>{ e?.stopPropagation(); handleDeleteTask(task); setOpenDropdown(null); }}
-                          className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-xl flex items-center gap-2 text-sm text-red-600"
+                          className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-b-xl flex items-center gap-2 text-sm text-red-600"
                         >
                           <Trash2 className="w-4 h-4" />
-                          <span>Delete Task</span>
+                          <span>Delete</span>
                         </DeleteButton>
                       </div>
                     )}
@@ -4236,10 +4251,29 @@ const TasksPage = () => {
                             className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-lg z-30" 
                             onClick={(e)=>e.stopPropagation()}
                           >
-                            <button className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-xl flex items-center gap-2 text-sm text-red-600" onClick={(e)=>{e.stopPropagation(); handleDeleteTask(task); setOpenDropdown(null);}}>
-                              <Trash2 className="w-4 h-4" />
-                              <span>Delete Task</span>
+                            <button 
+                              className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-t-xl flex items-center gap-2 text-sm" 
+                              onClick={(e)=>{e.stopPropagation(); handleTaskClick(task); setOpenDropdown(null);}}
+                            >
+                              <Eye className="w-4 h-4" />
+                              <span>View</span>
                             </button>
+                            <UpdateButton
+                              resource="tasks"
+                              onClick={(e)=>{e?.stopPropagation(); handleEditTask(task); setOpenDropdown(null);}}
+                              className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm"
+                            >
+                              <Edit className="w-4 h-4" />
+                              <span>Edit</span>
+                            </UpdateButton>
+                            <DeleteButton
+                              resource="tasks"
+                              onClick={(e)=>{e?.stopPropagation(); handleDeleteTask(task); setOpenDropdown(null);}}
+                              className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-b-xl flex items-center gap-2 text-sm text-red-600"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              <span>Delete</span>
+                            </DeleteButton>
                           </div>
                         )}
                       </div>
@@ -4325,7 +4359,9 @@ const TasksPage = () => {
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">No tasks found</h3>
             <p className="text-gray-600 mb-6">Try adjusting your search or filter criteria</p>
-            <Button onClick={handleCreateTask}>Create New Task</Button>
+            <CreateButton resource="tasks">
+              <Button onClick={handleCreateTask}>Create New Task</Button>
+            </CreateButton>
           </div>
         )}
 
@@ -4435,13 +4471,15 @@ const TasksPage = () => {
                     </div>
                   </div>
                   <div className="flex-shrink-0">
-                    <button
-                      onClick={() => handleEditTask(selectedTask)}
-                      className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-xl flex items-center justify-center shadow-lg transition-all group"
-                      title="Edit Task"
-                    >
-                      <Edit className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                    </button>
+                    <UpdateButton resource="tasks">
+                      <button
+                        onClick={() => handleEditTask(selectedTask)}
+                        className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-xl flex items-center justify-center shadow-lg transition-all group"
+                        title="Edit Task"
+                      >
+                        <Edit className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                      </button>
+                    </UpdateButton>
                   </div>
                 </div>
 
@@ -4563,24 +4601,26 @@ const TasksPage = () => {
                                 </Button>
                               </>
                             )}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setIsAddingUser(!isAddingUser)}
-                              className="flex items-center space-x-1"
-                            >
-                              {isAddingUser ? (
-                                <>
-                                  <X className="w-4 h-4" />
-                                  <span>Close</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Plus className="w-4 h-4" />
-                                  <span>Add User</span>
-                                </>
-                              )}
-                            </Button>
+                            <UpdateButton resource="tasks">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setIsAddingUser(!isAddingUser)}
+                                className="flex items-center space-x-1"
+                              >
+                                {isAddingUser ? (
+                                  <>
+                                    <X className="w-4 h-4" />
+                                    <span>Close</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Plus className="w-4 h-4" />
+                                    <span>Add User</span>
+                                  </>
+                                )}
+                              </Button>
+                            </UpdateButton>
                           </div>
                         </div>
 
@@ -4654,13 +4694,15 @@ const TasksPage = () => {
                                   <div key={`assigned-user-${index}`} className="flex items-center space-x-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 px-3 py-1.5 rounded-full text-sm">
                                     <Avatar name={user?.name || user?.username || user?.email || userId} size="sm" />
                                     <span>{user?.name || user?.username || user?.email || userId}</span>
-                                    <button
-                                      onClick={() => handleRemoveUserClick(userId)}
-                                      className="ml-1 p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-                                      title="Remove user"
-                                    >
-                                      <X className="w-3 h-3 text-red-600 dark:text-red-400" />
-                                    </button>
+                                    <UpdateButton resource="tasks">
+                                      <button
+                                        onClick={() => handleRemoveUserClick(userId)}
+                                        className="ml-1 p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                                        title="Remove user"
+                                      >
+                                        <X className="w-3 h-3 text-red-600 dark:text-red-400" />
+                                      </button>
+                                    </UpdateButton>
                                   </div>
                                 );
                               })
@@ -4705,24 +4747,26 @@ const TasksPage = () => {
                           <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200">
                             Assigned Teams ({(selectedTask.assignedTeams && selectedTask.assignedTeams.length > 0) ? selectedTask.assignedTeams.length : 0})
                           </label>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setIsAddingTeam(!isAddingTeam)}
-                            className="flex items-center space-x-1"
-                          >
-                            {isAddingTeam ? (
-                              <>
-                                <X className="w-4 h-4" />
-                                <span>Cancel</span>
-                              </>
-                            ) : (
-                              <>
-                                <Plus className="w-4 h-4" />
-                                <span>Add Team</span>
-                              </>
-                            )}
-                          </Button>
+                          <UpdateButton resource="tasks">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setIsAddingTeam(!isAddingTeam)}
+                              className="flex items-center space-x-1"
+                            >
+                              {isAddingTeam ? (
+                                <>
+                                  <X className="w-4 h-4" />
+                                  <span>Cancel</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Plus className="w-4 h-4" />
+                                  <span>Add Team</span>
+                                </>
+                              )}
+                            </Button>
+                          </UpdateButton>
                         </div>
 
                         {isAddingTeam && (
@@ -4786,13 +4830,15 @@ const TasksPage = () => {
                                   <div key={`assigned-team-${index}`} className="flex items-center space-x-2 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 px-3 py-1.5 rounded-full text-sm">
                                     <Users className="w-3 h-3" />
                                     <span>{team?.name || teamId}</span>
-                                    <button
-                                      onClick={() => handleRemoveTeam(teamId)}
-                                      className="ml-1 p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-                                      title="Remove team"
-                                    >
-                                      <X className="w-3 h-3 text-red-600 dark:text-red-400" />
-                                    </button>
+                                    <UpdateButton resource="tasks">
+                                      <button
+                                        onClick={() => handleRemoveTeam(teamId)}
+                                        className="ml-1 p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                                        title="Remove team"
+                                      >
+                                        <X className="w-3 h-3 text-red-600 dark:text-red-400" />
+                                      </button>
+                                    </UpdateButton>
                                   </div>
                                 );
                               })
@@ -4887,24 +4933,26 @@ const TasksPage = () => {
                             </Button>
                           </>
                         )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setIsAddingSubtask(!isAddingSubtask)}
-                          className="flex items-center space-x-1"
-                        >
-                          {isAddingSubtask ? (
-                            <>
-                              <X className="w-4 h-4" />
-                              <span>Close</span>
-                            </>
-                          ) : (
-                            <>
-                              <Plus className="w-4 h-4" />
-                              <span>Add Subtask</span>
-                            </>
-                          )}
-                        </Button>
+                        <UpdateButton resource="tasks">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsAddingSubtask(!isAddingSubtask)}
+                            className="flex items-center space-x-1"
+                          >
+                            {isAddingSubtask ? (
+                              <>
+                                <X className="w-4 h-4" />
+                                <span>Close</span>
+                              </>
+                            ) : (
+                              <>
+                                <Plus className="w-4 h-4" />
+                                <span>Add Subtask</span>
+                              </>
+                            )}
+                          </Button>
+                        </UpdateButton>
                       </div>
                     </div>
 
@@ -5263,16 +5311,16 @@ const TasksPage = () => {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                   </svg>
                                 </button>
-                                <button
+                                <DeleteButton
+                                  resource="tasks"
                                   onClick={(e) => {
-                                    e.stopPropagation();
+                                    e?.stopPropagation();
                                     handleFileDelete(file.id);
                                   }}
                                   className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                                  title="Delete file"
                                 >
                                   <Trash2 className="w-4 h-4" />
-                                </button>
+                                </DeleteButton>
                               </div>
                             </div>
                           );

@@ -977,13 +977,28 @@ const ProjectsPage = () => {
                     </Button>
                     {openMenuProjectId === project.id && (
                       <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-lg z-30" onClick={(e)=>e.stopPropagation()}>
+                        <button 
+                          className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-t-xl flex items-center gap-2 text-sm" 
+                          onClick={(e)=>{e.stopPropagation(); handleProjectClick(project); setOpenMenuProjectId(null);}}
+                        >
+                          <Eye className="w-4 h-4" />
+                          <span>View</span>
+                        </button>
+                        <UpdateButton
+                          resource="projects"
+                          onClick={(e)=>{e?.stopPropagation(); handleEditProject(project); setOpenMenuProjectId(null);}}
+                          className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm"
+                        >
+                          <Edit className="w-4 h-4" />
+                          <span>Edit</span>
+                        </UpdateButton>
                         <DeleteButton
                           resource="projects"
-                          onClick={()=>handleDeleteProject(project.id)}
-                          className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-xl flex items-center gap-2 text-sm text-red-600"
+                          onClick={(e)=>{e?.stopPropagation(); handleDeleteProject(project.id); setOpenMenuProjectId(null);}}
+                          className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-b-xl flex items-center gap-2 text-sm text-red-600"
                         >
                           <Trash2 className="w-4 h-4" />
-                          <span>Delete Project</span>
+                          <span>Delete</span>
                         </DeleteButton>
                       </div>
                     )}
@@ -1093,13 +1108,28 @@ const ProjectsPage = () => {
                         </Button>
                         {openMenuProjectId === project.id && (
                           <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-lg z-30" onClick={(e)=>e.stopPropagation()}>
+                            <button 
+                              className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-t-xl flex items-center gap-2 text-sm" 
+                              onClick={(e)=>{e.stopPropagation(); handleProjectClick(project); setOpenMenuProjectId(null);}}
+                            >
+                              <Eye className="w-4 h-4" />
+                              <span>View</span>
+                            </button>
+                            <UpdateButton
+                              resource="projects"
+                              onClick={(e)=>{e?.stopPropagation(); handleEditProject(project); setOpenMenuProjectId(null);}}
+                              className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm"
+                            >
+                              <Edit className="w-4 h-4" />
+                              <span>Edit</span>
+                            </UpdateButton>
                             <DeleteButton
                               resource="projects"
-                              onClick={()=>handleDeleteProject(project.id)}
-                              className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-xl flex items-center gap-2 text-sm text-red-600"
+                              onClick={(e)=>{e?.stopPropagation(); handleDeleteProject(project.id); setOpenMenuProjectId(null);}}
+                              className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-b-xl flex items-center gap-2 text-sm text-red-600"
                             >
                               <Trash2 className="w-4 h-4" />
-                              <span>Delete Project</span>
+                              <span>Delete</span>
                             </DeleteButton>
                           </div>
                         )}
@@ -1188,7 +1218,9 @@ const ProjectsPage = () => {
                 ? 'No projects available. Create your first project to get started.' 
                 : 'Try adjusting your search or filter criteria'}
             </p>
-            <Button onClick={handleCreateProject}>Create New Project</Button>
+            <CreateButton resource="projects">
+              <Button onClick={handleCreateProject}>Create New Project</Button>
+            </CreateButton>
           </div>
         )}
 
@@ -1196,12 +1228,13 @@ const ProjectsPage = () => {
 
       {/* Floating Action Button for Mobile */}
       <div className="fixed bottom-25 right-4 z-40 lg:hidden">
-        <CreateButton
-          resource="projects"
-          onClick={handleCreateProject}
-          className="w-16 h-16 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-        >
-          <Plus size={36} className="text-white" />
+        <CreateButton resource="projects">
+          <button
+            onClick={handleCreateProject}
+            className="w-16 h-16 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          >
+            <Plus size={36} className="text-white" />
+          </button>
         </CreateButton>
       </div>
 

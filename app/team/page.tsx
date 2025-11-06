@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { apiService } from '../services/api';
 import { 
   Plus, 
@@ -17,7 +17,9 @@ import {
   X,
   Check,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  CheckCircle,
+  XCircle
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -25,6 +27,7 @@ import { Badge } from '../components/ui/Badge';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { Avatar } from '../components/ui/Avatar';
+import { StatsCard } from '../components/ui/StatsCard';
 import { SearchFilterSection } from '../components/ui/SearchFilterSection';
 import { ViewToggle } from '../components/ui/ViewToggle';
 import { AppLayout } from '../components/AppLayout';
@@ -163,11 +166,12 @@ const TeamsPage = () => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [isTeamDetailsOpen, setIsTeamDetailsOpen] = useState(false);
   const [isCreateTeamOpen, setIsCreateTeamOpen] = useState(false);
+  const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [usersSearch, setUsersSearch] = useState('');
   const [showUsersDropdown, setShowUsersDropdown] = useState(false);
@@ -185,11 +189,37 @@ const TeamsPage = () => {
     members: [] as TeamMember[]
   });
   
+  // Quick filter state
+  const [quickFilterValues, setQuickFilterValues] = useState<Record<string, string | string[] | { from: string; to: string }>>({
+    status: [],
+    tags: [],
+    dateRange: 'all'
+  });
+  const [visibleFilterColumns, setVisibleFilterColumns] = useState<string[]>(['status', 'tags', 'dateRange']);
+  
   const { hasPermission, user } = useAuth();
   const { isCollapsed } = useSidebar();
   const { toasts, removeToast, success, error } = useToast();
   const userSearchRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Get unique tags from all teams
+  const allTags = useMemo(() => {
+    const tagsSet = new Set<string>();
+    teams.forEach(team => {
+      const teamTags = parseTags(team.tags);
+      teamTags.forEach(tag => tagsSet.add(tag));
+    });
+    return Array.from(tagsSet).sort();
+  }, [teams]);
+
+  // Handler for quick filter changes
+  const handleQuickFilterChange = (key: string, value: string | string[] | { from: string; to: string }) => {
+    setQuickFilterValues(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
 
   // Fetch teams from API
   const fetchTeams = useCallback(async () => {
@@ -262,61 +292,87 @@ const TeamsPage = () => {
     return () => media.removeEventListener('change', update);
   }, []);
 
-  // Filter teams
-  const filteredTeams = teams.filter(team => {
-    const matchesSearch = !searchTerm.trim() || 
-      (team.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (team.description || '').toLowerCase().includes(searchTerm.toLowerCase());
-    
-    let matchesStatus = true;
-    
-    if (statusFilter === 'My Teams') {
-      // Check if current user is a member of this team
-      const members = parseMembers(team.members);
-      const currentUserEmail = user?.email;
-      const currentUserName = user?.name;
-      const currentUserId = user?.userId;
+  // Filter teams with quick filters
+  const filteredTeams = useMemo(() => {
+    return teams.filter(team => {
+      // Search filter
+      const matchesSearch = !searchTerm.trim() || 
+        (team.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (team.description || '').toLowerCase().includes(searchTerm.toLowerCase());
       
-      matchesStatus = members.some(member => 
-        member.email === currentUserEmail ||
-        member.name === currentUserName ||
-        member.id === currentUserId
-      );
-    } else if (statusFilter === 'All') {
-      matchesStatus = true;
-    } else {
-      matchesStatus = (team.archived ? 'Archived' : 'Active') === statusFilter;
-    }
-    
-    return matchesSearch && matchesStatus;
-  });
+      // Status filter (from dropdown)
+      const matchesStatus = statusFilter === 'all' || 
+        (statusFilter === 'active' && !team.archived) ||
+        (statusFilter === 'archived' && team.archived);
+      
+      // Quick filter: Status
+      const statusQuickFilter = quickFilterValues.status as string[];
+      const matchesStatusQuick = !statusQuickFilter || statusQuickFilter.length === 0 || 
+        (statusQuickFilter.includes('active') && !team.archived) ||
+        (statusQuickFilter.includes('archived') && team.archived);
+      
+      // Quick filter: Tags
+      const tagsQuickFilter = quickFilterValues.tags as string[];
+      const teamTags = parseTags(team.tags);
+      const matchesTags = !tagsQuickFilter || tagsQuickFilter.length === 0 ||
+        teamTags.some(tag => tagsQuickFilter.includes(tag));
+      
+      // Quick filter: Date Range
+      const dateRangeFilter = quickFilterValues.dateRange;
+      let matchesDateRange = true;
+      if (dateRangeFilter && dateRangeFilter !== 'all') {
+        const teamDate = new Date(team.startDate || team.createdAt || '');
+        const now = new Date();
+        
+        if (dateRangeFilter === 'today') {
+          matchesDateRange = teamDate.toDateString() === now.toDateString();
+        } else if (dateRangeFilter === 'week') {
+          const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          matchesDateRange = teamDate >= weekAgo;
+        } else if (dateRangeFilter === 'month') {
+          const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          matchesDateRange = teamDate >= monthAgo;
+        }
+      }
+      
+      return matchesSearch && matchesStatus && matchesStatusQuick && matchesTags && matchesDateRange;
+    });
+  }, [teams, searchTerm, statusFilter, quickFilterValues]);
 
-  // Status counts
-  const statusCounts = {
-    All: teams.length,
-    Active: teams.filter(t => !t.archived).length,
-    Archived: teams.filter(t => t.archived).length,
-    'My Teams': teams.filter(team => {
-      const members = parseMembers(team.members);
-      const currentUserEmail = user?.email;
-      const currentUserName = user?.name;
-      const currentUserId = user?.userId;
-      
-      return members.some(member => 
-        member.email === currentUserEmail ||
-        member.name === currentUserName ||
-        member.id === currentUserId
-      );
-    }).length
-  };
+  // Stats
+  const stats = useMemo(() => {
+    const total = teams.length;
+    const active = teams.filter(t => !t.archived).length;
+    const archived = teams.filter(t => t.archived).length;
+    const totalMembers = teams.reduce((sum, t) => sum + (t.memberCount || 0), 0);
+    return { total, active, archived, totalMembers };
+  }, [teams]);
 
   // Handle opening create team modal
   const handleOpenCreateTeam = () => {
     setFormHeight(80); // Reset to default height
+    setEditingTeam(null);
+    resetForm();
     setIsCreateTeamOpen(true);
   };
 
-  // Handle team creation
+  // Handle opening edit team modal
+  const handleEdit = (team: Team) => {
+    setEditingTeam(team);
+    const members = parseMembers(team.members);
+    setTeamForm({
+      name: team.name,
+      description: team.description || '',
+      startDate: team.startDate || new Date().toISOString().slice(0, 10),
+      tags: parseTags(team.tags),
+      members: members
+    });
+    setFormHeight(80);
+    setIsCreateTeamOpen(true);
+    setOpenMenuTeamId(null);
+  };
+
+  // Handle team creation/update
   const handleCreateTeam = async () => {
     if (!teamForm.name.trim()) {
       error('Validation Error', 'Please enter team name');
@@ -332,22 +388,32 @@ const TeamsPage = () => {
         tags: teamForm.tags
       };
 
-      console.log('🆕 Creating team:', payload);
-      const res = await apiService.createTeam(payload);
+      let res;
+      if (editingTeam) {
+        console.log('✏️ Updating team:', payload);
+        res = await apiService.updateTeam(editingTeam.id, payload);
+      } else {
+        console.log('🆕 Creating team:', payload);
+        res = await apiService.createTeam(payload);
+      }
       
       if (res.success) {
-        console.log('✅ Team created successfully:', res.data);
+        console.log('✅ Team saved successfully:', res.data);
         setIsCreateTeamOpen(false);
         resetForm();
+        setEditingTeam(null);
         fetchTeams(); // Refresh teams list
-        success('Team Created', `Team "${teamForm.name}" has been created successfully!`);
+        success(
+          editingTeam ? 'Team Updated' : 'Team Created',
+          `Team "${teamForm.name}" has been ${editingTeam ? 'updated' : 'created'} successfully!`
+        );
       } else {
-        console.error('❌ Failed to create team:', res.error);
-        error('Creation Failed', `Failed to create team: ${res.error}`);
+        console.error('❌ Failed to save team:', res.error);
+        error('Save Failed', `Failed to ${editingTeam ? 'update' : 'create'} team: ${res.error}`);
       }
     } catch (err) {
-      console.error('❌ Error creating team:', err);
-      error('Unexpected Error', 'An unexpected error occurred while creating team');
+      console.error('❌ Error saving team:', err);
+      error('Unexpected Error', `An unexpected error occurred while ${editingTeam ? 'updating' : 'creating'} team`);
     }
   };
 
@@ -402,6 +468,7 @@ const TeamsPage = () => {
     setTagInput('');
     setUsersSearch('');
     setShowUsersDropdown(false);
+    setEditingTeam(null);
   };
 
   // Add tag
@@ -513,21 +580,28 @@ const filteredUsers = allUsers.filter(user => {
   // Handle click outside to close dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      // Close users dropdown if clicking outside
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node) &&
           userSearchRef.current && !userSearchRef.current.contains(event.target as Node)) {
         setShowUsersDropdown(false);
       }
-      setOpenMenuTeamId(null);
+      
+      // Close team menu dropdown if clicking outside
+      const target = event.target as HTMLElement;
+      const isClickInsideMenu = target.closest('[data-team-menu]') || target.closest('[data-team-menu-button]');
+      if (!isClickInsideMenu && openMenuTeamId !== null) {
+        setOpenMenuTeamId(null);
+      }
     };
 
-    if (showUsersDropdown) {
+    if (showUsersDropdown || openMenuTeamId !== null) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showUsersDropdown]);
+  }, [showUsersDropdown, openMenuTeamId]);
 
   // Close team menu on ESC
   useEffect(() => {
@@ -540,82 +614,141 @@ const filteredUsers = allUsers.filter(user => {
 
   return (
     <AppLayout>
-      <div className="w-full px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 overflow-x-hidden">
-         {/* Search and Filter */}
-         <div className="mb-6">
-           <div className="flex flex-row gap-2 mb-4">
-            <div className="flex-1 min-w-0 lg:flex-none lg:w-[420px]">
-               <div className="relative">
-                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  type="text"
-                  placeholder="Search teams..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full px-4 py-3 pl-10 text-base bg-gray-100 border border-gray-300 rounded-2xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
-                />
-                       </div>
-                       </div>
-            <div className="flex items-center gap-1 flex-shrink-0 lg:ml-auto">
-               <ViewToggle
-                 currentView={viewMode}
-                 views={[
-                   {
-                     value: 'list',
-                     label: 'List',
-                     icon: (
-                       <div className="w-3 h-3 flex flex-col space-y-0.5">
-                         <div className="w-full h-0.5 rounded-sm bg-current"></div>
-                         <div className="w-full h-0.5 rounded-sm bg-current"></div>
-                         <div className="w-full h-0.5 rounded-sm bg-current"></div>
-                       </div>
-                     )
-                   },
-                   {
-                     value: 'grid',
-                     label: 'Grid',
-                     icon: (
-                       <div className="w-3 h-3 grid grid-cols-2 gap-0.5">
-                         <div className="w-1 h-1 rounded-sm bg-current"></div>
-                         <div className="w-1 h-1 rounded-sm bg-current"></div>
-                         <div className="w-1 h-1 rounded-sm bg-current"></div>
-                         <div className="w-1 h-1 rounded-sm bg-current"></div>
-                       </div>
-                     )
-                   }
-                 ]}
-                 onChange={(view: 'list' | 'grid') => setViewMode(view)}
-                 className="sm:px-3 sm:py-2 px-4 py-3"
-               />
-              <div className="hidden sm:flex">
-                <Button 
-                  className="flex items-center justify-center space-x-2 px-4 py-2 text-sm sm:px-5 sm:py-2.5"
-                  onClick={handleOpenCreateTeam}
-                >
-                  <Plus size={16} className="w-4 h-4" />
-                  <span className="text-sm">New Team</span>
-                </Button>
-              </div>
-                       </div>
-                     </div>
+      <div className="w-full h-full px-3 sm:px-4 lg:px-8 py-3 sm:py-4 lg:py-4 overflow-x-hidden">
 
-          {/* Status Pills - keep on one line on mobile */}
-          <div className="flex flex-row items-center gap-2 overflow-x-auto whitespace-nowrap scrollbar-hide -mx-1 px-1">
-            {Object.entries(statusCounts).map(([status, count]) => (
-              <button
-                key={status}
-                onClick={() => setStatusFilter(status)}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors flex-shrink-0 ${
-                  statusFilter === status
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {status} ({count})
-              </button>
-            ))}
-                      </div>
-                    </div>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-4">
+          <StatsCard
+            title="Total Teams"
+            value={stats.total}
+            icon={Users}
+            iconColor="blue"
+            className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
+          />
+          <StatsCard
+            title="Active"
+            value={stats.active}
+            icon={CheckCircle}
+            iconColor="green"
+            className="bg-gradient-to-r from-green-50 to-green-100 border-green-200"
+          />
+          <StatsCard
+            title="Archived"
+            value={stats.archived}
+            icon={XCircle}
+            iconColor="orange"
+            className="bg-gradient-to-r from-orange-50 to-orange-100 border-orange-200"
+          />
+          <StatsCard
+            title="Total Members"
+            value={stats.totalMembers}
+            icon={User}
+            iconColor="purple"
+            className="bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200"
+          />
+        </div>
+
+        {/* Search and Filters */}
+        <SearchFilterSection
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="Search teams..."
+          variant="modern"
+          showActiveFilters={true}
+          hideFilterIcon={true}
+          visibleFilterColumns={visibleFilterColumns}
+          onFilterColumnsChange={setVisibleFilterColumns}
+          quickFilters={[
+            {
+              key: 'status',
+              label: 'Status',
+              icon: <CheckCircle className="w-4 h-4 text-green-500" />,
+              options: [
+                { value: 'all', label: 'All Status' },
+                { value: 'active', label: 'Active' },
+                { value: 'archived', label: 'Archived' }
+              ],
+              type: 'default',
+              multiple: true
+            },
+            {
+              key: 'tags',
+              label: 'Tags',
+              icon: <Tag className="w-4 h-4 text-orange-500" />,
+              options: [
+                { value: 'all', label: 'All Tags' },
+                ...allTags.map(tag => ({ value: tag, label: tag }))
+              ],
+              type: 'default',
+              multiple: true
+            },
+            {
+              key: 'dateRange',
+              label: 'Start Date',
+              icon: <Calendar className="w-4 h-4 text-blue-500" />,
+              options: [
+                { value: 'all', label: 'All Time' },
+                { value: 'today', label: 'Today' },
+                { value: 'week', label: 'Last 7 Days' },
+                { value: 'month', label: 'Last 30 Days' }
+              ],
+              type: 'date'
+            }
+          ]}
+          quickFilterValues={quickFilterValues}
+          onQuickFilterChange={handleQuickFilterChange}
+          availableFilterColumns={[
+            { key: 'status', label: 'Status', icon: <CheckCircle className="w-4 h-4 text-green-500" /> },
+            { key: 'tags', label: 'Tags', icon: <Tag className="w-4 h-4 text-orange-500" /> },
+            { key: 'dateRange', label: 'Start Date', icon: <Calendar className="w-4 h-4 text-blue-500" /> }
+          ]}
+          viewToggle={{
+            currentView: viewMode,
+            views: [
+              {
+                value: 'list',
+                label: 'List',
+                icon: (
+                  <div className="w-3 h-3 flex flex-col space-y-0.5">
+                    <div className="w-full h-0.5 rounded-sm bg-current"></div>
+                    <div className="w-full h-0.5 rounded-sm bg-current"></div>
+                    <div className="w-full h-0.5 rounded-sm bg-current"></div>
+                  </div>
+                )
+              },
+              {
+                value: 'grid',
+                label: 'Card',
+                icon: (
+                  <div className="w-3 h-3 grid grid-cols-2 gap-0.5">
+                    <div className="w-1 h-1 rounded-sm bg-current"></div>
+                    <div className="w-1 h-1 rounded-sm bg-current"></div>
+                    <div className="w-1 h-1 rounded-sm bg-current"></div>
+                    <div className="w-1 h-1 rounded-sm bg-current"></div>
+                  </div>
+                )
+              }
+            ],
+            onChange: (view: 'list' | 'grid') => setViewMode(view)
+          }}
+          filters={[
+            {
+              key: 'status',
+              label: 'Status',
+              value: statusFilter,
+              onChange: setStatusFilter,
+              options: [
+                { value: 'all', label: 'All Status' },
+                { value: 'active', label: 'Active' },
+                { value: 'archived', label: 'Archived' }
+              ]
+            }
+          ]}
+          actionButton={{
+            label: 'New Team',
+            onClick: handleOpenCreateTeam
+          }}
+        />
 
         {/* Teams Grid/List */}
         {viewMode === 'list' ? (
@@ -630,6 +763,7 @@ const filteredUsers = allUsers.filter(user => {
                       size="sm"
                       title="More Options"
                       className="p-1.5 h-7 w-15 sm:p-2 sm:h-9 sm:w-9"
+                      data-team-menu-button
                       onClick={(e) => {
                         e.stopPropagation();
                         setOpenMenuTeamId(prev => prev === team.id ? null : team.id);
@@ -638,14 +772,29 @@ const filteredUsers = allUsers.filter(user => {
                       <MoreVertical size={14} className="sm:w-[18px] sm:h-[18px]" />
                     </Button>
                     {openMenuTeamId === team.id && (
-                      <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-lg z-30" onClick={(e)=>e.stopPropagation()}>
+                      <div data-team-menu className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-lg z-30" onClick={(e)=>e.stopPropagation()}>
+                        <button 
+                          className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-t-xl flex items-center gap-2 text-sm" 
+                          onClick={(e)=>{e.stopPropagation(); handleTeamMenu(team); setOpenMenuTeamId(null);}}
+                        >
+                          <Eye className="w-4 h-4" />
+                          <span>View</span>
+                        </button>
+                        <UpdateButton
+                          resource="teams"
+                          onClick={(e)=>{e?.stopPropagation(); handleEdit(team);}}
+                          className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm"
+                        >
+                          <Edit className="w-4 h-4" />
+                          <span>Edit</span>
+                        </UpdateButton>
                         <DeleteButton
                           resource="teams"
-                          onClick={()=>handleDeleteTeam(team)}
-                          className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-xl flex items-center gap-2 text-sm text-red-600"
+                          onClick={(e)=>{e?.stopPropagation(); handleDeleteTeam(team); setOpenMenuTeamId(null);}}
+                          className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-b-xl flex items-center gap-2 text-sm text-red-600"
                         >
                           <Trash2 className="w-4 h-4" />
-                          <span>Delete Team</span>
+                          <span>Delete</span>
                         </DeleteButton>
                       </div>
                     )}
@@ -702,6 +851,7 @@ const filteredUsers = allUsers.filter(user => {
                         <Button 
                           variant="ghost"
                           size="sm"
+                          data-team-menu-button
                           onClick={(e) => {
                             e.stopPropagation();
                             setOpenMenuTeamId(prev => prev === team.id ? null : team.id);
@@ -712,11 +862,30 @@ const filteredUsers = allUsers.filter(user => {
                           <MoreVertical className="w-7 h-7 sm:w-5 sm:h-5" />
                         </Button>
                         {openMenuTeamId === team.id && (
-                          <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-lg z-30" onClick={(e)=>e.stopPropagation()}>
-                            <button className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-xl flex items-center gap-2 text-sm text-red-600" onClick={()=>handleDeleteTeam(team)}>
-                              <Trash2 className="w-4 h-4" />
-                              <span>Delete Team</span>
+                          <div data-team-menu className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-lg z-30" onClick={(e)=>e.stopPropagation()}>
+                            <button 
+                              className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-t-xl flex items-center gap-2 text-sm" 
+                              onClick={(e)=>{e.stopPropagation(); handleTeamMenu(team); setOpenMenuTeamId(null);}}
+                            >
+                              <Eye className="w-4 h-4" />
+                              <span>View</span>
                             </button>
+                            <UpdateButton
+                              resource="teams"
+                              onClick={(e)=>{e?.stopPropagation(); handleEdit(team);}}
+                              className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm"
+                            >
+                              <Edit className="w-4 h-4" />
+                              <span>Edit</span>
+                            </UpdateButton>
+                            <DeleteButton
+                              resource="teams"
+                              onClick={(e)=>{e?.stopPropagation(); handleDeleteTeam(team); setOpenMenuTeamId(null);}}
+                              className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-b-xl flex items-center gap-2 text-sm text-red-600"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              <span>Delete</span>
+                            </DeleteButton>
                           </div>
                         )}
                       </div>
@@ -766,7 +935,9 @@ const filteredUsers = allUsers.filter(user => {
                 ? 'No teams available. Create your first team to get started.' 
                 : 'Try adjusting your search or filter criteria'}
             </p>
-            <Button onClick={handleOpenCreateTeam}>Create New Team</Button>
+            <CreateButton resource="teams">
+              <Button onClick={handleOpenCreateTeam}>Create New Team</Button>
+            </CreateButton>
           </div>
         )}
       </div>
@@ -930,7 +1101,9 @@ const filteredUsers = allUsers.filter(user => {
                 {/* Header */}
                 <div className="flex items-center justify-between mb-4 lg:mb-6">
                   <div>
-                    <h2 className="text-xl font-bold text-gray-900">Create New Team</h2>
+                    <h2 className="text-xl font-bold text-gray-900">
+                      {editingTeam ? 'Edit Team' : 'Create New Team'}
+                    </h2>
                     <p className="text-sm text-gray-600 mt-1">Fill in the team information</p>
                   </div>
                   <Button
@@ -1130,7 +1303,7 @@ const filteredUsers = allUsers.filter(user => {
                     Cancel
                   </Button>
                   <Button type="submit" onClick={(e) => { e.preventDefault(); handleCreateTeam(); }} className="flex-1 sm:flex-none">
-                    Create Team
+                    {editingTeam ? 'Update Team' : 'Create Team'}
                   </Button>
                 </div>
               </div>

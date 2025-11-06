@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Filter, Search, Settings, ChevronDown, Calendar, CheckCircle, Flag, FolderOpen, X } from 'lucide-react';
+import { Filter, Search, ChevronDown, Calendar, CheckCircle, Flag, FolderOpen, X } from 'lucide-react';
 import { Input } from './Input';
 import { Select } from './Select';
 import { ViewToggle } from './ViewToggle';
@@ -7,6 +7,7 @@ import { FilterDropdown } from './FilterDropdown';
 import { FilterChip } from './FilterChip';
 import { QuickFilter } from './QuickFilter';
 import InlineAdvancedFilters from './InlineAdvancedFilters';
+import { CreateButton } from '../RoleBasedUI';
 
 interface FilterOption {
   value: string;
@@ -320,32 +321,36 @@ export const SearchFilterSection = <T extends string = string>({
           <div className="flex items-center space-x-2 flex-shrink-0">
               {/* Action Button - Hidden on mobile */}
               {actionButton && (
-                <button
-                  onClick={actionButton.onClick}
-                  className="hidden lg:flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex-shrink-0"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  <span>{actionButton.label}</span>
-                </button>
+                <CreateButton resource={searchPlaceholder.includes('task') ? 'tasks' : 'projects'}>
+                  <button
+                    onClick={actionButton.onClick}
+                    className="hidden lg:flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex-shrink-0"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span>{actionButton.label}</span>
+                  </button>
+                </CreateButton>
               )}
               
               {/* Fallback: Old New Item Button - Hidden on mobile */}
               {!actionButton && viewToggle && (
-                <button
-                  onClick={() => {
-                    // This will be handled by the parent component
-                    const event = new CustomEvent(searchPlaceholder.includes('task') ? 'newTaskClick' : 'newProjectClick');
-                    window.dispatchEvent(event);
-                  }}
-                  className="hidden lg:flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex-shrink-0"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  <span>{searchPlaceholder.includes('task') ? 'New Task' : 'New Project'}</span>
-                </button>
+                <CreateButton resource={searchPlaceholder.includes('task') ? 'tasks' : 'projects'}>
+                  <button
+                    onClick={() => {
+                      // This will be handled by the parent component
+                      const event = new CustomEvent(searchPlaceholder.includes('task') ? 'newTaskClick' : 'newProjectClick');
+                      window.dispatchEvent(event);
+                    }}
+                    className="hidden lg:flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex-shrink-0"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span>{searchPlaceholder.includes('task') ? 'New Task' : 'New Project'}</span>
+                  </button>
+                </CreateButton>
               )}
               
               {/* View Toggle */}
@@ -358,7 +363,7 @@ export const SearchFilterSection = <T extends string = string>({
                 />
               )}
               
-              {/* Settings Button */}
+              {/* Filter Settings Button */}
               <div className="relative">
                 <button 
                   ref={settingsButtonRef}
@@ -367,7 +372,7 @@ export const SearchFilterSection = <T extends string = string>({
                     isSettingsDropdownOpen ? 'text-blue-700 bg-blue-50' : 'text-gray-600 hover:text-blue-700 hover:bg-gray-50'
                   }`}
                 >
-                  <Settings className="w-5 h-5" />
+                  <Filter className="w-5 h-5" />
                 </button>
                 
                 {/* Settings Dropdown */}

@@ -689,17 +689,19 @@ export default function SprintStoriesPage() {
                     </p>
                    </div>
                  </div>
-                 <button
-                   onClick={() => {
-                     resetStoryForm();
-                     setEditingStory(null);
-                     setShowStoryForm(true);
-                   }}
-                   className="flex-shrink-0 flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 sm:px-5 sm:py-3 rounded-xl transition-all shadow-md hover:shadow-lg text-sm sm:text-base"
-                 >
-                   <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-                   <span className="font-semibold">Add Story</span>
-                 </button>
+                 <CreateButton resource="projects">
+                   <button
+                     onClick={() => {
+                       resetStoryForm();
+                       setEditingStory(null);
+                       setShowStoryForm(true);
+                     }}
+                     className="flex-shrink-0 flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 sm:px-5 sm:py-3 rounded-xl transition-all shadow-md hover:shadow-lg text-sm sm:text-base"
+                   >
+                     <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                     <span className="font-semibold">Add Story</span>
+                   </button>
+                 </CreateButton>
                </div>
 
             <div className="grid gap-3 sm:gap-5 lg:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -828,18 +830,20 @@ export default function SprintStoriesPage() {
                       </p>
                     </div>
                   </div>
-              <button
-                onClick={() => {
-                  resetStoryForm();
-                      setStoryFormData(prev => ({ ...prev, sprint_id: selectedSprint?.sprint_id || '' }));
-                  setEditingStory(null);
-                  setShowStoryForm(true);
-                }}
-                    className="w-full sm:w-auto flex items-center justify-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 sm:px-5 sm:py-3 rounded-xl transition-all shadow-md hover:shadow-lg text-sm sm:text-base"
-              >
-                <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-                    <span className="font-semibold">Add Story</span>
-              </button>
+              <CreateButton resource="projects">
+                <button
+                  onClick={() => {
+                    resetStoryForm();
+                        setStoryFormData(prev => ({ ...prev, sprint_id: selectedSprint?.sprint_id || '' }));
+                    setEditingStory(null);
+                    setShowStoryForm(true);
+                  }}
+                      className="w-full sm:w-auto flex items-center justify-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 sm:px-5 sm:py-3 rounded-xl transition-all shadow-md hover:shadow-lg text-sm sm:text-base"
+                >
+                  <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <span className="font-semibold">Add Story</span>
+                </button>
+              </CreateButton>
             </div>
                 </div>
 
@@ -888,14 +892,16 @@ export default function SprintStoriesPage() {
                               <span className="text-xs sm:text-sm font-semibold text-blue-900 dark:text-blue-100">{totalTasks}</span>
                             </div>
                             <div className="hidden sm:block h-8 w-px bg-gray-300 dark:bg-gray-600"></div>
-                            <button
-                              onClick={() => openTaskCreationModal(story.id, story.title)}
-                              className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors shadow-sm hover:shadow-md text-xs sm:text-sm"
-                              title="Create Task"
-                            >
-                              <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                              <span className="font-medium">Task</span>
-                            </button>
+                            <CreateButton resource="tasks">
+                              <button
+                                onClick={() => openTaskCreationModal(story.id, story.title)}
+                                className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors shadow-sm hover:shadow-md text-xs sm:text-sm"
+                                title="Create Task"
+                              >
+                                <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                <span className="font-medium">Task</span>
+                              </button>
+                            </CreateButton>
                           <UpdateButton
                             resource="projects"
                             onClick={() => openEditStory(story)}

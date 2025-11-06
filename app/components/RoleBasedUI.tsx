@@ -66,22 +66,23 @@ export const AdminOnly: React.FC<AdminOnlyProps> = ({ fallback = null, children 
 };
 
 /**
- * CreateButton - Button that's only visible if user can create
+ * CreateButton - Wrapper that conditionally shows children if user can create
+ * Can be used as a wrapper (passes through children) or as a button itself
  */
 interface CreateButtonProps {
   resource: 'projects' | 'tasks' | 'companies' | 'departments' | 'teams';
-  onClick: (event?: React.MouseEvent<HTMLButtonElement>) => void;
-  className?: string;
   children: React.ReactNode;
+  onClick?: (event?: React.MouseEvent<HTMLButtonElement>) => void;
+  className?: string;
   disabled?: boolean;
 }
 
 export const CreateButton: React.FC<CreateButtonProps> = ({
   resource,
-  onClick,
-  className = '',
   children,
-  disabled = false,
+  onClick,
+  className,
+  disabled,
 }) => {
   const { user } = useAuth();
   const userRole = user?.role || 'user';
@@ -90,30 +91,36 @@ export const CreateButton: React.FC<CreateButtonProps> = ({
     return null;
   }
 
-  return (
-    <button onClick={onClick} className={className} disabled={disabled}>
-      {children}
-    </button>
-  );
+  // If onClick is provided, render as button; otherwise just pass through children
+  if (onClick || className) {
+    return (
+      <button onClick={onClick} className={className} disabled={disabled}>
+        {children}
+      </button>
+    );
+  }
+
+  return <>{children}</>;
 };
 
 /**
- * UpdateButton - Button that's only visible if user can update
+ * UpdateButton - Wrapper that conditionally shows children if user can update
+ * Can be used as a wrapper (passes through children) or as a button itself
  */
 interface UpdateButtonProps {
   resource: 'projects' | 'tasks' | 'companies' | 'departments' | 'teams';
-  onClick: (event?: React.MouseEvent<HTMLButtonElement>) => void;
-  className?: string;
   children: React.ReactNode;
+  onClick?: (event?: React.MouseEvent<HTMLButtonElement>) => void;
+  className?: string;
   disabled?: boolean;
 }
 
 export const UpdateButton: React.FC<UpdateButtonProps> = ({
   resource,
-  onClick,
-  className = '',
   children,
-  disabled = false,
+  onClick,
+  className,
+  disabled,
 }) => {
   const { user } = useAuth();
   const userRole = user?.role || 'user';
@@ -122,30 +129,36 @@ export const UpdateButton: React.FC<UpdateButtonProps> = ({
     return null;
   }
 
-  return (
-    <button onClick={onClick} className={className} disabled={disabled}>
-      {children}
-    </button>
-  );
+  // If onClick is provided, render as button; otherwise just pass through children
+  if (onClick || className) {
+    return (
+      <button onClick={onClick} className={className} disabled={disabled}>
+        {children}
+      </button>
+    );
+  }
+
+  return <>{children}</>;
 };
 
 /**
- * DeleteButton - Button that's only visible if user can delete
+ * DeleteButton - Wrapper that conditionally shows children if user can delete
+ * Can be used as a wrapper (passes through children) or as a button itself
  */
 interface DeleteButtonProps {
   resource: 'projects' | 'tasks' | 'companies' | 'departments' | 'teams';
-  onClick: (event?: React.MouseEvent<HTMLButtonElement>) => void;
-  className?: string;
   children: React.ReactNode;
+  onClick?: (event?: React.MouseEvent<HTMLButtonElement>) => void;
+  className?: string;
   disabled?: boolean;
 }
 
 export const DeleteButton: React.FC<DeleteButtonProps> = ({
   resource,
-  onClick,
-  className = '',
   children,
-  disabled = false,
+  onClick,
+  className,
+  disabled,
 }) => {
   const { user } = useAuth();
   const userRole = user?.role || 'user';
@@ -154,11 +167,16 @@ export const DeleteButton: React.FC<DeleteButtonProps> = ({
     return null;
   }
 
-  return (
-    <button onClick={onClick} className={className} disabled={disabled}>
-      {children}
-    </button>
-  );
+  // If onClick is provided, render as button; otherwise just pass through children
+  if (onClick || className) {
+    return (
+      <button onClick={onClick} className={className} disabled={disabled}>
+        {children}
+      </button>
+    );
+  }
+
+  return <>{children}</>;
 };
 
 /**
