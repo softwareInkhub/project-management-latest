@@ -439,7 +439,7 @@ const CompaniesPage = () => {
                             </button>
                             <UpdateButton
                               resource="companies"
-                              onClick={(e)=>{e.stopPropagation(); handleEdit(company); setOpenMenuId(null);}}
+                              onClick={(e)=>{e?.stopPropagation(); handleEdit(company); setOpenMenuId(null);}}
                               className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm"
                             >
                               <Edit className="w-4 h-4" />
@@ -447,7 +447,7 @@ const CompaniesPage = () => {
                             </UpdateButton>
                             <DeleteButton
                               resource="companies"
-                              onClick={(e)=>{e.stopPropagation(); handleDelete(company.id); setOpenMenuId(null);}}
+                              onClick={(e)=>{e?.stopPropagation(); handleDelete(company.id); setOpenMenuId(null);}}
                               className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-b-xl flex items-center gap-2 text-sm text-red-600"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -597,7 +597,7 @@ const CompaniesPage = () => {
                           </button>
                           <UpdateButton
                             resource="companies"
-                            onClick={(e)=>{e.stopPropagation(); handleEdit(company); setOpenMenuId(null);}}
+                            onClick={(e)=>{e?.stopPropagation(); handleEdit(company); setOpenMenuId(null);}}
                             className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm"
                           >
                             <Edit className="w-4 h-4" />
@@ -605,7 +605,7 @@ const CompaniesPage = () => {
                           </UpdateButton>
                           <DeleteButton
                             resource="companies"
-                            onClick={(e)=>{e.stopPropagation(); handleDelete(company.id); setOpenMenuId(null);}}
+                            onClick={(e)=>{e?.stopPropagation(); handleDelete(company.id); setOpenMenuId(null);}}
                             className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-b-xl flex items-center gap-2 text-sm text-red-600"
                           >
                             <Trash2 className="w-4 h-4" />

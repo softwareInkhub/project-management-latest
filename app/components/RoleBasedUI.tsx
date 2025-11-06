@@ -70,7 +70,7 @@ export const AdminOnly: React.FC<AdminOnlyProps> = ({ fallback = null, children 
  */
 interface CreateButtonProps {
   resource: 'projects' | 'tasks' | 'companies' | 'departments' | 'teams';
-  onClick: () => void;
+  onClick: (event?: React.MouseEvent<HTMLButtonElement>) => void;
   className?: string;
   children: React.ReactNode;
   disabled?: boolean;
@@ -102,7 +102,7 @@ export const CreateButton: React.FC<CreateButtonProps> = ({
  */
 interface UpdateButtonProps {
   resource: 'projects' | 'tasks' | 'companies' | 'departments' | 'teams';
-  onClick: () => void;
+  onClick: (event?: React.MouseEvent<HTMLButtonElement>) => void;
   className?: string;
   children: React.ReactNode;
   disabled?: boolean;
@@ -134,7 +134,7 @@ export const UpdateButton: React.FC<UpdateButtonProps> = ({
  */
 interface DeleteButtonProps {
   resource: 'projects' | 'tasks' | 'companies' | 'departments' | 'teams';
-  onClick: () => void;
+  onClick: (event?: React.MouseEvent<HTMLButtonElement>) => void;
   className?: string;
   children: React.ReactNode;
   disabled?: boolean;

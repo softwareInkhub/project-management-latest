@@ -469,7 +469,7 @@ const DepartmentsPage = () => {
                             </button>
                             <UpdateButton
                               resource="departments"
-                              onClick={(e)=>{e.stopPropagation(); handleEdit(department); setOpenMenuId(null);}}
+                              onClick={(e)=>{e?.stopPropagation(); handleEdit(department); setOpenMenuId(null);}}
                               className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm"
                             >
                               <Edit className="w-4 h-4" />
@@ -477,7 +477,7 @@ const DepartmentsPage = () => {
                             </UpdateButton>
                             <DeleteButton
                               resource="departments"
-                              onClick={(e)=>{e.stopPropagation(); handleDelete(department.id); setOpenMenuId(null);}}
+                              onClick={(e)=>{e?.stopPropagation(); handleDelete(department.id); setOpenMenuId(null);}}
                               className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-b-xl flex items-center gap-2 text-sm text-red-600"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -629,7 +629,7 @@ const DepartmentsPage = () => {
                           </button>
                           <UpdateButton
                             resource="departments"
-                            onClick={(e)=>{e.stopPropagation(); handleEdit(department); setOpenMenuId(null);}}
+                            onClick={(e)=>{e?.stopPropagation(); handleEdit(department); setOpenMenuId(null);}}
                             className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm"
                           >
                             <Edit className="w-4 h-4" />
@@ -637,7 +637,7 @@ const DepartmentsPage = () => {
                           </UpdateButton>
                           <DeleteButton
                             resource="departments"
-                            onClick={(e)=>{e.stopPropagation(); handleDelete(department.id); setOpenMenuId(null);}}
+                            onClick={(e)=>{e?.stopPropagation(); handleDelete(department.id); setOpenMenuId(null);}}
                             className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-b-xl flex items-center gap-2 text-sm text-red-600"
                           >
                             <Trash2 className="w-4 h-4" />

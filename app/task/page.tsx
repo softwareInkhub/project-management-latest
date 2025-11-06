@@ -3458,7 +3458,7 @@ const TasksPage = () => {
                       >
                         <DeleteButton
                           resource="tasks"
-                          onClick={(e)=>{ e.stopPropagation(); handleDeleteTask(task); setOpenDropdown(null); }}
+                          onClick={(e)=>{ e?.stopPropagation(); handleDeleteTask(task); setOpenDropdown(null); }}
                           className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-xl flex items-center gap-2 text-sm text-red-600"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -3874,7 +3874,7 @@ const TasksPage = () => {
                                     <DeleteButton
                                       resource="tasks"
                                       onClick={(e) => {
-                                        e.stopPropagation();
+                                        e?.stopPropagation();
                                         handleDeleteTask(task);
                                         setOpenDropdown(null);
                                       }}
@@ -4181,7 +4181,7 @@ const TasksPage = () => {
                                     <DeleteButton
                                       resource="tasks"
                                       onClick={(e) => {
-                                        e.stopPropagation();
+                                        e?.stopPropagation();
                                         handleDeleteTask(task);
                                         setOpenDropdown(null);
                                       }}
