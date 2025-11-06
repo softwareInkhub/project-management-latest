@@ -48,6 +48,7 @@ import { useSidebar } from '../components/AppLayout';
 import { useAuth } from '../hooks/useAuth';
 import { apiService, Task } from '../services/api';
 import { driveService, FileItem } from '../services/drive';
+import { CreateButton, UpdateButton, DeleteButton, ReadOnlyBadge, usePermissions } from '../components/RoleBasedUI';
 
 // Advanced Filter Interfaces
 interface DateRange {
@@ -3455,10 +3456,14 @@ const TasksPage = () => {
                         className="absolute right-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-30" 
                         onClick={(e)=>e.stopPropagation()}
                       >
-                        <button className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-xl flex items-center gap-2 text-sm text-red-600" onClick={(e)=>{ e.stopPropagation(); handleDeleteTask(task); setOpenDropdown(null); }}>
+                        <DeleteButton
+                          resource="tasks"
+                          onClick={(e)=>{ e.stopPropagation(); handleDeleteTask(task); setOpenDropdown(null); }}
+                          className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-xl flex items-center gap-2 text-sm text-red-600"
+                        >
                           <Trash2 className="w-4 h-4" />
                           <span>Delete Task</span>
-                        </button>
+                        </DeleteButton>
                       </div>
                     )}
                   </div>
@@ -3866,17 +3871,18 @@ const TasksPage = () => {
                                    onClick={(e) => e.stopPropagation()}
                                  >
                                    <div className="py-1">
-                                     <button
-                                       onClick={(e) => {
-                                         e.stopPropagation();
-                                         handleDeleteTask(task);
-                                         setOpenDropdown(null);
-                                       }}
-                                       className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center space-x-2"
-                                     >
-                                       <Trash2 className="w-4 h-4" />
-                                       <span>Delete Task</span>
-                                     </button>
+                                    <DeleteButton
+                                      resource="tasks"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteTask(task);
+                                        setOpenDropdown(null);
+                                      }}
+                                      className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center space-x-2"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                      <span>Delete Task</span>
+                                    </DeleteButton>
                                    </div>
                                  </div>
                                )}
@@ -4172,17 +4178,18 @@ const TasksPage = () => {
                                    onClick={(e) => e.stopPropagation()}
                                  >
                                    <div className="py-1">
-                                     <button
-                                       onClick={(e) => {
-                                         e.stopPropagation();
-                                         handleDeleteTask(task);
-                                         setOpenDropdown(null);
-                                       }}
-                                       className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center space-x-2"
-                                     >
-                                       <Trash2 className="w-4 h-4" />
-                                       <span>Delete Task</span>
-                                     </button>
+                                    <DeleteButton
+                                      resource="tasks"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteTask(task);
+                                        setOpenDropdown(null);
+                                      }}
+                                      className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center space-x-2"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                      <span>Delete Task</span>
+                                    </DeleteButton>
                                    </div>
                                  </div>
                                )}

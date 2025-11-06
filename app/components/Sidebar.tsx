@@ -27,6 +27,7 @@ import { Button } from './ui/Button';
 import { useAuth } from '../hooks/useAuth';
 import { useSidebar } from './AppLayout';
 import { useTabs } from '../hooks/useTabs';
+import { getRoleDisplayName, getRoleBadgeColor } from '../utils/rbac';
 
 const navigation = [
   { name: 'Dashboard', href: '/Dashboard', icon: LayoutDashboard },
@@ -194,8 +195,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onMobile
                 {user?.name || user?.username || user?.email?.split('@')[0] || 'User'}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                {user?.email || user?.role || 'Member'}
+                {user?.email || 'Member'}
               </p>
+              {user?.role && (
+                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium mt-1 ${getRoleBadgeColor(user.role)}`}>
+                  {getRoleDisplayName(user.role)}
+                </span>
+              )}
             </div>
           )}
         </div>

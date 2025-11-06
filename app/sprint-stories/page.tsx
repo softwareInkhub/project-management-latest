@@ -33,6 +33,7 @@ import {
   FolderKanban
 } from 'lucide-react';
 import { TaskCreationModal } from './TaskCreationModal';
+import { CreateButton, UpdateButton, DeleteButton, ReadOnlyBadge, usePermissions } from '../components/RoleBasedUI';
 
 interface SprintFormData {
   name: string;
@@ -728,20 +729,20 @@ export default function SprintStoriesPage() {
                             {sprint.status}
                           </span>
                         <div className="flex items-center space-x-1 sm:space-x-2">
-                          <button
+                          <UpdateButton
+                            resource="projects"
                             onClick={() => openEditSprint(sprint)}
                                 className="p-1.5 sm:p-2 hover:bg-white/50 dark:hover:bg-gray-600 rounded-lg transition-colors"
-                            title="Edit Sprint"
                           >
                                 <Edit className="w-4 h-4 text-gray-600 dark:text-gray-300" />
-                          </button>
-                          <button
+                          </UpdateButton>
+                          <DeleteButton
+                            resource="projects"
                             onClick={() => handleDeleteSprint(sprint.id)}
                                 className="p-1.5 sm:p-2 hover:bg-white/50 dark:hover:bg-gray-600 rounded-lg transition-colors"
-                            title="Delete Sprint"
                           >
                             <Trash2 className="w-4 h-4 text-red-500" />
-                          </button>
+                          </DeleteButton>
                         </div>
                       </div>
                     </div>
@@ -895,20 +896,20 @@ export default function SprintStoriesPage() {
                               <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                               <span className="font-medium">Task</span>
                             </button>
-                          <button
+                          <UpdateButton
+                            resource="projects"
                             onClick={() => openEditStory(story)}
                               className="p-1.5 sm:p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                            title="Edit Story"
                           >
                               <Edit className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                          </button>
-                          <button
+                          </UpdateButton>
+                          <DeleteButton
+                            resource="projects"
                             onClick={() => handleDeleteStory(story.id)}
                               className="p-1.5 sm:p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                            title="Delete Story"
                           >
                             <Trash2 className="w-4 h-4 text-red-500" />
-                          </button>
+                          </DeleteButton>
                         </div>
                       </div>
                     </div>

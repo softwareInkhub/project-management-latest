@@ -58,8 +58,27 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
                 localStorage.setItem('user_email', payload.email);
                 localStorage.setItem('user_name', payload['cognito:username']);
                 localStorage.setItem('cognitoUsername', payload['cognito:username']);
-                localStorage.setItem('userRole', 'user');
-                localStorage.setItem('userPermissions', JSON.stringify(['read:own']));
+                
+                // Fetch user role from backend
+                try {
+                  const roleResponse = await fetch(`/api/roles?userId=${encodeURIComponent(payload.sub)}`, {
+                    method: 'GET',
+                    cache: 'no-store',
+                  });
+                  
+                  if (roleResponse.ok) {
+                    const roleData = await roleResponse.json();
+                    localStorage.setItem('userRole', roleData.role || 'user');
+                    localStorage.setItem('userPermissions', JSON.stringify(roleData.permissions || ['read:all']));
+                  } else {
+                    localStorage.setItem('userRole', 'user');
+                    localStorage.setItem('userPermissions', JSON.stringify(['read:all']));
+                  }
+                } catch (roleError) {
+                  console.error('[AuthGuard] Error fetching role:', roleError);
+                  localStorage.setItem('userRole', 'user');
+                  localStorage.setItem('userPermissions', JSON.stringify(['read:all']));
+                }
               }
             } catch (error) {
               console.error('[AuthGuard] Failed to parse ID token:', error);
@@ -129,16 +148,43 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
           if (!localStorage.getItem('user')) {
             localStorage.setItem('user', JSON.stringify(user));
           }
-          if (!localStorage.getItem('userRole')) {
-            localStorage.setItem('userRole', 'user');
-          }
-          if (!localStorage.getItem('userPermissions')) {
-            localStorage.setItem('userPermissions', JSON.stringify(['read:own']));
+          // Fetch user role from backend
+          try {
+            console.log('[AuthGuard] Fetching user role from backend...');
+            const roleResponse = await fetch(`/api/roles?userId=${encodeURIComponent(user.sub)}`, {
+              method: 'GET',
+              cache: 'no-store',
+            });
+            
+            if (roleResponse.ok) {
+              const roleData = await roleResponse.json();
+              console.log('[AuthGuard] Role fetched:', roleData.role);
+              
+              localStorage.setItem('userRole', roleData.role || 'user');
+              localStorage.setItem('userPermissions', JSON.stringify(roleData.permissions || ['read:all']));
+            } else {
+              console.warn('[AuthGuard] Failed to fetch role, using default');
+              if (!localStorage.getItem('userRole')) {
+                localStorage.setItem('userRole', 'user');
+              }
+              if (!localStorage.getItem('userPermissions')) {
+                localStorage.setItem('userPermissions', JSON.stringify(['read:all']));
+              }
+            }
+          } catch (roleError) {
+            console.error('[AuthGuard] Error fetching role:', roleError);
+            if (!localStorage.getItem('userRole')) {
+              localStorage.setItem('userRole', 'user');
+            }
+            if (!localStorage.getItem('userPermissions')) {
+              localStorage.setItem('userPermissions', JSON.stringify(['read:all']));
+            }
           }
           
           console.log('[AuthGuard] ✅ User data synced to localStorage:', {
             email: user.email,
-            username: username
+            username: username,
+            role: localStorage.getItem('userRole')
           });
           
           // Dispatch custom event to notify useAuth hook

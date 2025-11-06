@@ -32,6 +32,7 @@ import { useTabs } from '../hooks/useTabs';
 import { useSidebar } from '../components/AppLayout';
 import { useAuth } from '../hooks/useAuth';
 import { useToast, ToastContainer } from '../components/ui/Toast';
+import { CreateButton, UpdateButton, DeleteButton, ReadOnlyBadge, usePermissions } from '../components/RoleBasedUI';
 
 // Team interfaces
 interface TeamMember {
@@ -638,10 +639,14 @@ const filteredUsers = allUsers.filter(user => {
                     </Button>
                     {openMenuTeamId === team.id && (
                       <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-lg z-30" onClick={(e)=>e.stopPropagation()}>
-                        <button className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-xl flex items-center gap-2 text-sm text-red-600" onClick={()=>handleDeleteTeam(team)}>
+                        <DeleteButton
+                          resource="teams"
+                          onClick={()=>handleDeleteTeam(team)}
+                          className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-xl flex items-center gap-2 text-sm text-red-600"
+                        >
                           <Trash2 className="w-4 h-4" />
                           <span>Delete Team</span>
-                        </button>
+                        </DeleteButton>
                       </div>
                     )}
                   </div>
@@ -886,13 +891,13 @@ const filteredUsers = allUsers.filter(user => {
       )}
 
       {/* Floating Action Button for Mobile */}
-      <button
+      <CreateButton
+        resource="teams"
         onClick={handleOpenCreateTeam}
         className="lg:hidden fixed bottom-20 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-700 transition-colors z-40"
-        aria-label="Create Team"
       >
         <Plus className="w-6 h-6" />
-      </button>
+      </CreateButton>
 
       {/* Create Team Modal */}
       {isCreateTeamOpen && (

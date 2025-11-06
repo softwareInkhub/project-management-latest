@@ -24,6 +24,7 @@ import { startGoogleCalendarAuth, getGoogleCalendarStatus, disconnectGoogleCalen
 import { createEvent } from '../utils/googleCalendarApi';
 import { useAuth } from '../hooks/useAuth';
 import { apiService, Sprint, Project, Team, User } from '../services/api';
+import { CreateButton, UpdateButton, DeleteButton, ReadOnlyBadge, usePermissions } from '../components/RoleBasedUI';
 
 interface CalendarEvent {
   id: string;

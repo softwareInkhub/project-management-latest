@@ -40,6 +40,7 @@ import { useSidebar } from '../components/AppLayout';
 import { useAuth } from '../hooks/useAuth';
 import ProjectForm, { Project } from '../components/ui/ProjectForm';
 import ProjectInlineAdvancedFilters from '../components/ui/ProjectInlineAdvancedFilters';
+import { CreateButton, UpdateButton, DeleteButton, ReadOnlyBadge, usePermissions } from '../components/RoleBasedUI';
 
 // Advanced Filter Interfaces
 interface DateRange {
@@ -952,6 +953,11 @@ const ProjectsPage = () => {
           }}
         />
 
+        {/* Read-Only Badge */}
+        <div className="mb-4">
+          <ReadOnlyBadge />
+        </div>
+
         {/* Projects Grid */}
         {viewMode === 'list' ? (
           <div className="space-y-2 min-h-[600px]">
@@ -971,10 +977,14 @@ const ProjectsPage = () => {
                     </Button>
                     {openMenuProjectId === project.id && (
                       <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-lg z-30" onClick={(e)=>e.stopPropagation()}>
-                        <button className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-xl flex items-center gap-2 text-sm text-red-600" onClick={()=>handleDeleteProject(project.id)}>
+                        <DeleteButton
+                          resource="projects"
+                          onClick={()=>handleDeleteProject(project.id)}
+                          className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-xl flex items-center gap-2 text-sm text-red-600"
+                        >
                           <Trash2 className="w-4 h-4" />
                           <span>Delete Project</span>
-                        </button>
+                        </DeleteButton>
                       </div>
                     )}
                   </div>
@@ -1083,10 +1093,14 @@ const ProjectsPage = () => {
                         </Button>
                         {openMenuProjectId === project.id && (
                           <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-lg z-30" onClick={(e)=>e.stopPropagation()}>
-                            <button className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-xl flex items-center gap-2 text-sm text-red-600" onClick={()=>handleDeleteProject(project.id)}>
+                            <DeleteButton
+                              resource="projects"
+                              onClick={()=>handleDeleteProject(project.id)}
+                              className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-xl flex items-center gap-2 text-sm text-red-600"
+                            >
                               <Trash2 className="w-4 h-4" />
                               <span>Delete Project</span>
-                            </button>
+                            </DeleteButton>
                           </div>
                         )}
                       </div>
@@ -1182,12 +1196,13 @@ const ProjectsPage = () => {
 
       {/* Floating Action Button for Mobile */}
       <div className="fixed bottom-25 right-4 z-40 lg:hidden">
-        <button
+        <CreateButton
+          resource="projects"
           onClick={handleCreateProject}
           className="w-16 h-16 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
         >
           <Plus size={36} className="text-white" />
-        </button>
+        </CreateButton>
       </div>
 
       {/* Project Preview - Mobile: slides up from bottom, Desktop: centered modal */}
@@ -1232,12 +1247,13 @@ const ProjectsPage = () => {
                       <p className="text-gray-500 text-sm">Project Details</p>
                     </div>
                   </div>
-                  <button
+                  <UpdateButton
+                    resource="projects"
                     onClick={() => handleEditProject(selectedProject)}
                     className="w-10 h-10 bg-blue-500 hover:bg-blue-600 rounded-lg flex items-center justify-center transition-colors"
                   >
                     <Edit className="w-5 h-5 text-white" />
-                  </button>
+                  </UpdateButton>
                 </div>
 
                 {/* Project Details - Single Card */}

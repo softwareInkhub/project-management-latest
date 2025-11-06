@@ -28,6 +28,7 @@ import { ViewToggle } from '../components/ui/ViewToggle';
 import { AppLayout } from '../components/AppLayout';
 import { useAuth } from '../hooks/useAuth';
 import { apiService, Department, Company } from '../services/api';
+import { CreateButton, UpdateButton, DeleteButton, ReadOnlyBadge, usePermissions } from '../components/RoleBasedUI';
 
 interface DepartmentWithCompany extends Department {
   companyName?: string;
@@ -466,14 +467,22 @@ const DepartmentsPage = () => {
                               <Eye className="w-4 h-4" />
                               <span>View</span>
                             </button>
-                            <button className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm" onClick={(e)=>{e.stopPropagation(); handleEdit(department); setOpenMenuId(null);}}>
+                            <UpdateButton
+                              resource="departments"
+                              onClick={(e)=>{e.stopPropagation(); handleEdit(department); setOpenMenuId(null);}}
+                              className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm"
+                            >
                               <Edit className="w-4 h-4" />
                               <span>Edit</span>
-                            </button>
-                            <button className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-b-xl flex items-center gap-2 text-sm text-red-600" onClick={(e)=>{e.stopPropagation(); handleDelete(department.id); setOpenMenuId(null);}}>
+                            </UpdateButton>
+                            <DeleteButton
+                              resource="departments"
+                              onClick={(e)=>{e.stopPropagation(); handleDelete(department.id); setOpenMenuId(null);}}
+                              className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-b-xl flex items-center gap-2 text-sm text-red-600"
+                            >
                               <Trash2 className="w-4 h-4" />
                               <span>Delete</span>
-                            </button>
+                            </DeleteButton>
                           </div>
                         )}
                       </div>
@@ -618,14 +627,22 @@ const DepartmentsPage = () => {
                             <Eye className="w-4 h-4" />
                             <span>View</span>
                           </button>
-                          <button className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm" onClick={(e)=>{e.stopPropagation(); handleEdit(department); setOpenMenuId(null);}}>
+                          <UpdateButton
+                            resource="departments"
+                            onClick={(e)=>{e.stopPropagation(); handleEdit(department); setOpenMenuId(null);}}
+                            className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm"
+                          >
                             <Edit className="w-4 h-4" />
                             <span>Edit</span>
-                          </button>
-                          <button className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-b-xl flex items-center gap-2 text-sm text-red-600" onClick={(e)=>{e.stopPropagation(); handleDelete(department.id); setOpenMenuId(null);}}>
+                          </UpdateButton>
+                          <DeleteButton
+                            resource="departments"
+                            onClick={(e)=>{e.stopPropagation(); handleDelete(department.id); setOpenMenuId(null);}}
+                            className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-b-xl flex items-center gap-2 text-sm text-red-600"
+                          >
                             <Trash2 className="w-4 h-4" />
                             <span>Delete</span>
-                          </button>
+                          </DeleteButton>
                         </div>
                       )}
                     </div>
@@ -944,17 +961,17 @@ const DepartmentsPage = () => {
                   >
                     Close
                   </Button>
-                  <Button
-                    type="button"
+                  <UpdateButton
+                    resource="departments"
                     onClick={() => {
                       setIsViewModalOpen(false);
                       handleEdit(viewingDepartment);
                     }}
-                    className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
+                    className="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium inline-flex items-center justify-center"
                   >
                     <Edit className="w-4 h-4 mr-2" />
                     Edit Department
-                  </Button>
+                  </UpdateButton>
                 </div>
               </div>
             </div>
@@ -962,16 +979,16 @@ const DepartmentsPage = () => {
         )}
 
         {/* Floating Action Button (Mobile only) */}
-        <button
+        <CreateButton
+          resource="departments"
           onClick={() => {
             resetForm();
             setIsModalOpen(true);
           }}
           className="lg:hidden fixed bottom-20 right-4 w-14 h-14 bg-purple-600 hover:bg-purple-700 text-white rounded-full shadow-lg flex items-center justify-center z-40 transition-all duration-200 hover:scale-110"
-          aria-label="Add new department"
         >
           <Plus className="w-6 h-6" />
-        </button>
+        </CreateButton>
       </div>
     </AppLayout>
   );
