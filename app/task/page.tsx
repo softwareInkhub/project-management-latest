@@ -631,7 +631,8 @@ const getTaskProgressCounts = (task: any, allTasks: Task[] = []): { completed: n
   
   if (total === 0) {
     // If no subtasks, consider the task's own status
-    const isCompleted = (task?.status || '').toString().toLowerCase() === 'completed' || task?.completed === true || task?.done === true;
+    const statusLower = (task?.status || '').toString().toLowerCase().trim();
+    const isCompleted = statusLower === 'completed' || statusLower === 'done' || statusLower === 'closed' || task?.completed === true || task?.done === true;
     return { completed: isCompleted ? 1 : 0, total: 1 };
   }
   
@@ -3260,6 +3261,41 @@ const TasksPage = () => {
 
   return (
     <AppLayout onCreateTask={handleCreateTask}>
+      <style jsx global>{`
+        .tooltip-wrapper {
+          position: relative;
+          display: inline-flex;
+        }
+        .tooltip-content {
+          position: absolute;
+          bottom: 100%;
+          left: 50%;
+          transform: translateX(-50%);
+          margin-bottom: 4px;
+          padding: 4px 8px;
+          background-color: #1f2937;
+          color: white;
+          font-size: 11px;
+          border-radius: 4px;
+          white-space: nowrap;
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 0.1s ease-in-out;
+          z-index: 9999;
+        }
+        .tooltip-wrapper:hover .tooltip-content {
+          opacity: 1;
+        }
+        .tooltip-content::after {
+          content: '';
+          position: absolute;
+          top: 100%;
+          left: 50%;
+          transform: translateX(-50%);
+          border: 4px solid transparent;
+          border-top-color: #1f2937;
+        }
+      `}</style>
       <div className="w-full h-full px-3 sm:px-4 lg:px-8 py-3 sm:py-4 lg:py-4 overflow-x-hidden">
 
         {/* Analytics Cards */}
@@ -3442,52 +3478,187 @@ const TasksPage = () => {
               const commentsCount = (() => { try { const c = JSON.parse(task.comments); return Array.isArray(c) ? c.length : parseInt(task.comments)||0; } catch { return parseInt(task.comments)||0; } })();
               const assignedNames = getAssignedUsers(task);
               const tagsArray = (task.tags || '').split(',').filter(Boolean);
-              const progress = task.progress || 0;
+              const progress = getTaskProgressPercent(task, tasks);
               
-              return (
+              // Get progress bar color based on status
+              const getProgressBarColor = (status: string) => {
+                switch (status.toLowerCase()) {
+                  case 'to do':
+                    return '#CBD5E0'; // Gray
+                  case 'in progress':
+                    return '#63B3ED'; // Blue
+                  case 'completed':
+                    return '#48BB78'; // Green
+                  case 'overdue':
+                    return '#F56565'; // Red
+                  default:
+                    return '#CBD5E0';
+                }
+              };
+              
+                return (
                 <div
                   key={task.id}
                   className="relative bg-white rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all duration-200 p-4 cursor-pointer"
+                  style={{
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.04)'
+                  }}
                   onClick={() => handleTaskClick(task)}
                 >
                   {/* Top Row - Avatar, Title/Description, More Menu */}
                   <div className="flex items-start gap-3 mb-0">
                     {/* Project Avatar */}
-                    <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-                      {(task.project || 'T').charAt(0).toUpperCase()}
+                    <div className="tooltip-wrapper flex-shrink-0">
+                      <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
+                        {(task.project || 'T').charAt(0).toUpperCase()}
+                      </div>
+                      <div className="tooltip-content">Project: {task.project || 'No Project'}</div>
                     </div>
 
-                    {/* Task Title + Description */}
+                    {/* Task Title + Desktop Meta Details */}
                     <div className="flex-1 min-w-0">
-                      {/* Mobile: Title and Description on separate lines */}
-                      <div className="block sm:hidden">
-                        <div className="text-sm font-semibold text-gray-900 truncate">
-                          {task.title || 'Untitled Task'}
+                      <div className="flex items-center gap-9">
+                        {/* Title - Mobile full width, Desktop shrinks */}
+                        <div className="tooltip-wrapper sm:flex-shrink-0">
+                          <div className="text-sm sm:text-base font-semibold text-gray-900 truncate">
+                            {task.title || 'Untitled Task'}
+                          </div>
+                          <div className="tooltip-content">Task: {task.title || 'Untitled Task'}</div>
                         </div>
-                        {task.description && (
-                          <div className="text-xs text-gray-600 truncate mt-0.5">
-                            Description: {task.description.length > 50 ? task.description.substring(0, 50) + '...' : task.description}
+
+                        {/* Desktop Meta Details - Right side of title */}
+                        <div className="hidden sm:flex flex-wrap items-center gap-x-2 gap-y-1 text-xs flex-1">
+                        {/* Project */}
+                        <div className="tooltip-wrapper">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-gray-800 font-semibold">Project:</span>
+                            <span className="px-2.5 py-1 rounded-md bg-gray-100 text-gray-700 font-medium">
+                              {task.project || 'N/A'}
+                            </span>
+                          </div>
+                          <div className="tooltip-content">Project: {task.project || 'N/A'}</div>
+                        </div>
+
+                        {/* Priority */}
+                        <div className="tooltip-wrapper">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-gray-800 font-semibold">Priority:</span>
+                            <Badge 
+                              variant={getPriorityConfig(task.priority).color as any} 
+                              size="sm" 
+                              className="px-2.5 py-1"
+                            >
+                              {getPriorityConfig(task.priority).label}
+                            </Badge>
+                          </div>
+                          <div className="tooltip-content">Priority Level: {getPriorityConfig(task.priority).label}</div>
+                        </div>
+
+                        {/* Status */}
+                        <div className="tooltip-wrapper">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-gray-800 font-semibold">Status:</span>
+                            <Badge 
+                              variant={getStatusConfig(task.status).color as any} 
+                              size="sm"
+                              className="px-2.5 py-1"
+                            >
+                              {getStatusConfig(task.status).label}
+                            </Badge>
+                          </div>
+                          <div className="tooltip-content">Current Status: {getStatusConfig(task.status).label}</div>
+                        </div>
+
+                        {/* Estimated Hours */}
+                        <div className="tooltip-wrapper">
+                          <div className="flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5 text-gray-500" />
+                            <span className="text-gray-700 font-medium">{task.estimatedHours || 0}h</span>
+                          </div>
+                          <div className="tooltip-content">Estimated Time: {task.estimatedHours || 0} hours</div>
+                        </div>
+
+                        {/* Tags */}
+                        {tagsArray.length > 0 && (
+                          <div className="tooltip-wrapper">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-gray-800 font-semibold">Tags:</span>
+                              <div className="flex items-center gap-1">
+                                {tagsArray.slice(0, 2).map((tag, i) => (
+                                  <span key={i} className="px-2.5 py-1 bg-purple-100 text-purple-700 rounded-md font-medium">
+                                    {tag.trim()}
+                                  </span>
+                                ))}
+                                {tagsArray.length > 2 && (
+                                  <span className="px-2 py-1 bg-gray-200 text-gray-700 rounded-md text-xs">
+                                    +{tagsArray.length - 2}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="tooltip-content">
+                              Tags: {tagsArray.map(t => t.trim()).join(', ')}
+                            </div>
                           </div>
                         )}
+
+                        {/* Comments */}
+                        <div className="tooltip-wrapper">
+                          <div className="flex items-center gap-1">
+                            <MessageSquare className="w-3.5 h-3.5 text-gray-500" />
+                            <span className="text-gray-700 font-medium">{commentsCount}</span>
+                          </div>
+                          <div className="tooltip-content">Comments: {commentsCount}</div>
+                        </div>
+
+                        {/* Assignees */}
+                        <div className="tooltip-wrapper">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-gray-800 font-semibold">Assignees:</span>
+                            {assignedNames.length > 0 ? (
+                              <AssigneeAvatars names={assignedNames} maxVisible={3} />
+                            ) : (
+                              <span className="text-gray-400">None</span>
+                            )}
+                          </div>
+                          <div className="tooltip-content">
+                            Assigned Users: {assignedNames.length > 0 ? assignedNames.join(', ') : 'None'}
+                          </div>
+                        </div>
+
+                        {/* Dates */}
+                        <div className="tooltip-wrapper">
+                          <div className="flex items-center gap-1.5">
+                            <Calendar className="w-3.5 h-3.5 text-gray-500" />
+                            <span className="text-gray-700 font-medium">
+                              {task.startDate ? new Date(task.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A'}
+                              {' - '}
+                              {task.dueDate ? new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A'}
+                            </span>
+                          </div>
+                          <div className="tooltip-content">
+                            Task Duration: {task.startDate ? new Date(task.startDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A'} to {task.dueDate ? new Date(task.dueDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A'}
+                          </div>
+                        </div>
+                      </div>
                       </div>
                       
-                      {/* Desktop: Title and Description inline */}
-                      <div className="hidden sm:block text-base text-gray-900 truncate">
-                        <span className="font-semibold">{task.title || 'Untitled Task'}</span>
-                        {task.description && (
-                          <>
-                            <span className="text-gray-500 mx-2">—</span>
-                            <span className="text-sm text-gray-600">
-                              Description: {task.description.length > 60 ? task.description.substring(0, 60) + '...' : task.description}
-                            </span>
-                          </>
-                        )}
-                      </div>
+                      {/* Mobile Description - Right below title */}
+                      {task.description && (
+                        <div className="sm:hidden mt-1">
+                          <div className="tooltip-wrapper">
+                            <div className="text-xs text-gray-600 truncate">
+                              {task.description.length > 30 ? task.description.substring(0, 30) + '..' : task.description}
+                            </div>
+                            <div className="tooltip-content">Description: {task.description}</div>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* More Options Menu */}
                     <div 
-                      className="flex-shrink-0"
+                      className={`flex-shrink-0 relative ${openDropdown === task.id ? 'z-50' : 'z-20'}`}
                       onClick={(e) => e.stopPropagation()}
                     >
                       <div className="relative">
@@ -3506,11 +3677,11 @@ const TasksPage = () => {
                         {openDropdown === task.id && (
                           <div 
                             data-dropdown-menu
-                            className="absolute right-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-30" 
+                            className="absolute right-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-xl z-[100]" 
                             onClick={(e)=>e.stopPropagation()}
                           >
                             <button 
-                              className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-t-lg flex items-center gap-2 text-sm" 
+                              className="w-full text-left px-4 py-2.5 hover:bg-gray-50 rounded-t-lg flex items-center gap-2 text-sm font-normal text-gray-800" 
                               onClick={(e)=>{e.stopPropagation(); handleTaskClick(task); setOpenDropdown(null);}}
                             >
                               <Eye className="w-4 h-4" />
@@ -3519,7 +3690,7 @@ const TasksPage = () => {
                             <UpdateButton
                               resource="tasks"
                               onClick={(e)=>{e?.stopPropagation(); handleEditTask(task); setOpenDropdown(null);}}
-                              className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm"
+                              className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center gap-2 text-sm font-normal text-gray-800"
                             >
                               <Edit className="w-4 h-4" />
                               <span>Edit</span>
@@ -3527,7 +3698,7 @@ const TasksPage = () => {
                             <DeleteButton
                               resource="tasks"
                               onClick={(e)=>{ e?.stopPropagation(); handleDeleteTask(task); setOpenDropdown(null); }}
-                              className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-b-lg flex items-center gap-2 text-sm text-red-600"
+                              className="w-full text-left px-4 py-2.5 hover:bg-gray-50 rounded-b-lg flex items-center gap-2 text-sm font-normal text-red-600"
                             >
                               <Trash2 className="w-4 h-4" />
                               <span>Delete</span>
@@ -3538,212 +3709,147 @@ const TasksPage = () => {
                     </div>
                   </div>
 
-                  {/* Bottom Row - Metadata Details */}
-                  <div className="pl-[52px] mt-1 sm:-mt-2">
+                  {/* Desktop Description - Right below title row */}
+                  {task.description && (
+                    <div className="hidden sm:block pl-[52px] -mt-2">
+                      <div className="tooltip-wrapper inline-block">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-gray-800 font-semibold">Description:</span>
+                          <span className="px-2.5 py-1   font-medium text-xs truncate max-w-2xl inline-block">
+                            {task.description.length > 100 ? task.description.substring(0, 100) + '...' : task.description}
+                          </span>
+                        </div>
+                        <div className="tooltip-content">Description: {task.description}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Bottom Row - Mobile Meta Details and Description */}
+                  <div className="pl-[52px] mt-1 sm:hidden">
                     {/* Mobile: Multi-row layout */}
                     <div className="block sm:hidden space-y-1.5">
                       {/* Row 1: Project, Priority, Hours */}
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px]">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
                         {/* Project */}
-                        <div className="flex items-center gap-1">
-                          <span className="text-gray-600">Project:</span>
-                          <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-700 font-medium">
-                            {task.project || 'N/A'}
-                          </span>
+                        <div className="tooltip-wrapper">
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-800 font-semibold">Project:</span>
+                            <span className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-700 font-medium">
+                              {task.project || 'N/A'}
+                            </span>
+                          </div>
+                          <div className="tooltip-content">Project: {task.project || 'N/A'}</div>
                         </div>
 
                         {/* Priority */}
-                        <div className="flex items-center gap-1">
-                          <span className="text-gray-600">Priority:</span>
-                          <Badge 
-                            variant={getPriorityConfig(task.priority).color as any} 
-                            size="sm" 
-                            className="px-2 py-0.5 text-[10px]"
-                          >
-                            {getPriorityConfig(task.priority).label}
-                          </Badge>
+                        <div className="tooltip-wrapper">
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-800 font-semibold">Priority:</span>
+                            <Badge 
+                              variant={getPriorityConfig(task.priority).color as any} 
+                              size="sm" 
+                              className="px-2 py-0.5 text-xs"
+                            >
+                              {getPriorityConfig(task.priority).label}
+                            </Badge>
+                          </div>
+                          <div className="tooltip-content">Priority Level: {getPriorityConfig(task.priority).label}</div>
                         </div>
 
                         {/* Estimated Hours */}
-                        <div className="flex items-center gap-0.5">
-                          <Clock className="w-3 h-3 text-gray-500" />
-                          <span className="text-gray-700 font-medium">{task.estimatedHours || 0}h</span>
+                        <div className="tooltip-wrapper">
+                          <div className="flex items-center gap-0.5">
+                            <Clock className="w-3 h-3 text-gray-500" />
+                            <span className="text-gray-700 font-medium">{task.estimatedHours || 0}h</span>
+                          </div>
+                          <div className="tooltip-content">Estimated Time: {task.estimatedHours || 0} hours</div>
                         </div>
                       </div>
 
                       {/* Row 2: Status, Tags, Comments, Progress */}
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px]">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
                         {/* Status */}
-                        <div className="flex items-center gap-1">
-                          <span className="text-gray-600">Status:</span>
-                          <Badge 
-                            variant={getStatusConfig(task.status).color as any} 
-                            size="sm"
-                            className="px-2 py-0.5 text-[10px]"
-                          >
-                            {getStatusConfig(task.status).label}
-                          </Badge>
+                        <div className="tooltip-wrapper">
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-800 font-semibold">Status:</span>
+                            <Badge 
+                              variant={getStatusConfig(task.status).color as any} 
+                              size="sm"
+                              className="px-2 py-0.5 text-xs"
+                            >
+                              {getStatusConfig(task.status).label}
+                            </Badge>
+                          </div>
+                          <div className="tooltip-content">Current Status: {getStatusConfig(task.status).label}</div>
                         </div>
 
                         {/* Tags */}
                         {tagsArray.length > 0 && (
-                          <div className="flex items-center gap-1">
-                            <span className="text-gray-600">Tags:</span>
+                          <div className="tooltip-wrapper">
                             <div className="flex items-center gap-1">
-                              {tagsArray.slice(0, 1).map((tag, i) => (
-                                <span key={i} className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-md font-medium text-[10px]">
-                                  {tag.trim()}
-                                </span>
-                              ))}
-                              {tagsArray.length > 1 && (
-                                <span className="px-1.5 py-0.5 bg-gray-200 text-gray-700 rounded-md text-[9px]">
-                                  +{tagsArray.length - 1}
-                                </span>
-                              )}
+                              <span className="text-gray-800 font-semibold">Tags:</span>
+                              <div className="flex items-center gap-1">
+                                {tagsArray.slice(0, 1).map((tag, i) => (
+                                  <span key={i} className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-md font-medium text-xs">
+                                    {tag.trim()}
+                                  </span>
+                                ))}
+                                {tagsArray.length > 1 && (
+                                  <span className="px-1.5 py-0.5 bg-gray-200 text-gray-700 rounded-md text-xs">
+                                    +{tagsArray.length - 1}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="tooltip-content">
+                              Tags: {tagsArray.map(t => t.trim()).join(', ')}
                             </div>
                           </div>
                         )}
 
                         {/* Comments */}
-                        <div className="flex items-center gap-0.5">
-                          <MessageSquare className="w-3 h-3 text-gray-500" />
-                          <span className="text-gray-700 font-medium">{commentsCount}</span>
-                        </div>
-
-                        {/* Progress */}
-                        <div className="flex items-center gap-1">
-                          <span className="text-gray-600">Progress:</span>
-                          <div className="w-12 h-1 bg-gray-200 rounded-full overflow-hidden">
-                            <div 
-                              className="h-full bg-blue-500 transition-all duration-300"
-                              style={{ width: `${progress}%` }}
-                            />
+                        <div className="tooltip-wrapper">
+                          <div className="flex items-center gap-0.5">
+                            <MessageSquare className="w-3 h-3 text-gray-500" />
+                            <span className="text-gray-700 font-medium">{commentsCount}</span>
                           </div>
-                          <span className="text-gray-700 font-medium">{progress}%</span>
+                          <div className="tooltip-content">Comments: {commentsCount}</div>
                         </div>
                       </div>
 
                       {/* Row 3: Assignees and Dates */}
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px]">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
                         {/* Assignees */}
-                        <div className="flex items-center gap-1">
-                          <span className="text-gray-600">Assignees:</span>
-                          {assignedNames.length > 0 ? (
-                            <div className="scale-75 origin-left">
-                              <AssigneeAvatars names={assignedNames} maxVisible={3} />
-                            </div>
-                          ) : (
-                            <span className="text-gray-400">None</span>
-                          )}
+                        <div className="tooltip-wrapper">
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-800 font-semibold">Assignees:</span>
+                            {assignedNames.length > 0 ? (
+                              <div className="scale-75 origin-left">
+                                <AssigneeAvatars names={assignedNames} maxVisible={3} />
+                              </div>
+                            ) : (
+                              <span className="text-gray-400">None</span>
+                            )}
+                          </div>
+                          <div className="tooltip-content">
+                            Assigned Users: {assignedNames.length > 0 ? assignedNames.join(', ') : 'None'}
+                          </div>
                         </div>
 
                         {/* Dates */}
-                        <div className="flex items-center gap-0.5">
-                          <Calendar className="w-3 h-3 text-gray-500" />
-                          <span className="text-gray-700 font-medium">
-                            {task.startDate ? new Date(task.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A'}
-                            {' - '}
-                            {task.dueDate ? new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Desktop: All in Single Row */}
-                    <div className="hidden sm:flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
-                      {/* Project */}
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-gray-600">Project:</span>
-                        <span className="px-2.5 py-1 rounded-md bg-blue-100 text-blue-700 font-medium">
-                          {task.project || 'N/A'}
-                        </span>
-                      </div>
-
-                      {/* Priority */}
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-gray-600">Priority:</span>
-                        <Badge 
-                          variant={getPriorityConfig(task.priority).color as any} 
-                          size="sm" 
-                          className="px-2.5 py-1"
-                        >
-                          {getPriorityConfig(task.priority).label}
-                        </Badge>
-                      </div>
-
-                      {/* Status */}
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-gray-600">Status:</span>
-                        <Badge 
-                          variant={getStatusConfig(task.status).color as any} 
-                          size="sm"
-                          className="px-2.5 py-1"
-                        >
-                          {getStatusConfig(task.status).label}
-                        </Badge>
-                      </div>
-
-                      {/* Estimated Hours */}
-                      <div className="flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5 text-gray-500" />
-                        <span className="text-gray-700 font-medium">{task.estimatedHours || 0}h</span>
-                      </div>
-
-                      {/* Tags */}
-                      {tagsArray.length > 0 && (
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-gray-600">Tags:</span>
-                          <div className="flex items-center gap-1">
-                            {tagsArray.slice(0, 2).map((tag, i) => (
-                              <span key={i} className="px-2.5 py-1 bg-purple-100 text-purple-700 rounded-md font-medium">
-                                {tag.trim()}
-                              </span>
-                            ))}
-                            {tagsArray.length > 2 && (
-                              <span className="px-2 py-1 bg-gray-200 text-gray-700 rounded-md text-xs">
-                                +{tagsArray.length - 2}
-                              </span>
-                            )}
+                        <div className="tooltip-wrapper">
+                          <div className="flex items-center gap-0.5">
+                            <Calendar className="w-3 h-3 text-gray-500" />
+                            <span className="text-gray-700 font-medium">
+                              {task.startDate ? new Date(task.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A'}
+                              {' - '}
+                              {task.dueDate ? new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A'}
+                            </span>
+                          </div>
+                          <div className="tooltip-content">
+                            Task Duration: {task.startDate ? new Date(task.startDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A'} to {task.dueDate ? new Date(task.dueDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A'}
                           </div>
                         </div>
-                      )}
-
-                      {/* Comments */}
-                      <div className="flex items-center gap-1">
-                        <MessageSquare className="w-3.5 h-3.5 text-gray-500" />
-                        <span className="text-gray-700 font-medium">{commentsCount}</span>
-                      </div>
-
-                      {/* Progress */}
-                      <div className="flex items-center gap-2">
-                        <span className="text-gray-600">Progress:</span>
-                        <div className="w-24 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-blue-500 transition-all duration-300"
-                            style={{ width: `${progress}%` }}
-                          />
-                        </div>
-                        <span className="text-gray-700 font-medium">{progress}%</span>
-                      </div>
-
-                      {/* Assignees */}
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-gray-600">Assignees:</span>
-                        {assignedNames.length > 0 ? (
-                          <AssigneeAvatars names={assignedNames} maxVisible={3} />
-                        ) : (
-                          <span className="text-gray-400">None</span>
-                        )}
-                      </div>
-
-                      {/* Dates */}
-                      <div className="flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-gray-500" />
-                        <span className="text-gray-700 font-medium">
-                          {task.startDate ? new Date(task.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A'}
-                          {' - '}
-                          {task.dueDate ? new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A'}
-                        </span>
                       </div>
                     </div>
                   </div>
@@ -4371,57 +4477,98 @@ const TasksPage = () => {
              </div>
            </>
         ) : (!isLoading && !error && viewMode === 'card') ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3 lg:gap-3 pb-4">
-            {filteredTasks.map((task) => (
-              <Card key={task.id} hover className="relative cursor-pointer rounded-3xl border border-gray-300 hover:border-gray-400" onClick={() => handleTaskClick(task)}>
-                <CardContent className="px-0 py-0 sm:px-2 sm:py-1 lg:px-2 lg:py-0">
-                  <div className="space-y-1 sm:space-y-2 lg:space-y-1.5">
-                    {/* Header with Project Icon and Title and Action Menu */}
-                    <div className="flex items-center justify-between px-0 sm:px-0 -mt-0.5">
-                      <div className="flex items-center space-x-1 sm:space-x-2 flex-1 min-w-0 mr-2">
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 pb-4">
+            {filteredTasks.map((task) => {
+              const commentsCount = (() => { 
+                try { 
+                  const c = JSON.parse(task.comments); 
+                  return Array.isArray(c) ? c.length : parseInt(task.comments) || 0; 
+                } catch { 
+                  return parseInt(task.comments) || 0; 
+                } 
+              })();
+              const tagsArray = (task.tags || '').split(',').filter(Boolean);
+              const progress = getTaskProgressPercent(task, tasks);
+              
+              // Get progress bar color based on status
+              const getProgressBarColor = (status: string) => {
+                switch (status.toLowerCase()) {
+                  case 'to do':
+                    return '#CBD5E0'; // Gray
+                  case 'in progress':
+                    return '#63B3ED'; // Blue
+                  case 'completed':
+                    return '#48BB78'; // Green
+                  case 'overdue':
+                    return '#F56565'; // Red
+                  default:
+                    return '#CBD5E0';
+                }
+              };
+              
+              return (
+                <div
+                  key={task.id}
+                  className="bg-white rounded-xl sm:rounded-2xl border border-gray-200 cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-lg w-full"
+                  style={{
+                    minHeight: '140px',
+                    boxShadow: '0 4px 10px rgba(0,0,0,0.05)'
+                  }}
+                  onClick={() => handleTaskClick(task)}
+                >
+                  <div className="p-3 sm:p-4 space-y-1.5 sm:space-y-2">
+                    {/* Header: Avatar + Title + Menu */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <div 
+                          className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-xs flex-shrink-0"
+                          title={`Project: ${task.project || 'No Project'}`}
+                        >
                           {(task.project || 'T').charAt(0).toUpperCase()}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-medium text-gray-900 text-xs sm:text-sm leading-tight truncate whitespace-nowrap">{task.title || 'Untitled Task'}</h4>
-                          <p className="text-xs text-gray-600 mt-1 hidden sm:block truncate whitespace-nowrap overflow-hidden">{task.description || 'No description'}</p>
-                        </div>
-                      </div>
-                      <div className="ml-2 -mr-1 flex-shrink-0 self-start relative">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="p-0.5 h-10 w-10"
-                          title="More options"
-                          onClick={(e) => { e.stopPropagation(); setOpenDropdown(openDropdown === task.id ? null : task.id); }}
+                        <h4 
+                          className="font-medium text-gray-900 text-sm leading-tight truncate flex-1"
+                          title={`Task Title: ${task.title || 'Untitled Task'}`}
                         >
-                          <MoreVertical className="w-5 h-5" />
-                        </Button>
+                          {task.title || 'Untitled Task'}
+                        </h4>
+                      </div>
+                      <div className="relative flex-shrink-0">
+                        <button 
+                          className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="More options"
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            setOpenDropdown(openDropdown === task.id ? null : task.id); 
+                          }}
+                        >
+                          <MoreVertical className="w-4 h-4 text-gray-500" />
+                        </button>
                         {openDropdown === task.id && (
                           <div 
                             data-dropdown-menu
-                            className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-lg z-30" 
-                            onClick={(e)=>e.stopPropagation()}
+                            className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-30" 
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <button 
-                              className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-t-xl flex items-center gap-2 text-sm" 
-                              onClick={(e)=>{e.stopPropagation(); handleTaskClick(task); setOpenDropdown(null);}}
+                              className="w-full text-left px-4 py-2.5 hover:bg-gray-50 rounded-t-lg flex items-center gap-2 text-sm font-normal text-gray-800" 
+                              onClick={(e) => {e.stopPropagation(); handleTaskClick(task); setOpenDropdown(null);}}
                             >
                               <Eye className="w-4 h-4" />
                               <span>View</span>
                             </button>
                             <UpdateButton
                               resource="tasks"
-                              onClick={(e)=>{e?.stopPropagation(); handleEditTask(task); setOpenDropdown(null);}}
-                              className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm"
+                              onClick={(e) => {e?.stopPropagation(); handleEditTask(task); setOpenDropdown(null);}}
+                              className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center gap-2 text-sm font-normal text-gray-800"
                             >
                               <Edit className="w-4 h-4" />
                               <span>Edit</span>
                             </UpdateButton>
                             <DeleteButton
                               resource="tasks"
-                              onClick={(e)=>{e?.stopPropagation(); handleDeleteTask(task); setOpenDropdown(null);}}
-                              className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-b-xl flex items-center gap-2 text-sm text-red-600"
+                              onClick={(e) => {e?.stopPropagation(); handleDeleteTask(task); setOpenDropdown(null);}}
+                              className="w-full text-left px-4 py-2.5 hover:bg-gray-50 rounded-b-lg flex items-center gap-2 text-sm font-normal text-red-600"
                             >
                               <Trash2 className="w-4 h-4" />
                               <span>Delete</span>
@@ -4430,76 +4577,138 @@ const TasksPage = () => {
                         )}
                       </div>
                     </div>
-                    
-                    {/* Status and Priority Chips - show on same line */}
-                    <div className="flex flex-row items-center justify-between gap-1 sm:gap-2 lg:gap-1.5">
-                      <Badge variant={getStatusConfig(task.status).color as any} size="sm" className="text-[11px]">
-                        {getStatusConfig(task.status).label}
-                      </Badge>
-                      <div className="block">
-                        <Badge variant={getPriorityConfig(task.priority).color as any} size="sm" className="text-[11px]">
+
+                    {/* Tags or Priority Chip */}
+                    {tagsArray.length > 0 ? (
+                      <div className="flex items-center flex-wrap gap-1.5">
+                        {/* Tags label - mobile only */}
+                        <span className="text-xs text-gray-800 font-semibold sm:hidden">Tags:</span>
+                        
+                        {/* Mobile: Show only 1 tag */}
+                        <div className="sm:hidden flex items-center gap-1.5">
+                          <div className="tooltip-wrapper">
+                            <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-md text-xs font-medium inline-block max-w-[55px] truncate">
+                              {tagsArray[0].trim()}
+                            </span>
+                            <div className="tooltip-content">Tag: {tagsArray[0].trim()}</div>
+                          </div>
+                          {tagsArray.length > 1 && (
+                            <div className="tooltip-wrapper">
+                              <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-md text-xs">
+                                +{tagsArray.length - 1}
+                              </span>
+                              <div className="tooltip-content">
+                                {tagsArray.length - 1} more tags: {tagsArray.slice(1).map(t => t.trim()).join(', ')}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Desktop: Show 2 tags */}
+                        <div className="hidden sm:flex items-center gap-1.5">
+                          {tagsArray.slice(0, 2).map((tag, i) => (
+                            <div key={i} className="tooltip-wrapper">
+                              <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-md text-xs font-medium">
+                                {tag.trim()}
+                              </span>
+                              <div className="tooltip-content">Tag: {tag.trim()}</div>
+                            </div>
+                          ))}
+                          {tagsArray.length > 2 && (
+                            <div className="tooltip-wrapper">
+                              <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-md text-xs">
+                                +{tagsArray.length - 2}
+                              </span>
+                              <div className="tooltip-content">
+                                {tagsArray.length - 2} more tags: {tagsArray.slice(2).map(t => t.trim()).join(', ')}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <Badge variant={getPriorityConfig(task.priority).color as any} size="sm" className="text-xs">
                           {getPriorityConfig(task.priority).label}
                         </Badge>
                       </div>
-                    </div>
-                    
-                    {/* Progress from subtasks completion (like project section) */}
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-xs lg:text-[11px] text-gray-600">
-                        <span>Progress</span>
-                        <span className="font-medium">{getTaskProgressPercent(task, tasks)}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="h-2 bg-blue-500 rounded-full transition-all"
-                          style={{ width: `${getTaskProgressPercent(task, tasks)}%` }}
-                        ></div>
-                      </div>
-                      <div className="text-xs lg:text-[11px] text-gray-500">
-                        {(() => { 
-                          const c = getTaskProgressCounts(task, tasks); 
-                          const subtasksArr = getSubtasksArray(task.subtasks, tasks);
-                          if (subtasksArr.length > 0) {
-                            return `${c.completed}/${c.total} subtasks`;
-                          } else {
-                            return `${task.estimatedHours || 0}h • ${(() => {
-                              try {
-                                const commentsArray = JSON.parse(task.comments);
-                                return Array.isArray(commentsArray) ? commentsArray.length : parseInt(task.comments) || 0;
-                              } catch (e) {
-                                return parseInt(task.comments) || 0;
-                              }
-                            })()} comments`;
-                          }
-                        })()}
-                      </div>
-                    </div>
-                    
-                    {/* Timeline: Start → Due date like projects */}
-                    {(task.startDate || task.dueDate) && (
-                      <div className="flex items-center space-x-2 text-xs lg:text-[11px] text-gray-600 min-w-0">
-                        <Calendar size={8} className="sm:w-3 sm:h-3" />
-                        {task.startDate && task.dueDate ? (
-                          <>
-                            <span className="text-xs whitespace-nowrap overflow-hidden text-ellipsis">
-                              {formatShort(task.startDate)}
-                            </span>
-                            <span className="mx-1">→</span>
-                            <span className={`text-xs whitespace-nowrap overflow-hidden text-ellipsis ${isOverdue(task.dueDate) ? 'text-red-600 font-medium' : ''}`}>
-                              {formatWithYear(task.dueDate)}
-                            </span>
-                          </>
-                        ) : (
-                          <span className={`text-xs whitespace-nowrap overflow-hidden text-ellipsis ${task.dueDate && isOverdue(task.dueDate) ? 'text-red-600 font-medium' : ''}`}>
-                            {formatWithYear(task.dueDate || task.startDate)}
-                          </span>
-                        )}
-                      </div>
                     )}
+
+                    {/* Divider */}
+                    <div className="border-t border-gray-100"></div>
+
+                    {/* Status and Priority Row */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="tooltip-wrapper">
+                        <div className="flex items-center gap-1.5">
+                          <span className="hidden sm:inline text-xs text-gray-800 font-semibold">Status:</span>
+                          <Badge variant={getStatusConfig(task.status).color as any} size="sm" className="text-xs">
+                            {getStatusConfig(task.status).label}
+                          </Badge>
+                        </div>
+                        <div className="tooltip-content">Current Status: {getStatusConfig(task.status).label}</div>
+                      </div>
+                      <div className="tooltip-wrapper">
+                        <div className="flex items-center gap-1.5">
+                          <span className="hidden sm:inline text-xs text-gray-800 font-semibold">Priority:</span>
+                          <Badge variant={getPriorityConfig(task.priority).color as any} size="sm" className="text-xs">
+                            {task.priority === 'High' && '🔥'} {getPriorityConfig(task.priority).label}
+                          </Badge>
+                        </div>
+                        <div className="tooltip-content">Priority Level: {getPriorityConfig(task.priority).label}</div>
+                      </div>
+                    </div>
+
+                    {/* Bottom Meta Info */}
+                    <div className="flex items-center justify-between text-xs text-gray-600">
+                      <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                        {/* Project - Always visible */}
+                        <div className="tooltip-wrapper">
+                          <div className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-md font-medium">
+                            {task.project}
+                          </div>
+                          <div className="tooltip-content">Project: {task.project}</div>
+                        </div>
+                        
+                        {/* Time - Desktop only (hidden on mobile) */}
+                        <div className="tooltip-wrapper !hidden sm:!inline-flex">
+                          <div className="flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>{task.estimatedHours || 0}h</span>
+                          </div>
+                          <div className="tooltip-content">Estimated Time: {task.estimatedHours || 0} hours</div>
+                        </div>
+                        
+                        {/* Comments - Desktop only (hidden on mobile) */}
+                        <div className="tooltip-wrapper !hidden sm:!inline-flex">
+                          <div className="flex items-center gap-1">
+                            <MessageSquare className="w-3.5 h-3.5" />
+                            <span>{commentsCount}</span>
+                          </div>
+                          <div className="tooltip-content">Comments: {commentsCount}</div>
+                        </div>
+                      </div>
+                      
+                      {/* Due Date - Always visible */}
+                      {task.dueDate && (
+                        <div className="tooltip-wrapper flex-shrink-0">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="w-3.5 h-3.5" />
+                            <span className={isOverdue(task.dueDate) ? 'text-red-600 font-medium' : ''}>
+                              {formatShort(task.dueDate)}
+                            </span>
+                          </div>
+                          <div className="tooltip-content">
+                            Due Date: {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                            {isOverdue(task.dueDate) ? ' (OVERDUE)' : ''}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
+                </div>
+              );
+            })}
           </div>
         ) : null}
 
@@ -4585,7 +4794,7 @@ const TasksPage = () => {
           >
             <div 
               data-task-preview-content
-              className="bg-white dark:bg-gray-800 rounded-t-2xl lg:rounded-2xl shadow-2xl overflow-y-auto scrollbar-hide w-full pb-20 sm:pb-6"
+              className="bg-white dark:bg-gray-800 rounded-t-2xl lg:rounded-2xl shadow-2xl overflow-y-auto scrollbar-hide w-full pb-20 sm:pb-4"
               style={{ 
                 height: `${formHeight}vh`,
                 boxShadow: '0 -10px 35px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
@@ -4599,21 +4808,12 @@ const TasksPage = () => {
                 <div className="w-12 h-1 bg-gray-400 dark:bg-gray-500 rounded-full"></div>
               </div>
               
-              <div className="p-4 sm:p-6 lg:p-4">
+              <div className="p-3 sm:p-4 lg:p-3">
                 {/* Task Preview Header */}
-                <div className="flex items-center justify-between gap-2 mb-4 sm:mb-6 lg:mb-4">
+                <div className="flex items-center gap-2 mb-3 lg:mb-3">
                   <div className="flex items-center space-x-3 min-w-0 flex-1">
-                    {/* Back Button (always visible) */}
-                    <button
-                      onClick={handleBack}
-                      className="w-10 h-10 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg flex items-center justify-center transition-colors group"
-                      title="Go back"
-                    >
-                      <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-300 group-hover:text-gray-800 dark:group-hover:text-white" />
-                    </button>
-                    
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
-                      <CheckSquare className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 lg:w-8 lg:h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                      <CheckSquare className="w-5 h-5 sm:w-6 sm:h-6 lg:w-4 lg:h-4 text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <h2 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white truncate">{selectedTask.title}</h2>
@@ -4622,133 +4822,112 @@ const TasksPage = () => {
                       </p>
                     </div>
                   </div>
-                  <div className="flex-shrink-0">
-                    <UpdateButton resource="tasks">
-                      <button
-                        onClick={() => handleEditTask(selectedTask)}
-                        className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-xl flex items-center justify-center shadow-lg transition-all group"
-                        title="Edit Task"
-                      >
-                        <Edit className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                      </button>
-                    </UpdateButton>
-                  </div>
                 </div>
 
-                {/* Task Details */}
-                <div className="space-y-4 sm:space-y-5 lg:space-y-4">
-                  {/* Basic Info */}
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 sm:p-5 lg:p-4 shadow-sm">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 lg:gap-4">
-                      <div className="sm:col-span-2">
-                        <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Description</label>
-                        <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base break-words">{selectedTask.description}</p>
+                {/* Task Details - Consolidated Card */}
+                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-3 lg:p-4 shadow-sm">
+                  {/* All fields in a single card with compact grid layout */}
+                  <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 lg:gap-2">
+                    
+                    {/* Description - Full width */}
+                    <div className="col-span-2 lg:col-span-6 lg:mb-4">
+                      <label className="block text-xs font-semibold text-gray-800 dark:text-gray-200 mb-1.5">Description</label>
+                      <p className="text-gray-600 dark:text-gray-300 text-sm break-words">{selectedTask.description}</p>
+                    </div>
+
+                    {/* All 6 fields in one row on desktop */}
+                    {/* Project */}
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-800 dark:text-gray-200 mb-1.5">Project</label>
+                      <Badge variant="default" size="md" className="text-sm px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                        {selectedTask.project}
+                      </Badge>
+                    </div>
+
+                    {/* Status */}
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-800 dark:text-gray-200 mb-1.5">Status</label>
+                      <Badge variant={getStatusConfig(selectedTask.status).color as any} size="md" className="text-sm px-3 py-1.5">
+                        {getStatusConfig(selectedTask.status).label}
+                      </Badge>
+                    </div>
+
+                    {/* Priority */}
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-800 dark:text-gray-200 mb-1.5">Priority</label>
+                      <Badge variant={getPriorityConfig(selectedTask.priority).color as any} size="md" className="text-sm px-3 py-1.5">
+                        {getPriorityConfig(selectedTask.priority).label}
+                      </Badge>
+                    </div>
+
+                    {/* Estimated Time */}
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-800 dark:text-gray-200 mb-1.5">Estimated Time</label>
+                      <p className="text-gray-600 dark:text-gray-300 text-sm py-1.5">{selectedTask.estimatedHours} hours</p>
+                    </div>
+
+                    {/* Start Date */}
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-800 dark:text-gray-200 mb-1.5">Start Date</label>
+                      <p className="text-gray-600 dark:text-gray-300 text-sm py-1.5">{new Date(selectedTask.startDate).toLocaleDateString()}</p>
+                    </div>
+
+                    {/* Due Date */}
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-800 dark:text-gray-200 mb-1.5">Due Date</label>
+                      <p className={`text-sm py-1.5 ${isOverdue(selectedTask.dueDate) ? 'text-red-600 dark:text-red-400 font-medium' : 'text-gray-600 dark:text-gray-300'}`}>
+                        {new Date(selectedTask.dueDate).toLocaleDateString()}
+                      </p>
+                    </div>
+
+                    {/* Tags Card - Full width */}
+                    <div className="col-span-2 lg:col-span-6 pt-3">
+                      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 shadow-sm">
+                        <label className="block text-xs font-semibold text-gray-800 dark:text-gray-200 mb-1.5">Tags</label>
+                        <div className="flex flex-wrap gap-1.5">
+                          {(selectedTask.tags || '').split(',').map((tag, index) => (
+                            <span key={index} className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs rounded-full">
+                              {tag.trim()}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Project and Status */}
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 sm:p-5 lg:p-4 shadow-sm">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-5 lg:gap-4">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Project</label>
-                        <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">{selectedTask.project}</p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Status</label>
-                        <Badge variant={getStatusConfig(selectedTask.status).color as any} size="md" className="text-xs sm:text-sm">
-                          {getStatusIcon(selectedTask.status)}
-                          <span className="ml-2">{getStatusConfig(selectedTask.status).label}</span>
-                        </Badge>
-                      </div>
-                      <div className="hidden sm:block">
-                        <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Priority</label>
-                        <Badge variant={getPriorityConfig(selectedTask.priority).color as any} size="md" className="text-xs sm:text-sm">
-                          {getPriorityIcon(selectedTask.priority)}
-                          <span className="ml-2">{getPriorityConfig(selectedTask.priority).label}</span>
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Priority and Estimated Time (Mobile) */}
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 sm:p-5 lg:p-4 shadow-sm sm:hidden">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Priority</label>
-                        <Badge variant={getPriorityConfig(selectedTask.priority).color as any} size="md" className="text-xs sm:text-sm">
-                          {getPriorityIcon(selectedTask.priority)}
-                          <span className="ml-2">{getPriorityConfig(selectedTask.priority).label}</span>
-                        </Badge>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Estimated Time</label>
-                        <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">{selectedTask.estimatedHours} hours</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Dates and Time */}
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 sm:p-5 lg:p-4 shadow-sm">
-                    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-4">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Start Date</label>
-                        <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">{new Date(selectedTask.startDate).toLocaleDateString()}</p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Due Date</label>
-                        <p className={`text-sm sm:text-base ${isOverdue(selectedTask.dueDate) ? 'text-red-600 dark:text-red-400 font-medium' : 'text-gray-600 dark:text-gray-300'}`}>
-                          {new Date(selectedTask.dueDate).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="hidden sm:block sm:col-span-2 lg:col-span-1">
-                        <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Estimated Time</label>
-                        <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">{selectedTask.estimatedHours} hours</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Assignment */}
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 sm:p-5 lg:p-4 shadow-sm">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 lg:gap-4">
-                      {/* Assigned Users */}
-                      <div>
-                        <div className="flex items-center justify-between mb-4">
-                          <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200">
+                    {/* Assigned Users and Teams Row */}
+                    <div className="col-span-2 lg:col-span-6 pt-1">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4">
+                        {/* Assigned Users Card */}
+                        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 shadow-sm">
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="block text-xs font-semibold text-gray-800 dark:text-gray-200">
                             Assigned Users ({(selectedTask.assignedUsers && selectedTask.assignedUsers.length > 0) ? selectedTask.assignedUsers.length : 0})
                             {pendingUsers.length > 0 && (
                               <span className="text-green-600 dark:text-green-400 ml-1">+{pendingUsers.length}</span>
                             )}
                           </label>
-                          <div className="flex items-center space-x-2">
-                            {(pendingUsers.length > 0 || pendingTeams.length > 0) && (
+                          <div className="flex items-center space-x-1">
+                            {pendingUsers.length > 0 && (
                               <>
                                 <Button
                                   variant="outline"
                                   size="sm"
                                   onClick={handleCancelChanges}
-                                  className="flex items-center space-x-1"
+                                  className="flex items-center space-x-1 text-xs px-2 py-1 h-7"
                                 >
-                                  <X className="w-4 h-4" />
-                                  <span>Cancel</span>
+                                  <X className="w-3 h-3" />
                                 </Button>
                                 <Button
                                   variant="primary"
                                   size="sm"
                                   onClick={handleSaveChanges}
                                   disabled={isSaving}
-                                  className="flex items-center space-x-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400"
+                                  className="flex items-center space-x-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-xs px-2 py-1 h-7"
                                 >
                                   {isSaving ? (
-                                    <>
-                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                      <span>Saving...</span>
-                                    </>
+                                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
                                   ) : (
-                                    <>
-                                      <CheckCircle className="w-4 h-4" />
-                                      <span>Save</span>
-                                    </>
+                                    <CheckCircle className="w-3 h-3" />
                                   )}
                                 </Button>
                               </>
@@ -4758,18 +4937,12 @@ const TasksPage = () => {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setIsAddingUser(!isAddingUser)}
-                                className="flex items-center space-x-1"
+                                className="flex items-center space-x-1 text-xs px-2 py-1 h-7"
                               >
                                 {isAddingUser ? (
-                                  <>
-                                    <X className="w-4 h-4" />
-                                    <span>Close</span>
-                                  </>
+                                  <X className="w-3 h-3" />
                                 ) : (
-                                  <>
-                                    <Plus className="w-4 h-4" />
-                                    <span>Add User</span>
-                                  </>
+                                  <Plus className="w-3 h-3" />
                                 )}
                               </Button>
                             </UpdateButton>
@@ -4777,22 +4950,22 @@ const TasksPage = () => {
                         </div>
 
                         {isAddingUser && (
-                          <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800" data-user-selection>
-                            <div className="mb-3">
+                          <div className="mb-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800" data-user-selection>
+                            <div className="mb-2">
                               <input
                                 type="text"
                                 placeholder="Search users..."
                                 value={userSearch}
                                 onChange={(e) => setUserSearch(e.target.value)}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                               />
                             </div>
-                            <div className="max-h-32 overflow-y-auto space-y-1">
+                            <div className="max-h-24 overflow-y-auto space-y-1">
                               {isLoadingUsers ? (
-                                <div className="flex items-center justify-center py-4">
-                                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                                  <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">Loading users...</span>
+                                <div className="flex items-center justify-center py-2">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                  <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">Loading...</span>
                                 </div>
                               ) : (
                                 <>
@@ -4804,10 +4977,10 @@ const TasksPage = () => {
                                     .map((user: any) => {
                                       const userName = user.name || user.username || user.email;
                                       return (
-                                        <div key={user.id || user.userId} className="flex items-center justify-between px-3 py-2 hover:bg-blue-100 dark:hover:bg-blue-800/30 rounded-lg transition-colors">
-                                          <div className="flex items-center space-x-2 flex-1">
+                                        <div key={user.id || user.userId} className="flex items-center justify-between px-2 py-1.5 hover:bg-blue-100 dark:hover:bg-blue-800/30 rounded-lg transition-colors">
+                                          <div className="flex items-center space-x-1.5 flex-1">
                                             <Avatar name={userName} size="sm" />
-                                            <span className="text-sm text-gray-700 dark:text-gray-300">{userName}</span>
+                                            <span className="text-xs text-gray-700 dark:text-gray-300 truncate">{userName}</span>
                                           </div>
                                           <button
                                             onClick={(e) => {
@@ -4815,7 +4988,7 @@ const TasksPage = () => {
                                               handleAddUserToPending(user.id || user.userId);
                                             }}
                                             disabled={pendingUsers.includes(user.id || user.userId)}
-                                            className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-md transition-colors"
+                                            className="px-2 py-0.5 text-xs bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-md transition-colors"
                                           >
                                             {pendingUsers.includes(user.id || user.userId) ? 'Added' : 'Add'}
                                           </button>
@@ -4826,7 +4999,7 @@ const TasksPage = () => {
                                     const userName = user.name || user.username || user.email;
                                     return userName && userName.toLowerCase().includes(userSearch.toLowerCase());
                                   }).length === 0 && (
-                                    <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-2">
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-2">
                                       {userSearch ? 'No users found' : 'No available users'}
                                     </p>
                                   )}
@@ -4836,53 +5009,53 @@ const TasksPage = () => {
                           </div>
                         )}
 
-                        <div className="space-y-3">
+                        <div className="space-y-2">
                           {/* Current Assigned Users */}
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-wrap gap-1.5">
                             {(selectedTask.assignedUsers && selectedTask.assignedUsers.length > 0) ? (
                               selectedTask.assignedUsers.map((userId, index) => {
                                 const user = allUsers.find(u => (u.id || u.userId) === userId);
                                 return (
-                                  <div key={`assigned-user-${index}`} className="flex items-center space-x-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 px-3 py-1.5 rounded-full text-sm">
+                                  <div key={`assigned-user-${index}`} className="flex items-center space-x-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 px-2 py-1 rounded-full text-xs">
                                     <Avatar name={user?.name || user?.username || user?.email || userId} size="sm" />
-                                    <span>{user?.name || user?.username || user?.email || userId}</span>
+                                    <span className="truncate max-w-[100px]">{user?.name || user?.username || user?.email || userId}</span>
                                     <UpdateButton resource="tasks">
                                       <button
                                         onClick={() => handleRemoveUserClick(userId)}
-                                        className="ml-1 p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                                        className="p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
                                         title="Remove user"
                                       >
-                                        <X className="w-3 h-3 text-red-600 dark:text-red-400" />
+                                        <X className="w-2.5 h-2.5 text-red-600 dark:text-red-400" />
                                       </button>
                                     </UpdateButton>
                                   </div>
                                 );
                               })
                             ) : (
-                              <div className="flex items-center space-x-3 bg-gray-50 dark:bg-gray-700 rounded-lg px-3 py-2">
-                                <span className="text-gray-600 dark:text-gray-300">No users assigned</span>
+                              <div className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 rounded-lg px-2 py-1">
+                                No users assigned
                               </div>
                             )}
-                      </div>
+                          </div>
 
                           {/* Pending Users */}
                           {pendingUsers.length > 0 && (
-                      <div>
-                              <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Pending additions:</p>
-                              <div className="flex flex-wrap gap-2">
+                            <div>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Pending:</p>
+                              <div className="flex flex-wrap gap-1.5">
                                 {pendingUsers.map((userId, index) => {
                                   const user = allUsers.find(u => (u.id || u.userId) === userId);
                                   const userName = user?.name || user?.username || user?.email || userId;
                                   return (
-                                    <div key={`pending-user-${index}`} className="flex items-center space-x-2 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-3 py-1.5 rounded-full text-sm">
+                                    <div key={`pending-user-${index}`} className="flex items-center space-x-1.5 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-2 py-1 rounded-full text-xs">
                                       <Avatar name={userName} size="sm" />
-                                      <span>{userName}</span>
+                                      <span className="truncate max-w-[100px]">{userName}</span>
                                       <button
                                         onClick={() => handleRemoveUserFromPending(userId)}
-                                        className="ml-1 p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                                        className="p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
                                         title="Remove from pending"
                                       >
-                                        <X className="w-3 h-3 text-red-600 dark:text-red-400" />
+                                        <X className="w-2.5 h-2.5 text-red-600 dark:text-red-400" />
                                       </button>
                                     </div>
                                   );
@@ -4890,64 +5063,88 @@ const TasksPage = () => {
                               </div>
                             </div>
                           )}
-                    </div>
-                  </div>
+                        </div>
+                      </div>
 
-                      {/* Assigned Teams */}
-                      <div>
-                        <div className="flex items-center justify-between mb-4">
-                          <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200">
+                      {/* Assigned Teams Card */}
+                      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 shadow-sm">
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="block text-xs font-semibold text-gray-800 dark:text-gray-200">
                             Assigned Teams ({(selectedTask.assignedTeams && selectedTask.assignedTeams.length > 0) ? selectedTask.assignedTeams.length : 0})
+                            {pendingTeams.length > 0 && (
+                              <span className="text-green-600 dark:text-green-400 ml-1">+{pendingTeams.length}</span>
+                            )}
                           </label>
-                          <UpdateButton resource="tasks">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setIsAddingTeam(!isAddingTeam)}
-                              className="flex items-center space-x-1"
-                            >
-                              {isAddingTeam ? (
-                                <>
-                                  <X className="w-4 h-4" />
-                                  <span>Cancel</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Plus className="w-4 h-4" />
-                                  <span>Add Team</span>
-                                </>
-                              )}
-                            </Button>
-                          </UpdateButton>
+                          <div className="flex items-center space-x-1">
+                            {pendingTeams.length > 0 && (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={handleCancelChanges}
+                                  className="flex items-center space-x-1 text-xs px-2 py-1 h-7"
+                                >
+                                  <X className="w-3 h-3" />
+                                </Button>
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  onClick={handleSaveChanges}
+                                  disabled={isSaving}
+                                  className="flex items-center space-x-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-xs px-2 py-1 h-7"
+                                >
+                                  {isSaving ? (
+                                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                                  ) : (
+                                    <CheckCircle className="w-3 h-3" />
+                                  )}
+                                </Button>
+                              </>
+                            )}
+                            <UpdateButton resource="tasks">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setIsAddingTeam(!isAddingTeam)}
+                                className="flex items-center space-x-1 text-xs px-2 py-1 h-7"
+                              >
+                                {isAddingTeam ? (
+                                  <X className="w-3 h-3" />
+                                ) : (
+                                  <Plus className="w-3 h-3" />
+                                )}
+                              </Button>
+                            </UpdateButton>
+                          </div>
                         </div>
 
                         {isAddingTeam && (
-                          <div className="mb-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800" data-team-selection>
-                            <div className="mb-3">
+                          <div className="mb-2 p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800" data-team-selection>
+                            <div className="mb-2">
                               <input
                                 type="text"
                                 placeholder="Search teams..."
                                 value={teamSearch}
                                 onChange={(e) => setTeamSearch(e.target.value)}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                className="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                               />
                             </div>
-                            <div className="max-h-32 overflow-y-auto space-y-1">
+                            <div className="max-h-24 overflow-y-auto space-y-1">
                               {isLoadingTeams ? (
-                                <div className="flex items-center justify-center py-4">
-                                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
-                                  <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">Loading teams...</span>
+                                <div className="flex items-center justify-center py-2">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+                                  <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">Loading...</span>
                                 </div>
                               ) : (
                                 <>
                                   {getAvailableTeams()
                                     .filter((team: any) => team.name && team.name.toLowerCase().includes(teamSearch.toLowerCase()))
                                     .map((team: any) => (
-                                      <div key={team.id} className="flex items-center justify-between px-3 py-2 hover:bg-purple-100 dark:hover:bg-purple-800/30 rounded-lg transition-colors">
-                                        <div className="flex items-center space-x-2 flex-1">
-                                          <Users className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                                          <span className="text-sm text-gray-700 dark:text-gray-300">{team.name}</span>
+                                      <div key={team.id} className="flex items-center justify-between px-2 py-1.5 hover:bg-purple-100 dark:hover:bg-purple-800/30 rounded-lg transition-colors">
+                                        <div className="flex items-center space-x-1.5 flex-1">
+                                          <Users className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+                                          <span className="text-xs text-gray-700 dark:text-gray-300 truncate">{team.name}</span>
                                         </div>
                                         <button
                                           onClick={(e) => {
@@ -4955,14 +5152,14 @@ const TasksPage = () => {
                                             handleAddTeamToPending(team.id);
                                           }}
                                           disabled={pendingTeams.includes(team.id)}
-                                          className="px-3 py-1 text-xs bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-md transition-colors"
+                                          className="px-2 py-0.5 text-xs bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-md transition-colors"
                                         >
                                           {pendingTeams.includes(team.id) ? 'Added' : 'Add'}
                                         </button>
                                       </div>
                                     ))}
                                   {getAvailableTeams().filter((team: any) => team.name && team.name.toLowerCase().includes(teamSearch.toLowerCase())).length === 0 && (
-                                    <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-2">
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-2">
                                       {teamSearch ? 'No teams found' : 'No available teams'}
                                     </p>
                                   )}
@@ -4972,48 +5169,260 @@ const TasksPage = () => {
                           </div>
                         )}
 
-                        <div className="space-y-3">
+                        <div className="space-y-2">
                           {/* Current Assigned Teams */}
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-wrap gap-1.5">
                             {(selectedTask.assignedTeams && selectedTask.assignedTeams.length > 0) ? (
                               selectedTask.assignedTeams.map((teamId, index) => {
                                 const team = allTeams.find(t => t.id === teamId);
                                 return (
-                                  <div key={`assigned-team-${index}`} className="flex items-center space-x-2 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 px-3 py-1.5 rounded-full text-sm">
-                                    <Users className="w-3 h-3" />
-                                    <span>{team?.name || teamId}</span>
+                                  <div key={`assigned-team-${index}`} className="flex items-center space-x-1.5 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 px-2 py-1 rounded-full text-xs">
+                                    <Users className="w-2.5 h-2.5" />
+                                    <span className="truncate max-w-[100px]">{team?.name || teamId}</span>
                                     <UpdateButton resource="tasks">
                                       <button
                                         onClick={() => handleRemoveTeam(teamId)}
-                                        className="ml-1 p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                                        className="p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
                                         title="Remove team"
                                       >
-                                        <X className="w-3 h-3 text-red-600 dark:text-red-400" />
+                                        <X className="w-2.5 h-2.5 text-red-600 dark:text-red-400" />
                                       </button>
                                     </UpdateButton>
                                   </div>
                                 );
                               })
                             ) : (
-                              <p className="text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 rounded-lg px-3 py-2">Not assigned</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 rounded-lg px-2 py-1">Not assigned</p>
                             )}
                           </div>
 
                           {/* Pending Teams */}
                           {pendingTeams.length > 0 && (
                             <div>
-                              <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Pending additions:</p>
-                              <div className="flex flex-wrap gap-2">
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Pending:</p>
+                              <div className="flex flex-wrap gap-1.5">
                                 {pendingTeams.map((teamId, index) => {
                                   const team = allTeams.find(t => t.id === teamId);
                                   const teamName = team?.name || teamId;
                                   return (
-                                    <div key={`pending-team-${index}`} className="flex items-center space-x-2 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-3 py-1.5 rounded-full text-sm">
-                                      <Users className="w-3 h-3" />
-                                      <span>{teamName}</span>
+                                    <div key={`pending-team-${index}`} className="flex items-center space-x-1.5 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-2 py-1 rounded-full text-xs">
+                                      <Users className="w-2.5 h-2.5" />
+                                      <span className="truncate max-w-[100px]">{teamName}</span>
                                       <button
                                         onClick={() => handleRemoveTeamFromPending(teamId)}
-                                        className="ml-1 p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                                        className="p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                                        title="Remove from pending"
+                                      >
+                                        <X className="w-2.5 h-2.5 text-red-600 dark:text-red-400" />
+                                      </button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Subtasks Row - Full width */}
+                    <div className="col-span-2 lg:col-span-6 pt-3">
+                      {/* Subtasks Card */}
+                      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 shadow-sm">
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="block text-xs font-semibold text-gray-800 dark:text-gray-200">
+                              Subtasks ({getCurrentSubtasks().length})
+                              {pendingSubtasks.length > 0 && (
+                                <span className="text-green-600 dark:text-green-400 ml-1">+{pendingSubtasks.length}</span>
+                              )}
+                            </label>
+                            <div className="flex items-center space-x-1">
+                              {pendingSubtasks.length > 0 && (
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleCancelChanges}
+                                    className="flex items-center space-x-1 text-xs px-2 py-1 h-7"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </Button>
+                                  <Button
+                                    variant="primary"
+                                    size="sm"
+                                    onClick={handleSaveChanges}
+                                    disabled={isSaving}
+                                    className="flex items-center space-x-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-xs px-2 py-1 h-7"
+                                  >
+                                    {isSaving ? (
+                                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                                    ) : (
+                                      <CheckCircle className="w-3 h-3" />
+                                    )}
+                                  </Button>
+                                </>
+                              )}
+                              <UpdateButton resource="tasks">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setIsAddingSubtask(!isAddingSubtask)}
+                                  className="flex items-center space-x-1 text-xs px-2 py-1 h-7"
+                                >
+                                  {isAddingSubtask ? (
+                                    <X className="w-3 h-3" />
+                                  ) : (
+                                    <Plus className="w-3 h-3" />
+                                  )}
+                                </Button>
+                              </UpdateButton>
+                            </div>
+                          </div>
+
+                          {/* Add Subtask Section */}
+                          {isAddingSubtask && (
+                            <div className="mb-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                              {/* Create New Subtask Button */}
+                              <div className="mb-2">
+                                <Button
+                                  onClick={() => {
+                                    console.log('🔄 Creating new subtask - opening form');
+                                    setIsAddingSubtask(false);
+                                    handleCreateSubtask();
+                                    console.log('✅ Form should be open now');
+                                  }}
+                                  className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white border-0 text-xs py-1.5 h-auto"
+                                >
+                                  <Plus className="w-3 h-3 mr-1.5" />
+                                  Create New Subtask
+                                </Button>
+                              </div>
+
+                              <div className="flex items-center space-x-1.5 mb-2">
+                                <Search className="w-3 h-3 text-gray-400" />
+                                <input
+                                  type="text"
+                                  value={subtaskSearch}
+                                  onChange={(e) => setSubtaskSearch(e.target.value)}
+                                  placeholder="Search tasks..."
+                                  className="flex-1 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                                />
+                              </div>
+                              
+                              <div className="max-h-32 overflow-y-auto space-y-1">
+                                {getAvailableSubtasks().length === 0 ? (
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-2">
+                                    {subtaskSearch ? 'No tasks found' : 'No available tasks to add'}
+                                  </p>
+                                ) : (
+                                  getAvailableSubtasks().slice(0, 10).map((task) => (
+                                    <div
+                                      key={task.id}
+                                      className="flex items-center justify-between p-2 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 transition-all"
+                                    >
+                                      <div className="flex-1 min-w-0">
+                                        <h4 className="text-xs font-medium text-gray-900 dark:text-white truncate">
+                                          {task.title}
+                                        </h4>
+                                        <div className="flex items-center space-x-1.5 mt-0.5">
+                                          <Badge variant={getStatusConfig(task.status).color as any} size="sm" className="text-[10px] px-1.5 py-0">
+                                            {task.status}
+                                          </Badge>
+                                          <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{task.project}</span>
+                                        </div>
+                                      </div>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleAddSubtaskToPending(task.id);
+                                        }}
+                                        disabled={pendingSubtasks.includes(task.id)}
+                                        className="px-2 py-0.5 text-xs bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-md transition-colors"
+                                      >
+                                        {pendingSubtasks.includes(task.id) ? 'Added' : 'Add'}
+                                      </button>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Current Subtasks */}
+                          <div className="space-y-1.5 mt-2">
+                            {getCurrentSubtasks().length === 0 ? (
+                              <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-2">
+                                No subtasks added yet
+                              </p>
+                            ) : (
+                              getCurrentSubtasks().map((subtask) => (
+                                <div
+                                  key={subtask.id}
+                                  className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all cursor-pointer group"
+                                  onClick={() => handleTaskClick(subtask)}
+                                >
+                                  <div className="flex items-center space-x-2 flex-1 min-w-0">
+                                    <div className="flex items-center space-x-1.5">
+                                      <Link className="w-3 h-3 text-gray-400 group-hover:text-blue-500 flex-shrink-0" />
+                                      <Eye className="w-2.5 h-2.5 text-gray-300 group-hover:text-blue-400" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <h4 className="text-xs font-medium text-gray-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                                        {subtask.title}
+                                      </h4>
+                                      <div className="flex items-center space-x-1.5 mt-0.5">
+                                        <Badge variant={getStatusConfig(subtask.status).color as any} size="sm" className="text-[10px] px-1.5 py-0">
+                                          {subtask.status}
+                                        </Badge>
+                                        <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{subtask.project}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleRemoveSubtaskClick(subtask.id);
+                                    }}
+                                    className="p-1 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
+                                    title="Remove subtask"
+                                  >
+                                    <X className="w-3 h-3 text-red-600 dark:text-red-400" />
+                                  </button>
+                                </div>
+                              ))
+                            )}
+                          </div>
+
+                          {/* Pending Subtasks */}
+                          {pendingSubtasks.length > 0 && (
+                            <div className="mt-2">
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Pending:</p>
+                              <div className="space-y-1.5">
+                                {pendingSubtasks.map((subtaskId) => {
+                                  const subtask = tasks.find(t => t.id === subtaskId);
+                                  if (!subtask) return null;
+                                  return (
+                                    <div key={`pending-subtask-${subtaskId}`} className="flex items-center justify-between p-2 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                                      <div className="flex items-center space-x-2 flex-1 min-w-0">
+                                        <div className="flex items-center space-x-1.5">
+                                          <Link className="w-3 h-3 text-green-500" />
+                                          <Eye className="w-2.5 h-2.5 text-green-400" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <h4 className="text-xs font-medium text-green-700 dark:text-green-400 truncate">
+                                            {subtask.title}
+                                          </h4>
+                                          <div className="flex items-center space-x-1.5 mt-0.5">
+                                            <Badge variant={getStatusConfig(subtask.status).color as any} size="sm" className="text-[10px] px-1.5 py-0">
+                                              {subtask.status}
+                                            </Badge>
+                                            <span className="text-[10px] text-green-600 dark:text-green-500 truncate">{subtask.project}</span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <button
+                                        onClick={() => handleRemoveSubtaskFromPending(subtaskId)}
+                                        className="p-1 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors flex-shrink-0"
                                         title="Remove from pending"
                                       >
                                         <X className="w-3 h-3 text-red-600 dark:text-red-400" />
@@ -5028,258 +5437,12 @@ const TasksPage = () => {
                       </div>
                     </div>
                   </div>
+                  {/* End of consolidated card */}
 
-                  {/* Tags */}
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 shadow-sm">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Tags</label>
-                        <div className="flex flex-wrap gap-2">
-                          {(selectedTask.tags || '').split(',').map((tag, index) => (
-                            <span key={index} className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm rounded-full">
-                              {tag.trim()}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                  </div>
-
-                  {/* Subtasks Management */}
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 shadow-sm">
-                    <div className="flex items-center justify-between mb-4">
-                      <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200">
-                        Subtasks ({getCurrentSubtasks().length})
-                        {pendingSubtasks.length > 0 && (
-                          <span className="text-green-600 dark:text-green-400 ml-1">+{pendingSubtasks.length}</span>
-                        )}
-                      </label>
-                      <div className="flex items-center space-x-2">
-                        {(pendingUsers.length > 0 || pendingTeams.length > 0 || pendingSubtasks.length > 0) && (
-                          <>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={handleCancelChanges}
-                              className="flex items-center space-x-1"
-                            >
-                              <X className="w-4 h-4" />
-                              <span>Cancel</span>
-                            </Button>
-                            <Button
-                              variant="primary"
-                              size="sm"
-                              onClick={handleSaveChanges}
-                              disabled={isSaving}
-                              className="flex items-center space-x-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400"
-                            >
-                              {isSaving ? (
-                                <>
-                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                  <span>Saving...</span>
-                                </>
-                              ) : (
-                                <>
-                                  <CheckCircle className="w-4 h-4" />
-                                  <span>Save</span>
-                                </>
-                              )}
-                            </Button>
-                          </>
-                        )}
-                        <UpdateButton resource="tasks">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setIsAddingSubtask(!isAddingSubtask)}
-                            className="flex items-center space-x-1"
-                          >
-                            {isAddingSubtask ? (
-                              <>
-                                <X className="w-4 h-4" />
-                                <span>Close</span>
-                              </>
-                            ) : (
-                              <>
-                                <Plus className="w-4 h-4" />
-                                <span>Add Subtask</span>
-                              </>
-                            )}
-                          </Button>
-                        </UpdateButton>
-                      </div>
-                    </div>
-
-                    {/* Add Subtask Section */}
-                    {isAddingSubtask && (
-                      <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                        {/* Create New Subtask Button */}
-                        <div className="mb-4">
-                          <Button
-                            onClick={() => {
-                              console.log('🔄 Creating new subtask - opening form');
-                              setIsAddingSubtask(false);
-                              handleCreateSubtask();
-                              console.log('✅ Form should be open now');
-                            }}
-                            className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300"
-                          >
-                            <Plus className="w-4 h-4 mr-2" />
-                            Create New Subtask
-                          </Button>
-                          <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 text-center">
-                            Create a new task that will automatically be added as a subtask
-                          </p>
-                        </div>
-
-                        <div className="flex items-center space-x-2 mb-3">
-                          <Search className="w-4 h-4 text-gray-400" />
-                          <input
-                            type="text"
-                            value={subtaskSearch}
-                            onChange={(e) => setSubtaskSearch(e.target.value)}
-                            placeholder="Search existing tasks to add as subtasks..."
-                            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                          />
-                        </div>
-                        
-                        <div className="max-h-60 overflow-y-auto space-y-2">
-                          {getAvailableSubtasks().length === 0 ? (
-                            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-                              {subtaskSearch ? 'No tasks found' : 'No available tasks to add'}
-                            </p>
-                          ) : (
-                            getAvailableSubtasks().slice(0, 10).map((task) => (
-                              <div
-                                key={task.id}
-                                className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 transition-all hover:shadow-md"
-                              >
-                                <div className="flex-1 min-w-0">
-                                  <h4 className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                                    {task.title}
-                                  </h4>
-                                  <div className="flex items-center space-x-2 mt-1">
-                                    <Badge variant={getStatusConfig(task.status).color as any} size="sm">
-                                      {task.status}
-                                    </Badge>
-                                    <span className="text-xs text-gray-500 dark:text-gray-400">{task.project}</span>
-                                  </div>
-                                </div>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleAddSubtaskToPending(task.id);
-                                  }}
-                                  disabled={pendingSubtasks.includes(task.id)}
-                                  className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-md transition-colors"
-                                >
-                                  {pendingSubtasks.includes(task.id) ? 'Added' : 'Add'}
-                                </button>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Current Subtasks */}
-                    <div className="space-y-3">
-                      {/* Current Subtasks */}
-                      <div className="space-y-2">
-                        {getCurrentSubtasks().length === 0 ? (
-                          <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-                            No subtasks added yet
-                          </p>
-                        ) : (
-                          getCurrentSubtasks().map((subtask) => (
-                          <div
-                            key={subtask.id}
-                            className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all cursor-pointer group"
-                            onClick={() => handleTaskClick(subtask)}
-                          >
-                            <div className="flex items-center space-x-3 flex-1 min-w-0">
-                              <div className="flex items-center space-x-2">
-                                <Link className="w-4 h-4 text-gray-400 group-hover:text-blue-500 flex-shrink-0" />
-                                <Eye className="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <h4 className="text-sm font-medium text-gray-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400">
-                                  {subtask.title}
-                                </h4>
-                                <div className="flex items-center space-x-2 mt-1">
-                                  <Badge variant={getStatusConfig(subtask.status).color as any} size="sm">
-                                    {subtask.status}
-                                  </Badge>
-                                  <span className="text-xs text-gray-500 dark:text-gray-400">{subtask.project}</span>
-                                  <span className="text-xs text-gray-400 dark:text-gray-500">
-                                    {subtask.assignee}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRemoveSubtaskClick(subtask.id);
-                              }}
-                              className="ml-2 p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors flex-shrink-0"
-                              title="Remove subtask"
-                            >
-                              <X className="w-4 h-4 text-red-600 dark:text-red-400" />
-                            </button>
-                          </div>
-                        ))
-                      )}
-                      </div>
-
-                      {/* Pending Subtasks */}
-                      {pendingSubtasks.length > 0 && (
-                        <div>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Pending additions:</p>
-                          <div className="space-y-2">
-                            {pendingSubtasks.map((subtaskId) => {
-                              const subtask = tasks.find(t => t.id === subtaskId);
-                              if (!subtask) return null;
-                              return (
-                                <div key={`pending-subtask-${subtaskId}`} className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                                  <div className="flex items-center space-x-3 flex-1 min-w-0">
-                                    <div className="flex items-center space-x-2">
-                                      <Link className="w-4 h-4 text-green-500" />
-                                      <Eye className="w-3 h-3 text-green-400" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <h4 className="text-sm font-medium text-green-700 dark:text-green-400 truncate">
-                                        {subtask.title}
-                                      </h4>
-                                      <div className="flex items-center space-x-2 mt-1">
-                                        <Badge variant={getStatusConfig(subtask.status).color as any} size="sm">
-                                          {subtask.status}
-                                        </Badge>
-                                        <span className="text-xs text-green-600 dark:text-green-500">{subtask.project}</span>
-                                        <span className="text-xs text-green-500 dark:text-green-400">
-                                          {subtask.assignee}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <button
-                                    onClick={() => handleRemoveSubtaskFromPending(subtaskId)}
-                                    className="ml-2 p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors flex-shrink-0"
-                                    title="Remove from pending"
-                                  >
-                                    <X className="w-4 h-4 text-red-600 dark:text-red-400" />
-                                  </button>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Comments Section */}
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 shadow-sm">
-                    <div className="flex items-center justify-between mb-4">
-                      <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200">
+                  {/* Comments Section - Separate collapsible section */}
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-3 lg:p-4 shadow-sm mt-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-xs font-semibold text-gray-800 dark:text-gray-200">
                         Comments ({(() => {
                           try {
                             const parsedComments = JSON.parse(selectedTask.comments || '[]');
@@ -5291,65 +5454,62 @@ const TasksPage = () => {
                       </label>
                     </div>
 
-                    {/* Add Comment Input */}
-                    <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-                      <div className="flex items-start space-x-3">
-                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
+                    {/* Add Comment Input - Compact */}
+                    <div className="mb-2 p-2 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
                           {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-2">
-                          <input
-                            type="text"
-                            placeholder="Write a comment..."
-                              className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                            value={newComment}
-                            onChange={(e) => setNewComment(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                handleAddComment();
-                              }
-                            }}
-                          />
-                            <button
-                            onClick={handleAddComment}
-                            disabled={!newComment.trim() || isPostingComment}
-                              className="w-10 h-10 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-lg flex items-center justify-center transition-colors flex-shrink-0"
-                              title="Post comment"
-                          >
-                            {isPostingComment ? (
-                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                            ) : (
-                                <MessageSquare className="w-4 h-4 text-white" />
-                            )}
-                            </button>
-                        </div>
-                      </div>
+                        <input
+                          type="text"
+                          placeholder="Write a comment..."
+                          className="flex-1 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs"
+                          value={newComment}
+                          onChange={(e) => setNewComment(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddComment();
+                            }
+                          }}
+                        />
+                        <button
+                          onClick={handleAddComment}
+                          disabled={!newComment.trim() || isPostingComment}
+                          className="w-7 h-7 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-lg flex items-center justify-center transition-colors flex-shrink-0"
+                          title="Post comment"
+                        >
+                          {isPostingComment ? (
+                            <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <MessageSquare className="w-3 h-3 text-white" />
+                          )}
+                        </button>
                       </div>
                     </div>
 
-                    <div className="space-y-4 max-h-64 overflow-y-auto">
+                    {/* Comments List - Compact */}
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
                       {(() => {
                         try {
                           const parsedComments = JSON.parse(selectedTask.comments || '[]');
                           const commentsArray = Array.isArray(parsedComments) ? parsedComments : [];
                           if (commentsArray.length > 0) {
                             return commentsArray.map((comment: any, index: number) => (
-                              <div key={index} className="flex space-x-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
+                              <div key={index} className="flex space-x-2 p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
                                   {comment.userName ? comment.userName.charAt(0).toUpperCase() : 'U'}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <div className="flex items-center space-x-2 mb-1">
-                                    <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                  <div className="flex items-center space-x-1.5 mb-0.5">
+                                    <span className="text-xs font-medium text-gray-900 dark:text-white">
                                       {comment.userName || 'Unknown User'}
                                     </span>
-                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                    <span className="text-[10px] text-gray-500 dark:text-gray-400">
                                       {comment.timestamp ? new Date(comment.timestamp).toLocaleString() : 'Just now'}
                                     </span>
                                   </div>
-                                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                                  <p className="text-xs text-gray-700 dark:text-gray-300">
                                     {comment.message || comment.text || comment.content || 'No message'}
                                   </p>
                                 </div>
@@ -5357,20 +5517,18 @@ const TasksPage = () => {
                             ));
                           } else {
                             return (
-                              <div className="text-center py-8">
-                                <MessageSquare className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                                <p className="text-gray-500 dark:text-gray-400 text-sm">No comments yet</p>
-                                <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">Be the first to add a comment</p>
+                              <div className="text-center py-4">
+                                <MessageSquare className="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                                <p className="text-gray-500 dark:text-gray-400 text-xs">No comments yet</p>
                               </div>
                             );
                           }
                         } catch (e) {
                           console.log('Failed to parse comments, showing empty state:', e);
                           return (
-                            <div className="text-center py-8">
-                              <MessageSquare className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                              <p className="text-gray-500 dark:text-gray-400 text-sm">No comments yet</p>
-                              <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">Be the first to add a comment</p>
+                            <div className="text-center py-4">
+                              <MessageSquare className="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                              <p className="text-gray-500 dark:text-gray-400 text-xs">No comments yet</p>
                             </div>
                           );
                         }
@@ -5378,14 +5536,14 @@ const TasksPage = () => {
                     </div>
                   </div>
 
-                  {/* File Attachments Section */}
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 shadow-sm">
-                    <div className="flex items-center justify-between mb-4">
-                      <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200">
+                  {/* File Attachments Section - Compact */}
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-3 lg:p-4 shadow-sm lg:mt-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-xs font-semibold text-gray-800 dark:text-gray-200">
                         File Attachments ({attachedFiles.length})
                       </label>
-                      <label className="flex items-center space-x-2 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium cursor-pointer">
-                        <Upload className="w-4 h-4" />
+                      <label className="flex items-center space-x-1.5 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-xs font-medium cursor-pointer">
+                        <Upload className="w-3 h-3" />
                         <span>{isUploadingFile ? 'Uploading...' : 'Add Files'}</span>
                         <input
                           type="file"
@@ -5399,15 +5557,15 @@ const TasksPage = () => {
 
                     {/* Loading State */}
                     {isLoadingFiles && (
-                      <div className="flex items-center justify-center py-8">
-                        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                        <span className="ml-3 text-gray-600 dark:text-gray-400">Loading files...</span>
+                      <div className="flex items-center justify-center py-4">
+                        <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                        <span className="ml-2 text-xs text-gray-600 dark:text-gray-400">Loading...</span>
                       </div>
                     )}
 
                     {/* Attached Files List */}
                     {!isLoadingFiles && attachedFiles.length > 0 && (
-                      <div className="space-y-2">
+                      <div className="space-y-1.5 max-h-40 overflow-y-auto">
                         {attachedFiles.map((file: FileItem) => {
                           const fileKey = `${file.name}-${file.size}`;
                           const preview = filePreviews[fileKey];
@@ -5416,12 +5574,12 @@ const TasksPage = () => {
                           return (
                             <div
                               key={file.id}
-                              className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 transition-colors cursor-pointer"
+                              className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 transition-colors cursor-pointer"
                               onClick={() => openFilePreview(file)}
                             >
-                              <div className="flex items-center space-x-3 flex-1 min-w-0">
+                              <div className="flex items-center space-x-2 flex-1 min-w-0">
                                 {isImage && preview && preview !== 'placeholder' ? (
-                                  <div className="w-12 h-12 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 flex-shrink-0">
+                                  <div className="w-8 h-8 rounded overflow-hidden border border-gray-200 dark:border-gray-600 flex-shrink-0">
                                     <img 
                                       src={preview} 
                                       alt={file.name}
@@ -5433,33 +5591,33 @@ const TasksPage = () => {
                                     />
                                   </div>
                                 ) : isImage && loadingPreviews.has(fileKey) ? (
-                                  <div className="w-12 h-12 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-600 flex-shrink-0">
-                                    <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                                  <div className="w-8 h-8 rounded border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-600 flex-shrink-0">
+                                    <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                                   </div>
                                 ) : (
-                                  <div className="w-12 h-12 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-600 flex-shrink-0">
-                                    <Paperclip className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                                  <div className="w-8 h-8 rounded border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-600 flex-shrink-0">
+                                    <Paperclip className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
                                   </div>
                                 )}
-                                <div className="flex-1 min-w-0 pr-2">
-                                  <p className="text-sm font-medium text-gray-900 dark:text-white break-words line-clamp-2">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-medium text-gray-900 dark:text-white truncate">
                                     {file.name}
                                   </p>
-                                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                  <p className="text-[10px] text-gray-500 dark:text-gray-400">
                                     {(file.size / 1024 / 1024).toFixed(2)} MB • {new Date(file.createdAt).toLocaleDateString()}
                                   </p>
                                 </div>
                               </div>
-                              <div className="flex items-center space-x-2 flex-shrink-0">
+                              <div className="flex items-center space-x-1 flex-shrink-0">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleFileDownload(file.id, file.name);
                                   }}
-                                  className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                                  className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                                   title="Download file"
                                 >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                   </svg>
                                 </button>
@@ -5469,9 +5627,9 @@ const TasksPage = () => {
                                     e?.stopPropagation();
                                     handleFileDelete(file.id);
                                   }}
-                                  className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                  className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                                 >
-                                  <Trash2 className="w-4 h-4" />
+                                  <Trash2 className="w-3 h-3" />
                                 </DeleteButton>
                               </div>
                             </div>
@@ -5482,10 +5640,9 @@ const TasksPage = () => {
 
                     {/* Empty State */}
                     {!isLoadingFiles && attachedFiles.length === 0 && (
-                      <div className="text-center py-8">
-                        <Paperclip className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                        <p className="text-gray-500 dark:text-gray-400 text-sm">No files attached</p>
-                        <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">Upload files to share with your team</p>
+                      <div className="text-center py-4">
+                        <Paperclip className="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                        <p className="text-gray-500 dark:text-gray-400 text-xs">No files attached</p>
                       </div>
                     )}
                   </div>
