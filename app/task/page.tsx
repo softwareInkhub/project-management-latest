@@ -800,6 +800,12 @@ const TasksPage = () => {
   // Dropdown menu
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
+  // Expanded tasks for subtasks view in list mode
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+
+  // Selected tasks for bulk actions in list mode
+  const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
+
   // User and team selection in preview
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [isAddingTeam, setIsAddingTeam] = useState(false);
@@ -3429,175 +3435,321 @@ const TasksPage = () => {
            </div>
          )}
 
-        {/* New List (card-style) view for tasks */}
+        {/* New Enhanced List View for Tasks */}
         {!isLoading && !error && viewMode === 'list' && (
-          <div className="pt-0 sm:pt-3 md:pt-2 space-y-2 pb-4">
-            {filteredTasks.map((task) => (
-              <div
-                key={task.id}
-                className="relative px-2 py-4 sm:p-3 bg-white rounded-3xl border-[0.5px] border-gray-200 hover:border-gray-300 transition-colors min-h-[90px] sm:min-h-[110px] flex flex-col sm:flex-row sm:items-start cursor-pointer shadow-sm"
-                onClick={() => handleTaskClick(task)}
-              >
-                {/* Action button */}
-                <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex items-center z-20">
-                  <div className="relative">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      title="More Options"
-                      className="p-2 h-9 w-9 sm:h-10 sm:w-10"
-                      onClick={(e) => { e.stopPropagation(); setOpenDropdown(openDropdown === task.id ? null : task.id); }}
-                    >
-                      <MoreVertical size={18} />
-                    </Button>
-                    {openDropdown === task.id && (
-                      <div 
-                        data-dropdown-menu
-                        className="absolute right-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-30" 
-                        onClick={(e)=>e.stopPropagation()}
-                      >
-                        <button 
-                          className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-t-xl flex items-center gap-2 text-sm" 
-                          onClick={(e)=>{e.stopPropagation(); handleTaskClick(task); setOpenDropdown(null);}}
-                        >
-                          <Eye className="w-4 h-4" />
-                          <span>View</span>
-                        </button>
-                        <UpdateButton
-                          resource="tasks"
-                          onClick={(e)=>{e?.stopPropagation(); handleEditTask(task); setOpenDropdown(null);}}
-                          className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm"
-                        >
-                          <Edit className="w-4 h-4" />
-                          <span>Edit</span>
-                        </UpdateButton>
-                        <DeleteButton
-                          resource="tasks"
-                          onClick={(e)=>{ e?.stopPropagation(); handleDeleteTask(task); setOpenDropdown(null); }}
-                          className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-b-xl flex items-center gap-2 text-sm text-red-600"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          <span>Delete</span>
-                        </DeleteButton>
-                      </div>
-                    )}
-                  </div>
-                </div>
+          <div className="pt-0 sm:pt-3 md:pt-0 space-y-3 pb-4">
+            {filteredTasks.map((task) => {
+              const commentsCount = (() => { try { const c = JSON.parse(task.comments); return Array.isArray(c) ? c.length : parseInt(task.comments)||0; } catch { return parseInt(task.comments)||0; } })();
+              const assignedNames = getAssignedUsers(task);
+              const tagsArray = (task.tags || '').split(',').filter(Boolean);
+              const progress = task.progress || 0;
+              
+              return (
+                <div
+                  key={task.id}
+                  className="relative bg-white rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all duration-200 p-4 cursor-pointer"
+                  onClick={() => handleTaskClick(task)}
+                >
+                  {/* Top Row - Avatar, Title/Description, More Menu */}
+                  <div className="flex items-start gap-3 mb-0">
+                    {/* Project Avatar */}
+                    <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
+                      {(task.project || 'T').charAt(0).toUpperCase()}
+                    </div>
 
-                {/* Left project avatar + title/desc */}
-                <div className="flex items-start space-x-3 sm:space-x-4 flex-1 min-w-0 pr-14 sm:pr-20">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm sm:text-base flex-shrink-0">
-                    {(task.project || 'T').charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-gray-900 text-sm sm:text-base leading-tight line-clamp-1">
-                      {task.title || 'Untitled Task'}
-                    </h4>
-                    <p className="text-xs sm:text-xs text-gray-600 mt-1 line-clamp-1 sm:line-clamp-2">{task.description || 'No description'}</p>
-
-                    {/* Mobile meta rows */}
-                    <div className="block sm:hidden mt-2 space-y-1 text-xs text-gray-700">
-                      {/* Row 1: Status + Priority */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1">
-                          <span className="text-gray-700 font-semibold">Status:</span>
-                          <Badge variant={getStatusConfig(task.status).color as any} size="sm" className="text-[11px]">
-                            {getStatusConfig(task.status).label}
-                          </Badge>
+                    {/* Task Title + Description */}
+                    <div className="flex-1 min-w-0">
+                      {/* Mobile: Title and Description on separate lines */}
+                      <div className="block sm:hidden">
+                        <div className="text-sm font-semibold text-gray-900 truncate">
+                          {task.title || 'Untitled Task'}
                         </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-gray-700 font-semibold">Priority:</span>
-                          <Badge variant={getPriorityConfig(task.priority).color as any} size="sm" className="text-[11px]">{getPriorityConfig(task.priority).label}</Badge>
-                        </div>
-                      </div>
-
-                      {/* Row 2: Project + Tags */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1 min-w-0">
-                          <span className="text-gray-700 font-semibold">Project:</span>
-                          <span className="px-2 py-1 rounded-md bg-gray-100 text-gray-700 truncate">{task.project || 'N/A'}</span>
-                        </div>
-                        { (task.tags || '').trim() && (
-                          <div className="flex items-center gap-1 min-w-0">
-                            <span className="text-gray-700 font-semibold">Tags:</span>
-                            {(task.tags || '').split(',').filter(Boolean).slice(0,2).map((t, i) => (
-                              <span key={i} className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full truncate">{t.trim()}</span>
-                            ))}
-                            {(task.tags || '').split(',').filter(Boolean).length > 2 && (
-                              <span className="px-2 py-1 bg-gray-200 text-gray-500 rounded-full">+{(task.tags || '').split(',').filter(Boolean).length - 2}</span>
-                            )}
+                        {task.description && (
+                          <div className="text-xs text-gray-600 truncate mt-0.5">
+                            Description: {task.description.length > 50 ? task.description.substring(0, 50) + '...' : task.description}
                           </div>
                         )}
                       </div>
+                      
+                      {/* Desktop: Title and Description inline */}
+                      <div className="hidden sm:block text-base text-gray-900 truncate">
+                        <span className="font-semibold">{task.title || 'Untitled Task'}</span>
+                        {task.description && (
+                          <>
+                            <span className="text-gray-500 mx-2">—</span>
+                            <span className="text-sm text-gray-600">
+                              Description: {task.description.length > 60 ? task.description.substring(0, 60) + '...' : task.description}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
 
-                      {/* Row 3: Comments + Subtasks + Time */}
-                      <div className="flex items-center justify-between">
+                    {/* More Options Menu */}
+                    <div 
+                      className="flex-shrink-0"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="relative">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          title="More Options"
+                          className="p-2 h-10 w-10 text-gray-400 hover:text-gray-600"
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            setOpenDropdown(openDropdown === task.id ? null : task.id); 
+                          }}
+                        >
+                          <MoreVertical size={24} />
+                        </Button>
+                        {openDropdown === task.id && (
+                          <div 
+                            data-dropdown-menu
+                            className="absolute right-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-30" 
+                            onClick={(e)=>e.stopPropagation()}
+                          >
+                            <button 
+                              className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-t-lg flex items-center gap-2 text-sm" 
+                              onClick={(e)=>{e.stopPropagation(); handleTaskClick(task); setOpenDropdown(null);}}
+                            >
+                              <Eye className="w-4 h-4" />
+                              <span>View</span>
+                            </button>
+                            <UpdateButton
+                              resource="tasks"
+                              onClick={(e)=>{e?.stopPropagation(); handleEditTask(task); setOpenDropdown(null);}}
+                              className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm"
+                            >
+                              <Edit className="w-4 h-4" />
+                              <span>Edit</span>
+                            </UpdateButton>
+                            <DeleteButton
+                              resource="tasks"
+                              onClick={(e)=>{ e?.stopPropagation(); handleDeleteTask(task); setOpenDropdown(null); }}
+                              className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-b-lg flex items-center gap-2 text-sm text-red-600"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              <span>Delete</span>
+                            </DeleteButton>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bottom Row - Metadata Details */}
+                  <div className="pl-[52px] mt-1 sm:-mt-2">
+                    {/* Mobile: Multi-row layout */}
+                    <div className="block sm:hidden space-y-1.5">
+                      {/* Row 1: Project, Priority, Hours */}
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px]">
+                        {/* Project */}
                         <div className="flex items-center gap-1">
-                          <span className="text-gray-700 font-semibold">Comments:</span>
-                          <span className="text-gray-600">{(() => { try { const c = JSON.parse(task.comments); return Array.isArray(c) ? c.length : parseInt(task.comments)||0; } catch { return parseInt(task.comments)||0; } })()}</span>
+                          <span className="text-gray-600">Project:</span>
+                          <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-700 font-medium">
+                            {task.project || 'N/A'}
+                          </span>
                         </div>
+
+                        {/* Priority */}
                         <div className="flex items-center gap-1">
-                          <span className="text-gray-700 font-semibold">Subtasks:</span>
-                          <span className="text-gray-600">{(() => { try { const s = JSON.parse(task.subtasks); return Array.isArray(s) ? s.length : 0; } catch { return 0; } })()}</span>
+                          <span className="text-gray-600">Priority:</span>
+                          <Badge 
+                            variant={getPriorityConfig(task.priority).color as any} 
+                            size="sm" 
+                            className="px-2 py-0.5 text-[10px]"
+                          >
+                            {getPriorityConfig(task.priority).label}
+                          </Badge>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-gray-700 font-semibold">Time:</span>
-                          <span className="text-gray-600">{task.estimatedHours || 0}h</span>
+
+                        {/* Estimated Hours */}
+                        <div className="flex items-center gap-0.5">
+                          <Clock className="w-3 h-3 text-gray-500" />
+                          <span className="text-gray-700 font-medium">{task.estimatedHours || 0}h</span>
                         </div>
                       </div>
 
-                      {/* Row 4: Avatars */}
-                      {(() => { const names = getAssignedUsers(task); return names.length > 0 ? (
-                        <div className="flex items-center">
-                          <AssigneeAvatars names={names} maxVisible={3} />
+                      {/* Row 2: Status, Tags, Comments, Progress */}
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px]">
+                        {/* Status */}
+                        <div className="flex items-center gap-1">
+                          <span className="text-gray-600">Status:</span>
+                          <Badge 
+                            variant={getStatusConfig(task.status).color as any} 
+                            size="sm"
+                            className="px-2 py-0.5 text-[10px]"
+                          >
+                            {getStatusConfig(task.status).label}
+                          </Badge>
                         </div>
-                      ) : null; })()}
+
+                        {/* Tags */}
+                        {tagsArray.length > 0 && (
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-600">Tags:</span>
+                            <div className="flex items-center gap-1">
+                              {tagsArray.slice(0, 1).map((tag, i) => (
+                                <span key={i} className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-md font-medium text-[10px]">
+                                  {tag.trim()}
+                                </span>
+                              ))}
+                              {tagsArray.length > 1 && (
+                                <span className="px-1.5 py-0.5 bg-gray-200 text-gray-700 rounded-md text-[9px]">
+                                  +{tagsArray.length - 1}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Comments */}
+                        <div className="flex items-center gap-0.5">
+                          <MessageSquare className="w-3 h-3 text-gray-500" />
+                          <span className="text-gray-700 font-medium">{commentsCount}</span>
+                        </div>
+
+                        {/* Progress */}
+                        <div className="flex items-center gap-1">
+                          <span className="text-gray-600">Progress:</span>
+                          <div className="w-12 h-1 bg-gray-200 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-blue-500 transition-all duration-300"
+                              style={{ width: `${progress}%` }}
+                            />
+                          </div>
+                          <span className="text-gray-700 font-medium">{progress}%</span>
+                        </div>
+                      </div>
+
+                      {/* Row 3: Assignees and Dates */}
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px]">
+                        {/* Assignees */}
+                        <div className="flex items-center gap-1">
+                          <span className="text-gray-600">Assignees:</span>
+                          {assignedNames.length > 0 ? (
+                            <div className="scale-75 origin-left">
+                              <AssigneeAvatars names={assignedNames} maxVisible={3} />
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">None</span>
+                          )}
+                        </div>
+
+                        {/* Dates */}
+                        <div className="flex items-center gap-0.5">
+                          <Calendar className="w-3 h-3 text-gray-500" />
+                          <span className="text-gray-700 font-medium">
+                            {task.startDate ? new Date(task.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A'}
+                            {' - '}
+                            {task.dueDate ? new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A'}
+                          </span>
+                        </div>
+                      </div>
                     </div>
 
-                    {/* Desktop meta row */}
-                    <div className="hidden sm:flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs text-gray-700">
-                      <span className="text-gray-700 font-semibold">Status:</span>
-                      <Badge variant={getStatusConfig(task.status).color as any} size="sm" className="text-[11px]">
-                        {getStatusConfig(task.status).label}
-                      </Badge>
+                    {/* Desktop: All in Single Row */}
+                    <div className="hidden sm:flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+                      {/* Project */}
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-gray-600">Project:</span>
+                        <span className="px-2.5 py-1 rounded-md bg-blue-100 text-blue-700 font-medium">
+                          {task.project || 'N/A'}
+                        </span>
+                      </div>
 
-                      <span className="text-gray-700 font-semibold">Project:</span>
-                      <span className="px-2 py-1 rounded-md bg-gray-100 text-gray-700">{task.project || 'N/A'}</span>
+                      {/* Priority */}
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-gray-600">Priority:</span>
+                        <Badge 
+                          variant={getPriorityConfig(task.priority).color as any} 
+                          size="sm" 
+                          className="px-2.5 py-1"
+                        >
+                          {getPriorityConfig(task.priority).label}
+                        </Badge>
+                      </div>
 
-                      <span className="text-gray-700 font-semibold">Priority:</span>
-                      <Badge variant={getPriorityConfig(task.priority).color as any} size="sm" className="text-[11px]">{getPriorityConfig(task.priority).label}</Badge>
+                      {/* Status */}
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-gray-600">Status:</span>
+                        <Badge 
+                          variant={getStatusConfig(task.status).color as any} 
+                          size="sm"
+                          className="px-2.5 py-1"
+                        >
+                          {getStatusConfig(task.status).label}
+                        </Badge>
+                      </div>
 
-                      <span className="text-gray-700 font-semibold">Time:</span>
-                      <span className="text-gray-600">{task.estimatedHours || 0}h</span>
+                      {/* Estimated Hours */}
+                      <div className="flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5 text-gray-500" />
+                        <span className="text-gray-700 font-medium">{task.estimatedHours || 0}h</span>
+                      </div>
 
-                      <span className="text-gray-700 font-semibold">Comments:</span>
-                      <span className="text-gray-600">{(() => { try { const c = JSON.parse(task.comments); return Array.isArray(c) ? c.length : parseInt(task.comments) || 0; } catch { return parseInt(task.comments) || 0; } })()}</span>
-
-                      <span className="text-gray-700 font-semibold">Subtasks:</span>
-                      <span className="text-gray-600">{(() => { try { const s = JSON.parse(task.subtasks); return Array.isArray(s) ? s.length : 0; } catch { return 0; } })()}</span>
-
-                      {(task.tags || '').trim() && (
-                        <>
-                          <span className="text-gray-700 font-semibold">Tags:</span>
-                          {(task.tags || '').split(',').filter(Boolean).slice(0,2).map((t, i) => (
-                            <span key={i} className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full">{t.trim()}</span>
-                          ))}
-                          {(task.tags || '').split(',').filter(Boolean).length > 2 && (
-                            <span className="px-2 py-1 bg-gray-200 text-gray-500 rounded-full">+{(task.tags || '').split(',').filter(Boolean).length - 2}</span>
-                          )}
-                        </>
+                      {/* Tags */}
+                      {tagsArray.length > 0 && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-gray-600">Tags:</span>
+                          <div className="flex items-center gap-1">
+                            {tagsArray.slice(0, 2).map((tag, i) => (
+                              <span key={i} className="px-2.5 py-1 bg-purple-100 text-purple-700 rounded-md font-medium">
+                                {tag.trim()}
+                              </span>
+                            ))}
+                            {tagsArray.length > 2 && (
+                              <span className="px-2 py-1 bg-gray-200 text-gray-700 rounded-md text-xs">
+                                +{tagsArray.length - 2}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       )}
 
-                      {(() => { const names = getAssignedUsers(task); return names.length > 0 ? (
-                        <div className="flex items-center gap-2 ml-1">
-                          <AssigneeAvatars names={names} maxVisible={3} />
+                      {/* Comments */}
+                      <div className="flex items-center gap-1">
+                        <MessageSquare className="w-3.5 h-3.5 text-gray-500" />
+                        <span className="text-gray-700 font-medium">{commentsCount}</span>
+                      </div>
+
+                      {/* Progress */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-600">Progress:</span>
+                        <div className="w-24 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-blue-500 transition-all duration-300"
+                            style={{ width: `${progress}%` }}
+                          />
                         </div>
-                      ) : null; })()}
+                        <span className="text-gray-700 font-medium">{progress}%</span>
+                      </div>
+
+                      {/* Assignees */}
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-gray-600">Assignees:</span>
+                        {assignedNames.length > 0 ? (
+                          <AssigneeAvatars names={assignedNames} maxVisible={3} />
+                        ) : (
+                          <span className="text-gray-400">None</span>
+                        )}
+                      </div>
+
+                      {/* Dates */}
+                      <div className="flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-gray-500" />
+                        <span className="text-gray-700 font-medium">
+                          {task.startDate ? new Date(task.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A'}
+                          {' - '}
+                          {task.dueDate ? new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A'}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
