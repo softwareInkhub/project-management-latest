@@ -1,6 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
 
+export const dynamic = 'force-dynamic';
+
 export default function DebugAuth() {
   const [localStorageData, setLocalStorageData] = useState<Record<string, string>>({});
   const [urlHash, setUrlHash] = useState('');

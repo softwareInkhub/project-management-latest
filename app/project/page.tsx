@@ -24,7 +24,12 @@ import {
   Flag,
   Building2,
   Trash2,
-  Tag
+  Tag,
+  MessageSquare,
+  CheckSquare,
+  Circle,
+  Users,
+  FileCode
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -126,6 +131,53 @@ const priorityColors: Record<string, 'danger' | 'warning' | 'default'> = {
   'Low': 'default'
 };
 
+// Helper functions for consistent status/priority display (matching task section style)
+const getStatusConfig = (status: string) => {
+  const normalizedStatus = status?.toLowerCase() || '';
+  switch (normalizedStatus) {
+    case 'planning':
+      return { label: 'Planning', color: 'default', icon: Circle };
+    case 'active':
+    case 'in progress':
+      return { label: 'Active', color: 'info', icon: Play };
+    case 'completed':
+      return { label: 'Completed', color: 'success', icon: CheckCircle };
+    case 'on hold':
+    case 'on-hold':
+      return { label: 'On Hold', color: 'warning', icon: Pause };
+    default:
+      return { label: status || 'Unknown', color: 'default', icon: Circle };
+  }
+};
+
+const getPriorityConfig = (priority: string) => {
+  switch (priority?.toLowerCase()) {
+    case 'high':
+      return { label: 'High', color: 'danger', icon: '🔥' };
+    case 'medium':
+      return { label: 'Medium', color: 'warning', icon: '⚡' };
+    case 'low':
+      return { label: 'Low', color: 'default', icon: '📌' };
+    default:
+      return { label: priority || 'Medium', color: 'default', icon: '📌' };
+  }
+};
+
+// Format date helpers
+const formatShort = (dateString: string) => {
+  if (!dateString) return 'No date';
+  const date = new Date(dateString);
+  const month = date.toLocaleDateString('en-US', { month: 'short' });
+  const day = date.getDate();
+  return `${month} ${day}`;
+};
+
+const isOverdue = (dateString: string) => {
+  if (!dateString) return false;
+  const date = new Date(dateString);
+  return date < new Date() && date.toDateString() !== new Date().toDateString();
+};
+
 const ProjectsPage = () => {
   const [projects, setProjects] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -138,6 +190,9 @@ const ProjectsPage = () => {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isProjectPreviewOpen, setIsProjectPreviewOpen] = useState(false);
   const [isPreviewAnimating, setIsPreviewAnimating] = useState(false);
+  
+  // JSON view toggle
+  const [isJsonViewActive, setIsJsonViewActive] = useState(false);
   const [activePredefinedFilter, setActivePredefinedFilter] = useState('all');
   const [advancedFilters, setAdvancedFilters] = useState<Record<string, string | string[]>>({});
   const [isAdvancedFilterOpen, setIsAdvancedFilterOpen] = useState(false);
@@ -890,6 +945,50 @@ const ProjectsPage = () => {
 
   return (
     <AppLayout>
+      {/* Tooltip Styles */}
+      <style jsx>{`
+        .tooltip-wrapper {
+          position: relative;
+          display: inline-block;
+        }
+        .tooltip-wrapper .tooltip-content {
+          visibility: hidden;
+          opacity: 0;
+          position: absolute;
+          z-index: 100;
+          bottom: 125%;
+          left: 50%;
+          transform: translateX(-50%);
+          background-color: rgba(31, 41, 55, 0.95);
+          color: white;
+          padding: 6px 12px;
+          border-radius: 8px;
+          font-size: 12px;
+          white-space: nowrap;
+          transition: opacity 0.2s ease, visibility 0.2s ease;
+          pointer-events: none;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        .tooltip-wrapper .tooltip-content::after {
+          content: '';
+          position: absolute;
+          top: 100%;
+          left: 50%;
+          transform: translateX(-50%);
+          border: 5px solid transparent;
+          border-top-color: rgba(31, 41, 55, 0.95);
+        }
+        .tooltip-wrapper:hover .tooltip-content {
+          visibility: visible;
+          opacity: 1;
+        }
+        @media (max-width: 640px) {
+          .tooltip-wrapper .tooltip-content {
+            font-size: 11px;
+            padding: 5px 10px;
+          }
+        }
+      `}</style>
       <div className="w-full min-h-full px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 overflow-x-hidden">
 
 
@@ -958,175 +1057,388 @@ const ProjectsPage = () => {
           <ReadOnlyBadge />
         </div>
 
-        {/* Projects Grid */}
+        {/* Projects Grid - Enhanced List and Card View */}
         {viewMode === 'list' ? (
-          <div className="space-y-2 min-h-[600px]">
-            {filteredProjects.map((project) => (
-              <div key={project.id} className="relative px-2 py-4 sm:p-3 bg-white rounded-3xl border border-gray-300 hover:border-gray-400 transition-colors min-h-[100px] sm:min-h-[120px] flex flex-col sm:flex-row sm:items-center cursor-pointer shadow-sm" onClick={() => handleProjectClick(project)}>
-                {/* Action Buttons - Top Right Corner */}
-                <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex flex-col items-end space-y-2 z-20">
-                  <div className="flex items-center space-x-1 relative">
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      title="More Options"
-                      className="p-2 h-9 w-9 sm:p-2 sm:h-10 sm:w-10"
-                      onClick={(e) => { e.stopPropagation(); setOpenMenuProjectId(prev => prev === project.id ? null : project.id); }}
-                    >
-                      <MoreVertical size={18} className="sm:w-[20px] sm:h-[20px]" />
-                    </Button>
-                    {openMenuProjectId === project.id && (
-                      <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-lg z-30" onClick={(e)=>e.stopPropagation()}>
-                        <button 
-                          className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-t-xl flex items-center gap-2 text-sm" 
-                          onClick={(e)=>{e.stopPropagation(); handleProjectClick(project); setOpenMenuProjectId(null);}}
-                        >
-                          <Eye className="w-4 h-4" />
-                          <span>View</span>
-                        </button>
-                        <UpdateButton
-                          resource="projects"
-                          onClick={(e)=>{e?.stopPropagation(); handleEditProject(project); setOpenMenuProjectId(null);}}
-                          className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm"
-                        >
-                          <Edit className="w-4 h-4" />
-                          <span>Edit</span>
-                        </UpdateButton>
-                        <DeleteButton
-                          resource="projects"
-                          onClick={(e)=>{e?.stopPropagation(); handleDeleteProject(project.id); setOpenMenuProjectId(null);}}
-                          className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-b-xl flex items-center gap-2 text-sm text-red-600"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          <span>Delete</span>
-                        </DeleteButton>
+          <div className="pt-0 sm:pt-3 md:pt-0 space-y-3 pb-4">
+            {filteredProjects.map((project) => {
+              const tagsArray = (project.tags && typeof project.tags === 'string') ? project.tags.split(',').filter(Boolean) : (Array.isArray(project.tags) ? project.tags : []);
+              const totalTasks = project.totalTasks || 0;
+              const progress = project.progress || 0;
+              
+              return (
+              <div 
+                key={project.id} 
+                className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer group"
+                onClick={() => handleProjectClick(project)}
+              >
+                <div className="p-3 sm:p-4">
+                  {/* Top Row - Avatar, Title, Actions */}
+                  <div className="flex items-start justify-between gap-3 mb-0">
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-sm sm:text-base flex-shrink-0 shadow-md">
+                        {project.name?.charAt(0).toUpperCase() || 'P'}
                       </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Project Info */}
-                <div className="flex items-start space-x-3 sm:space-x-4 flex-1 min-w-0 pr-16 sm:pr-20">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm sm:text-base flex-shrink-0">
-                    {project.name.charAt(0)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-gray-900 text-sm sm:text-base leading-tight line-clamp-1">{project.name}</h4>
-                    <p className="text-xs sm:text-xs text-gray-600 mt-1 line-clamp-1 sm:line-clamp-2">{project.description}</p>
-                    
-                    {/* Mobile layout: two rows with ends aligned */}
-                    <div className="flex flex-col lg:hidden gap-2 mt-2">
-                      <div className="flex items-center justify-between">
-                        <Badge variant={statusColors[project.status as keyof typeof statusColors] as any} size="sm" className="text-xs">
-                          {getStatusIcon(project.status)}
-                          <span className="ml-1 text-xs capitalize">{project.status || 'Unknown'}</span>
-                        </Badge>
-                        <Badge variant={priorityColors[project.priority as keyof typeof priorityColors] as any} size="sm" className="text-xs">
-                          {getPriorityIcon(project.priority)}
-                          <span className="ml-1 text-xs">{project.priority} priority</span>
-                        </Badge>
-                      </div>
-                      <div className="flex items-center justify-between gap-2 min-w-0">
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <span className="text-xs text-gray-500 whitespace-nowrap">Progress</span>
-                          <div className="w-20 bg-gray-200 rounded-full h-1.5 flex-shrink-0">
-                            <div className="h-1.5 bg-blue-500 rounded-full" style={{ width: `${project.progress || 0}%` }}></div>
+                      
+                      {/* Project Title + Desktop Meta Details */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-9">
+                          {/* Title - Mobile full width, Desktop shrinks */}
+                          <div className="tooltip-wrapper sm:flex-shrink-0">
+                            <div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white truncate">
+                              {project.name || 'Untitled Project'}
+                            </div>
+                            <div className="tooltip-content">Project: {project.name || 'Untitled Project'}</div>
                           </div>
-                          <span className="text-xs text-gray-500 whitespace-nowrap">{project.progress || 0}%</span>
-                        </div>
-                        <div className="flex items-center space-x-0 flex-shrink-0 ml-2">
-                          <User size={12} className="text-gray-500" />
-                          <span className="text-xs text-gray-500 whitespace-nowrap">{getTeamCount(project.team)} team(s)</span>
+
+                          {/* Desktop Meta Details - Right side of title */}
+                          <div className="hidden sm:flex flex-wrap items-center gap-x-2 gap-y-1 text-xs flex-1">
+                            {/* Status */}
+                            <div className="tooltip-wrapper">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-gray-800 dark:text-gray-200 font-semibold">Status:</span>
+                                <Badge 
+                                  variant={getStatusConfig(project.status).color as any} 
+                                  size="sm" 
+                                  className="px-2.5 py-1"
+                                >
+                                  {getStatusConfig(project.status).label}
+                                </Badge>
+                              </div>
+                              <div className="tooltip-content">Current Status: {getStatusConfig(project.status).label}</div>
+                            </div>
+
+                            {/* Priority */}
+                            <div className="tooltip-wrapper">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-gray-800 dark:text-gray-200 font-semibold">Priority:</span>
+                                <Badge 
+                                  variant={getPriorityConfig(project.priority).color as any} 
+                                  size="sm"
+                                  className="px-2.5 py-1"
+                                >
+                                  {getPriorityConfig(project.priority).label}
+                                </Badge>
+                              </div>
+                              <div className="tooltip-content">Priority Level: {getPriorityConfig(project.priority).label}</div>
+                            </div>
+
+                            {/* Progress */}
+                            <div className="tooltip-wrapper">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-gray-800 dark:text-gray-200 font-semibold">Progress:</span>
+                                <span className="px-2.5 py-1 rounded-md bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-400 font-medium">
+                                  {progress}%
+                                </span>
+                              </div>
+                              <div className="tooltip-content">Progress: {progress}%</div>
+                            </div>
+
+                            {/* Tasks Count */}
+                            <div className="tooltip-wrapper">
+                              <div className="flex items-center gap-1">
+                                <CheckSquare className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
+                                <span className="text-gray-700 dark:text-gray-300 font-medium">{totalTasks}</span>
+                              </div>
+                              <div className="tooltip-content">Total Tasks: {totalTasks}</div>
+                            </div>
+
+                            {/* Tags */}
+                            {tagsArray.length > 0 && (
+                              <div className="tooltip-wrapper">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-gray-800 dark:text-gray-200 font-semibold">Tags:</span>
+                                  <div className="flex items-center gap-1">
+                                    {tagsArray.slice(0, 2).map((tag: string, i: number) => (
+                                      <span key={i} className="px-2.5 py-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-400 rounded-md font-medium">
+                                        {tag.trim()}
+                                      </span>
+                                    ))}
+                                    {tagsArray.length > 2 && (
+                                      <span className="px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-400 rounded-md text-xs">
+                                        +{tagsArray.length - 2}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="tooltip-content">
+                                  Tags: {tagsArray.map((t: string) => t.trim()).join(', ')}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* End Date */}
+                            {project.endDate && (
+                              <div className="tooltip-wrapper">
+                                <div className="flex items-center gap-1.5">
+                                  <Calendar className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
+                                  <span className={`font-medium ${isOverdue(project.endDate) ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>
+                                    {project.startDate ? new Date(project.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A'}
+                                    {' - '}
+                                    {new Date(project.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                  </span>
+                                </div>
+                                <div className="tooltip-content">
+                                  Duration: {project.startDate ? new Date(project.startDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A'} to {new Date(project.endDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                                  {isOverdue(project.endDate) ? ' (OVERDUE)' : ''}
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
+                    
+                    {/* Actions Dropdown */}
+                    <div className="relative flex-shrink-0">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        className="p-2 h-10 w-10 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          setOpenMenuProjectId(openMenuProjectId === project.id ? null : project.id); 
+                        }}
+                      >
+                        <MoreVertical size={24} className="text-gray-600 dark:text-gray-400" />
+                      </Button>
+                      {openMenuProjectId === project.id && (
+                        <div 
+                          data-dropdown-menu
+                          className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-30"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button 
+                            className="w-full text-left px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg flex items-center gap-2 text-sm font-normal text-gray-800 dark:text-gray-200" 
+                            onClick={(e) => {e.stopPropagation(); handleProjectClick(project); setOpenMenuProjectId(null);}}
+                          >
+                            <Eye className="w-4 h-4" />
+                            <span>View</span>
+                          </button>
+                          <UpdateButton
+                            resource="projects"
+                            onClick={(e) => {e?.stopPropagation(); handleEditProject(project); setOpenMenuProjectId(null);}}
+                            className="w-full text-left px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 text-sm font-normal text-gray-800 dark:text-gray-200"
+                          >
+                            <Edit className="w-4 h-4" />
+                            <span>Edit</span>
+                          </UpdateButton>
+                          <DeleteButton
+                            resource="projects"
+                            onClick={(e) => {e?.stopPropagation(); handleDeleteProject(project.id); setOpenMenuProjectId(null);}}
+                            className="w-full text-left px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-b-lg flex items-center gap-2 text-sm font-normal text-red-600 dark:text-red-400"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            <span>Delete</span>
+                          </DeleteButton>
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
-                    {/* Desktop layout: single row */}
-                    <div className="hidden lg:flex lg:flex-row lg:items-center gap-2 lg:gap-4 mt-2">
-                      <div className="flex items-center gap-1 sm:gap-2">
-                        <Badge variant={statusColors[project.status as keyof typeof statusColors] as any} size="sm" className="text-xs">
-                          {getStatusIcon(project.status)}
-                          <span className="ml-1 text-xs capitalize">{project.status || 'Unknown'}</span>
-                        </Badge>
-                        <Badge variant={priorityColors[project.priority as keyof typeof priorityColors] as any} size="sm" className="text-xs">
-                          {getPriorityIcon(project.priority)}
-                          <span className="ml-1 text-xs">{project.priority} priority</span>
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-2 lg:ml-2">
-                        <div className="text-xs text-gray-500">Progress: {project.progress}%</div>
-                        <div className="w-14 sm:w-20 bg-gray-200 rounded-full h-1.5">
-                          <div 
-                            className="h-1.5 bg-blue-500 rounded-full"
-                            style={{ width: `${project.progress || 0}%` }}
-                          ></div>
+                  {/* Bottom Row - Mobile Meta Details */}
+                  <div className="pl-[52px] -mt-5 sm:hidden">
+                    <div className="block sm:hidden space-y-1.5">
+                      {/* Mobile Description */}
+                      {project.description && (
+                        <div className="mb-1.5">
+                          <div className="tooltip-wrapper">
+                            <span className="text-gray-800 dark:text-gray-200 font-semibold text-xs">Description: </span>
+                            <span className="text-gray-600 dark:text-gray-400 text-xs">
+                              {project.description.length > 50 ? project.description.substring(0, 50) + '...' : project.description}
+                            </span>
+                            <div className="tooltip-content">{project.description}</div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Row 1: Status, Priority */}
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                        {/* Status */}
+                        <div className="tooltip-wrapper">
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-800 dark:text-gray-200 font-semibold">Status:</span>
+                            <Badge 
+                              variant={getStatusConfig(project.status).color as any} 
+                              size="sm" 
+                              className="px-2 py-0.5 text-xs"
+                            >
+                              {getStatusConfig(project.status).label}
+                            </Badge>
+                          </div>
+                          <div className="tooltip-content">Current Status: {getStatusConfig(project.status).label}</div>
+                        </div>
+
+                        {/* Priority */}
+                        <div className="tooltip-wrapper">
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-800 dark:text-gray-200 font-semibold">Priority:</span>
+                            <Badge 
+                              variant={getPriorityConfig(project.priority).color as any} 
+                              size="sm" 
+                              className="px-2 py-0.5 text-xs"
+                            >
+                              {getPriorityConfig(project.priority).label}
+                            </Badge>
+                          </div>
+                          <div className="tooltip-content">Priority Level: {getPriorityConfig(project.priority).label}</div>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2 lg:ml-2">
-                        <User size={12} className="text-gray-500" />
-                        <span className="text-xs text-gray-500">
-                          {getTeamCount(project.team)} team(s)
-                          {Array.isArray(project.team) && project.team.length > 0 && (
-                            <span className="ml-1">
-                              ({project.team.slice(0, 2).join(', ')}{project.team.length > 2 ? '...' : ''})
+
+                      {/* Row 2: Progress, Tasks */}
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                        {/* Progress */}
+                        <div className="tooltip-wrapper">
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-800 dark:text-gray-200 font-semibold">Progress:</span>
+                            <span className="px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-400 font-medium">
+                              {progress}%
                             </span>
-                          )}
-                        </span>
+                          </div>
+                          <div className="tooltip-content">Progress: {progress}%</div>
+                        </div>
+
+                        {/* Tasks Count */}
+                        <div className="tooltip-wrapper">
+                          <div className="flex items-center gap-0.5">
+                            <CheckSquare className="w-3 h-3 text-gray-500 dark:text-gray-400" />
+                            <span className="text-gray-700 dark:text-gray-300 font-medium">{totalTasks} tasks</span>
+                          </div>
+                          <div className="tooltip-content">Total Tasks: {totalTasks}</div>
+                        </div>
+                      </div>
+
+                      {/* Row 3: Tags, Due Date */}
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                        {/* Tags */}
+                        {tagsArray.length > 0 && (
+                          <div className="tooltip-wrapper">
+                            <div className="flex items-center gap-1">
+                              <span className="text-gray-800 dark:text-gray-200 font-semibold">Tags:</span>
+                              <div className="flex items-center gap-1">
+                                {tagsArray.slice(0, 1).map((tag: string, i: number) => (
+                                  <span key={i} className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-400 rounded-md font-medium text-xs">
+                                    {tag.trim()}
+                                  </span>
+                                ))}
+                                {tagsArray.length > 1 && (
+                                  <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-md font-medium text-xs">
+                                    +{tagsArray.length - 1}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="tooltip-content">Tags: {tagsArray.join(', ')}</div>
+                          </div>
+                        )}
+
+                        {/* Due Date */}
+                        {project.endDate && (
+                          <div className="tooltip-wrapper">
+                            <div className="flex items-center gap-0.5">
+                              <Calendar className="w-3 h-3 text-gray-500 dark:text-gray-400" />
+                              <span className={`${isOverdue(project.endDate) ? 'text-red-600 dark:text-red-400 font-medium' : 'text-gray-700 dark:text-gray-300 font-medium'}`}>
+                                {formatShort(project.endDate)}
+                              </span>
+                            </div>
+                            <div className="tooltip-content">
+                              End Date: {new Date(project.endDate).toLocaleDateString()}
+                              {isOverdue(project.endDate) ? ' (OVERDUE)' : ''}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
+
+                  {/* Description - Desktop */}
+                  {project.description && (
+                    <div className="hidden sm:block pl-[58px] -mt-5">
+                      <div className="tooltip-wrapper inline-block">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-gray-800 dark:text-gray-200 font-semibold">Description:</span>
+                          <span className="px-2.5 py-1 font-medium text-xs text-gray-600 dark:text-gray-400 truncate max-w-2xl inline-block">
+                            {project.description.length > 100 ? project.description.substring(0, 100) + '...' : project.description}
+                          </span>
+                        </div>
+                        <div className="tooltip-content">Description: {project.description}</div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3 lg:gap-3 min-h-[100px]">
-            {filteredProjects.map((project) => (
-              <Card key={project.id} hover className="relative cursor-pointer rounded-3xl border border-gray-300 hover:border-gray-400" onClick={() => handleProjectClick(project)}>
-                <CardContent className="px-0 py-0 pb-3 sm:px-2 sm:py-1 sm:pb-3 lg:px-0 lg:py-0 lg:pb-1">
-                  <div className="space-y-1 sm:space-y-2 lg:space-y-1">
-                    {/* Header with Project Icon and Title and Assignee aligned */}
-                    <div className="flex items-center justify-between px-0 sm:px-0 -mt-0.5">
-                      <div className="flex items-center space-x-1 sm:space-x-2 flex-1 min-w-0 mr-2">
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
-                          {(project.name || project.title || 'P').charAt(0).toUpperCase()}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-medium text-gray-900 text-xs sm:text-sm leading-tight truncate whitespace-nowrap">{project.name || project.title || 'Untitled Project'}</h4>
-                          <p className="text-xs text-gray-600 mt-1 hidden sm:block truncate whitespace-nowrap overflow-hidden">{project.description || 'No description'}</p>
-                        </div>
-                      </div>
-                      <div className="ml-2 -mr-1 flex-shrink-0 self-start relative">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="p-0.5 h-10 w-10"
-                          title="More options"
-                          onClick={(e) => { e.stopPropagation(); setOpenMenuProjectId(prev => prev === project.id ? null : project.id); }}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-3 pb-4">
+            {filteredProjects.map((project) => {
+              const tagsArray = (project.tags && typeof project.tags === 'string') ? project.tags.split(',').filter(Boolean) : (Array.isArray(project.tags) ? project.tags : []);
+              const totalTasks = project.totalTasks || 0;
+              const progress = project.progress || 0;
+              
+              return (
+                <div
+                  key={project.id}
+                  className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl border border-gray-200 dark:border-gray-700 cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-lg w-full"
+                  style={{
+                    minHeight: '140px',
+                    boxShadow: '0 4px 10px rgba(0,0,0,0.05)'
+                  }}
+                  onClick={() => handleProjectClick(project)}
+                >
+                  <div className="p-3 sm:p-4 space-y-1.5 sm:space-y-2">
+                    {/* Header: Avatar + Title + Menu */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <div 
+                          className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-xs flex-shrink-0"
+                          title={`Project: ${project.name || 'No Name'}`}
                         >
-                          <MoreVertical className="w-5 h-5" />
-                        </Button>
+                          {(project.name || 'P').charAt(0).toUpperCase()}
+                        </div>
+                        <h4 
+                          className="font-medium text-gray-900 dark:text-white text-sm leading-tight truncate flex-1"
+                          title={`Project: ${project.name || 'Untitled Project'}`}
+                        >
+                          {project.name || 'Untitled Project'}
+                        </h4>
+                      </div>
+                      <div className="relative flex-shrink-0">
+                        <button 
+                          className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                          title="More options"
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            setOpenMenuProjectId(openMenuProjectId === project.id ? null : project.id); 
+                          }}
+                        >
+                          <MoreVertical className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                        </button>
                         {openMenuProjectId === project.id && (
-                          <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-lg z-30" onClick={(e)=>e.stopPropagation()}>
+                          <div 
+                            data-dropdown-menu
+                            className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-30" 
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <button 
-                              className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-t-xl flex items-center gap-2 text-sm" 
-                              onClick={(e)=>{e.stopPropagation(); handleProjectClick(project); setOpenMenuProjectId(null);}}
+                              className="w-full text-left px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg flex items-center gap-2 text-sm font-normal text-gray-800 dark:text-gray-200" 
+                              onClick={(e) => {e.stopPropagation(); handleProjectClick(project); setOpenMenuProjectId(null);}}
                             >
                               <Eye className="w-4 h-4" />
                               <span>View</span>
                             </button>
                             <UpdateButton
                               resource="projects"
-                              onClick={(e)=>{e?.stopPropagation(); handleEditProject(project); setOpenMenuProjectId(null);}}
-                              className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm"
+                              onClick={(e) => {e?.stopPropagation(); handleEditProject(project); setOpenMenuProjectId(null);}}
+                              className="w-full text-left px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 text-sm font-normal text-gray-800 dark:text-gray-200"
                             >
                               <Edit className="w-4 h-4" />
                               <span>Edit</span>
                             </UpdateButton>
                             <DeleteButton
                               resource="projects"
-                              onClick={(e)=>{e?.stopPropagation(); handleDeleteProject(project.id); setOpenMenuProjectId(null);}}
-                              className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-b-xl flex items-center gap-2 text-sm text-red-600"
+                              onClick={(e) => {e?.stopPropagation(); handleDeleteProject(project.id); setOpenMenuProjectId(null);}}
+                              className="w-full text-left px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-b-lg flex items-center gap-2 text-sm font-normal text-red-600 dark:text-red-400"
                             >
                               <Trash2 className="w-4 h-4" />
                               <span>Delete</span>
@@ -1136,65 +1448,129 @@ const ProjectsPage = () => {
                       </div>
                     </div>
 
-                    {/* Product Owner & Scrum Master */}
-                    <div className="flex flex-col sm:flex-row gap-1 sm:gap-2 text-xs lg:text-[11px]">
-                      {project.productOwner && (
-                        <div className="flex items-center text-gray-600">
-                          <Crown className="w-3 h-3 mr-1" />
-                          <span className="truncate">PO: {project.productOwner}</span>
+                    {/* Tags or Priority Chip */}
+                    {tagsArray.length > 0 ? (
+                      <div className="flex items-center flex-wrap gap-1.5">
+                        {/* Tags label - mobile only */}
+                        <span className="text-xs text-gray-800 dark:text-gray-200 font-semibold sm:hidden">Tags:</span>
+                        
+                        {/* Mobile: Show only 1 tag */}
+                        <div className="sm:hidden flex items-center gap-1.5">
+                          <div className="tooltip-wrapper">
+                            <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-400 rounded-md text-xs font-medium inline-block max-w-[55px] truncate">
+                              {tagsArray[0].trim()}
+                            </span>
+                            <div className="tooltip-content">Tag: {tagsArray[0].trim()}</div>
+                          </div>
+                          {tagsArray.length > 1 && (
+                            <div className="tooltip-wrapper">
+                              <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-md text-xs">
+                                +{tagsArray.length - 1}
+                              </span>
+                              <div className="tooltip-content">
+                                {tagsArray.length - 1} more tags: {tagsArray.slice(1).map((t: string) => t.trim()).join(', ')}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Desktop: Show 2 tags */}
+                        <div className="hidden sm:flex items-center gap-1.5">
+                          {tagsArray.slice(0, 2).map((tag: string, i: number) => (
+                            <div key={i} className="tooltip-wrapper">
+                              <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-400 rounded-md text-xs font-medium">
+                                {tag.trim()}
+                              </span>
+                              <div className="tooltip-content">Tag: {tag.trim()}</div>
+                            </div>
+                          ))}
+                          {tagsArray.length > 2 && (
+                            <div className="tooltip-wrapper">
+                              <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-md text-xs">
+                                +{tagsArray.length - 2}
+                              </span>
+                              <div className="tooltip-content">
+                                {tagsArray.length - 2} more tags: {tagsArray.slice(2).map((t: string) => t.trim()).join(', ')}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-gray-800 dark:text-gray-200 font-semibold">Company:</span>
+                        <span className="px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium text-xs">
+                          {project.company || 'N/A'}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Divider */}
+                    <div className="border-t border-gray-100 dark:border-gray-700"></div>
+
+                    {/* Status and Priority Row */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="tooltip-wrapper">
+                        <div className="flex items-center gap-1.5">
+                          <span className="hidden sm:inline text-xs text-gray-800 dark:text-gray-200 font-semibold">Status:</span>
+                          <Badge variant={getStatusConfig(project.status).color as any} size="sm" className="text-xs">
+                            {getStatusConfig(project.status).label}
+                          </Badge>
+                        </div>
+                        <div className="tooltip-content">Current Status: {getStatusConfig(project.status).label}</div>
+                      </div>
+                      <div className="tooltip-wrapper">
+                        <div className="flex items-center gap-1.5">
+                          <span className="hidden sm:inline text-xs text-gray-800 dark:text-gray-200 font-semibold">Priority:</span>
+                          <Badge variant={getPriorityConfig(project.priority).color as any} size="sm" className="text-xs">
+                            {getPriorityConfig(project.priority).label}
+                          </Badge>
+                        </div>
+                        <div className="tooltip-content">Priority Level: {getPriorityConfig(project.priority).label}</div>
+                      </div>
+                    </div>
+
+                    {/* Bottom Meta Info */}
+                    <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
+                      <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                        {/* Progress - Always visible */}
+                        <div className="tooltip-wrapper">
+                          <div className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-400 rounded-md font-medium">
+                            {progress}%
+                          </div>
+                          <div className="tooltip-content">Progress: {progress}%</div>
+                        </div>
+                        
+                        {/* Tasks - Desktop only (hidden on mobile) */}
+                        <div className="tooltip-wrapper !hidden sm:!inline-flex">
+                          <div className="flex items-center gap-1">
+                            <CheckSquare className="w-3.5 h-3.5" />
+                            <span>{totalTasks}</span>
+                          </div>
+                          <div className="tooltip-content">Tasks: {totalTasks}</div>
+                        </div>
+                      </div>
+                      
+                      {/* End Date - Always visible */}
+                      {project.endDate && (
+                        <div className="tooltip-wrapper flex-shrink-0">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="w-3.5 h-3.5" />
+                            <span className={isOverdue(project.endDate) ? 'text-red-600 dark:text-red-400 font-medium' : ''}>
+                              {formatShort(project.endDate)}
+                            </span>
+                          </div>
+                          <div className="tooltip-content">
+                            End Date: {new Date(project.endDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                            {isOverdue(project.endDate) ? ' (OVERDUE)' : ''}
+                          </div>
                         </div>
                       )}
-                      {project.scrumMaster && (
-                        <div className="flex items-center text-gray-600">
-                          <User className="w-3 h-3 mr-1" />
-                          <span className="truncate">SM: {project.scrumMaster}</span>
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* Status and Priority Chips - show on same line in mobile */}
-                    <div className="flex flex-row items-center justify-between gap-1 sm:gap-2 lg:gap-1.5">
-                      {renderStatusChip(project.status)}
-                      <div className="block">
-                        {renderPriorityChip(project.priority)}
-                      </div>
-                    </div>
-                    
-                    {/* Progress from real task data */}
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-xs lg:text-[11px] text-gray-600">
-                        <span>Progress</span>
-                        <span className="font-medium">{getProgressPercent(project)}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="h-2 bg-blue-500 rounded-full transition-all"
-                          style={{ width: `${getProgressPercent(project)}%` }}
-                        ></div>
-                      </div>
-                      <div className="text-xs lg:text-[11px] text-gray-500">
-                        {(() => { const c = getTaskCounts(project); return `${c.completed}/${c.total} tasks`; })()}
-                      </div>
-                    </div>
-                    
-                    {/* Assignee */}
-                    {/* Assignee avatar moved to top-right corner */}
-                    
-                    {/* Timeline: Sep 01 → Mar 30, 2025 */}
-                    <div className="flex items-center space-x-2 text-xs lg:text-[11px] text-gray-600 min-w-0">
-                      <Calendar size={8} className="sm:w-3 sm:h-3" />
-                      {/* Mobile: no year; Desktop: include year */}
-                      <span className="text-xs whitespace-nowrap overflow-hidden text-ellipsis sm:hidden">
-                        {formatShort(project.startDate)} <span className="mx-1">→</span> {formatShort(project.endDate)}
-                      </span>
-                      <span className="text-xs whitespace-nowrap overflow-hidden text-ellipsis hidden sm:inline">
-                        {formatShort(project.startDate)} <span className="mx-1">→</span> {formatWithYear(project.endDate)}
-                      </span>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -1202,28 +1578,23 @@ const ProjectsPage = () => {
         {isLoading && (
           <div className="text-center py-12 min-h-[400px] flex flex-col items-center justify-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-            <p className="text-gray-600">Loading projects...</p>
+            <p className="text-gray-600 dark:text-gray-400">Loading projects...</p>
           </div>
         )}
 
         {/* Empty State */}
         {!isLoading && filteredProjects.length === 0 && (
-          <div className="text-center py-12 min-h-[400px] flex flex-col items-center justify-center">
-            <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <FolderKanban className="w-12 h-12 text-gray-400" />
+          <div className="text-center py-12">
+            <div className="w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+              <FolderKanban className="w-12 h-12 text-gray-400 dark:text-gray-600" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No projects found</h3>
-            <p className="text-gray-600 mb-6">
-              {projects.length === 0 
-                ? 'No projects available. Create your first project to get started.' 
-                : 'Try adjusting your search or filter criteria'}
-            </p>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No projects found</h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">Try adjusting your search or filter criteria</p>
             <CreateButton resource="projects">
               <Button onClick={handleCreateProject}>Create New Project</Button>
             </CreateButton>
           </div>
         )}
-
       </div>
 
       {/* Floating Action Button for Mobile */}
@@ -1266,12 +1637,6 @@ const ProjectsPage = () => {
                 {/* Project Preview Header */}
                 <div className="flex items-center justify-between mb-4 lg:mb-6">
                   <div className="flex items-center space-x-3">
-                    <button
-                      onClick={closeProjectPreview}
-                      className="w-10 h-10 bg-gray-100 hover:bg-gray-300 rounded-lg flex items-center justify-center transition-colors"
-                    >
-                      <X className="w-5 h-5 text-gray-600" />
-                    </button>
                     <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-lg">
                       <FolderKanban className="w-5 h-5 text-white" />
                     </div>
@@ -1280,15 +1645,22 @@ const ProjectsPage = () => {
                       <p className="text-gray-500 text-sm">Project Details</p>
                     </div>
                   </div>
-                  <UpdateButton
-                    resource="projects"
-                    onClick={() => handleEditProject(selectedProject)}
-                    className="w-10 h-10 bg-blue-500 hover:bg-blue-600 rounded-lg flex items-center justify-center transition-colors"
+                  {/* JSON View Button */}
+                  <Button
+                    variant={isJsonViewActive ? "primary" : "outline"}
+                    size="sm"
+                    onClick={() => setIsJsonViewActive(!isJsonViewActive)}
+                    className="flex items-center space-x-2 text-xs sm:text-sm px-3 py-2"
+                    title="Toggle JSON View"
                   >
-                    <Edit className="w-5 h-5 text-white" />
-                  </UpdateButton>
+                    <FileCode className="w-4 h-4" />
+                    <span>JSON View</span>
+                  </Button>
                 </div>
 
+                {/* Conditional Rendering: Normal View or JSON View */}
+                {!isJsonViewActive ? (
+                  <>
                 {/* Project Details - Single Card */}
                 <div className="bg-white rounded-2xl border border-gray-300 p-4 lg:p-6 shadow-sm">
                   <div className="space-y-6">
@@ -1318,7 +1690,7 @@ const ProjectsPage = () => {
                         <label className="block text-sm font-semibold text-gray-800 mb-2">Progress</label>
                         <div className="space-y-2">
                           <div className="flex justify-between text-sm text-gray-600">
-                            <span>{getTasksArray(selectedProject.tasks).length} task(s)</span>
+                            <span>{selectedProject.totalTasks || 0} task(s)</span>
                             <span>{selectedProject.progress || 0}%</span>
                           </div>
                           <div className="w-full bg-gray-300 rounded-full h-3">
@@ -1355,7 +1727,7 @@ const ProjectsPage = () => {
                         <label className="block text-sm font-semibold text-gray-800 mb-2">Progress</label>
                         <div className="space-y-2">
                           <div className="flex justify-between text-sm text-gray-600">
-                            <span>{getTasksArray(selectedProject.tasks).length} task(s)</span>
+                            <span>{selectedProject.totalTasks || 0} task(s)</span>
                             <span>{selectedProject.progress || 0}%</span>
                           </div>
                           <div className="w-full bg-gray-300 rounded-full h-3">
@@ -1408,6 +1780,39 @@ const ProjectsPage = () => {
                     )}
                   </div>
                 </div>
+                </>
+                ) : (
+                  /* JSON View */
+                  <div className="bg-white rounded-2xl border border-gray-300 p-4 lg:p-6 shadow-sm">
+                    <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 overflow-auto max-h-[70vh]">
+                      <pre className="text-xs font-mono text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words">
+                        {JSON.stringify({
+                          id: selectedProject.id,
+                          name: selectedProject.name,
+                          title: selectedProject.title,
+                          description: selectedProject.description,
+                          status: selectedProject.status,
+                          priority: selectedProject.priority,
+                          progress: selectedProject.progress || 0,
+                          totalTasks: selectedProject.totalTasks || 0,
+                          completedTasks: selectedProject.completedTasks || 0,
+                          startDate: selectedProject.startDate,
+                          endDate: selectedProject.endDate,
+                          company: selectedProject.company,
+                          assignee: selectedProject.assignee,
+                          productOwner: selectedProject.productOwner,
+                          scrumMaster: selectedProject.scrumMaster,
+                          team: selectedProject.team,
+                          tasks: getTasksArray(selectedProject.tasks),
+                          tags: getTagsArray(selectedProject.tags),
+                          notes: selectedProject.notes,
+                          createdAt: selectedProject.createdAt || null,
+                          updatedAt: selectedProject.updatedAt || null
+                        }, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

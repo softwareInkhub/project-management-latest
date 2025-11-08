@@ -31,7 +31,8 @@ import {
   Tag,
   Settings,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  FileCode
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -758,6 +759,9 @@ const TasksPage = () => {
   const [isCreatingSubtask, setIsCreatingSubtask] = useState(false);
   const [parentTaskForSubtask, setParentTaskForSubtask] = useState<Task | null>(null);
   const [isPreviewAnimating, setIsPreviewAnimating] = useState(false);
+  
+  // JSON view toggle
+  const [isJsonViewActive, setIsJsonViewActive] = useState(false);
   
   // Comment management
   const [newComment, setNewComment] = useState('');
@@ -3299,7 +3303,7 @@ const TasksPage = () => {
       <div className="w-full h-full px-3 sm:px-4 lg:px-8 py-3 sm:py-4 lg:py-4 overflow-x-hidden">
 
         {/* Analytics Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-4 lg:max-w-5xl">
           {/* Total Tasks */}
           <StatsCard
             title="Total Tasks"
@@ -4477,7 +4481,7 @@ const TasksPage = () => {
              </div>
            </>
         ) : (!isLoading && !error && viewMode === 'card') ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 pb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-3 pb-4">
             {filteredTasks.map((task) => {
               const commentsCount = (() => { 
                 try { 
@@ -4652,7 +4656,7 @@ const TasksPage = () => {
                         <div className="flex items-center gap-1.5">
                           <span className="hidden sm:inline text-xs text-gray-800 font-semibold">Priority:</span>
                           <Badge variant={getPriorityConfig(task.priority).color as any} size="sm" className="text-xs">
-                            {task.priority === 'High' && '🔥'} {getPriorityConfig(task.priority).label}
+                            {getPriorityConfig(task.priority).label}
                           </Badge>
                         </div>
                         <div className="tooltip-content">Priority Level: {getPriorityConfig(task.priority).label}</div>
@@ -4822,8 +4826,22 @@ const TasksPage = () => {
                       </p>
                     </div>
                   </div>
+                  {/* JSON View Button */}
+                  <Button
+                    variant={isJsonViewActive ? "primary" : "outline"}
+                    size="sm"
+                    onClick={() => setIsJsonViewActive(!isJsonViewActive)}
+                    className="flex items-center space-x-2 text-xs sm:text-sm px-3 py-2"
+                    title="Toggle JSON View"
+                  >
+                    <FileCode className="w-4 h-4" />
+                    <span>JSON View</span>
+                  </Button>
                 </div>
 
+                {/* Conditional Rendering: Normal View or JSON View */}
+                {!isJsonViewActive ? (
+                  <>
                 {/* Task Details - Consolidated Card */}
                 <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-3 lg:p-4 shadow-sm">
                   {/* All fields in a single card with compact grid layout */}
@@ -4883,8 +4901,8 @@ const TasksPage = () => {
                     {/* Tags Card - Full width */}
                     <div className="col-span-2 lg:col-span-6 pt-3">
                       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 shadow-sm">
-                        <label className="block text-xs font-semibold text-gray-800 dark:text-gray-200 mb-1.5">Tags</label>
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className="flex items-center flex-wrap gap-1.5">
+                          <label className="text-xs font-semibold text-gray-800 dark:text-gray-200">Tags</label>
                           {(selectedTask.tags || '').split(',').map((tag, index) => (
                             <span key={index} className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs rounded-full">
                               {tag.trim()}
@@ -5647,6 +5665,62 @@ const TasksPage = () => {
                     )}
                   </div>
                 </div>
+                </>
+                ) : (
+                  /* JSON View */
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-3 lg:p-4 shadow-sm">
+                    <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 overflow-auto max-h-[70vh]">
+                      <pre className="text-xs font-mono text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words">
+                        {JSON.stringify({
+                          id: selectedTask.id,
+                          title: selectedTask.title,
+                          description: selectedTask.description,
+                          project: selectedTask.project,
+                          status: selectedTask.status,
+                          priority: selectedTask.priority,
+                          estimatedHours: selectedTask.estimatedHours,
+                          startDate: selectedTask.startDate,
+                          dueDate: selectedTask.dueDate,
+                          tags: selectedTask.tags ? selectedTask.tags.split(',').map((tag: string) => tag.trim()) : [],
+                          assignedUsers: (selectedTask.assignedUsers || []).map((userId: string) => {
+                            const user = allUsers.find(u => (u.id || u.userId) === userId);
+                            return {
+                              id: userId,
+                              name: user?.name || user?.username || user?.email || userId,
+                              email: user?.email || null
+                            };
+                          }),
+                          assignedTeams: (selectedTask.assignedTeams || []).map((teamId: string) => {
+                            const team = allTeams.find(t => t.id === teamId);
+                            return {
+                              id: teamId,
+                              name: team?.name || teamId
+                            };
+                          }),
+                          subtasks: getSubtasksArray(selectedTask.subtasks, tasks).map((subtaskId: string) => {
+                            const subtask = tasks.find((t: Task) => t.id === subtaskId);
+                            return subtask ? {
+                              id: subtask.id,
+                              title: subtask.title,
+                              status: subtask.status,
+                              description: subtask.description
+                            } : subtaskId;
+                          }),
+                          comments: (selectedTask as any).comments || [],
+                          attachments: attachedFiles.map((file: any) => ({
+                            id: file.id,
+                            name: file.name,
+                            size: file.size,
+                            mimeType: file.mimeType,
+                            createdAt: file.createdAt
+                          })),
+                          createdAt: (selectedTask as any).createdAt || null,
+                          updatedAt: (selectedTask as any).updatedAt || null
+                        }, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

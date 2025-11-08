@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useRouter } from 'next/navigation';
 
+export const dynamic = 'force-dynamic';
+
 export default function DiagnosticPage() {
   const { user, isLoading, isAuthenticated } = useAuth();
   const router = useRouter();

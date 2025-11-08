@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { handleGoogleCalendarCallback } from '../utils/googleCalendarClient';
 
+export const dynamic = 'force-dynamic';
+
 export default function BrowserCallbackPage() {
   const router = useRouter();
   const searchParams = useSearchParams();

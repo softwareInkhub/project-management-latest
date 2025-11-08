@@ -33,6 +33,8 @@ import { useAuth } from '../hooks/useAuth';
 import { AppLayout } from '../components/AppLayout';
 import { useTheme } from '../contexts/ThemeContext';
 
+export const dynamic = 'force-dynamic';
+
 export default function SettingsPage() {
   const { user } = useAuth();
   const { theme, setTheme } = useTheme();
