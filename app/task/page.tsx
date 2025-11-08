@@ -3302,45 +3302,6 @@ const TasksPage = () => {
       `}</style>
       <div className="w-full h-full px-3 sm:px-4 lg:px-8 py-3 sm:py-4 lg:py-4 overflow-x-hidden">
 
-        {/* Analytics Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-4 lg:max-w-5xl">
-          {/* Total Tasks */}
-          <StatsCard
-            title="Total Tasks"
-            value={tasks.length}
-            icon={CheckSquare}
-            iconColor="blue"
-            className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
-          />
-          
-          {/* Completed Tasks */}
-          <StatsCard
-            title="Completed"
-            value={tasks.filter(task => task.status === 'Completed').length}
-            icon={CheckCircle}
-            iconColor="green"
-            className="bg-gradient-to-r from-green-50 to-green-100 border-green-200"
-          />
-          
-          {/* In Progress Tasks */}
-          <StatsCard
-            title="In Progress"
-            value={tasks.filter(task => task.status === 'In Progress').length}
-            icon={Clock}
-            iconColor="yellow"
-            className="bg-gradient-to-r from-yellow-50 to-yellow-100 border-yellow-200"
-          />
-          
-          {/* Overdue Tasks */}
-          <StatsCard
-            title="Overdue"
-            value={tasks.filter(task => isOverdue(task.dueDate)).length}
-            icon={AlertTriangle}
-            iconColor="red"
-            className="bg-gradient-to-r from-red-50 to-red-100 border-red-200"
-          />
-        </div>
-
         {/* Filters and Search */}
         <SearchFilterSection
           searchValue={searchTerm}

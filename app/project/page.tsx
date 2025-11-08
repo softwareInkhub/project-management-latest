@@ -989,7 +989,7 @@ const ProjectsPage = () => {
           }
         }
       `}</style>
-      <div className="w-full min-h-full px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 overflow-x-hidden">
+      <div className="w-full min-h-full px-3 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 overflow-x-hidden">
 
 
         {/* Filters and Search */}
