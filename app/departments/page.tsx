@@ -16,7 +16,8 @@ import {
   CheckCircle,
   XCircle,
   Building2,
-  Settings
+  Settings,
+  FileCode
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -48,7 +49,9 @@ const DepartmentsPage = () => {
   const [editingDepartment, setEditingDepartment] = useState<DepartmentWithCompany | null>(null);
   const [viewingDepartment, setViewingDepartment] = useState<DepartmentWithCompany | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
+  
+  // JSON view toggle
+  const [isJsonViewActive, setIsJsonViewActive] = useState(false);
 
   // Quick filter state
   const [quickFilterValues, setQuickFilterValues] = useState<Record<string, string | string[] | { from: string; to: string }>>({
@@ -108,10 +111,18 @@ const DepartmentsPage = () => {
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+      const target = event.target as HTMLElement;
+      
+      // Check if click is on a dropdown menu or its trigger button
+      const isDropdownMenu = target.closest('[data-dropdown-menu]');
+      const isMenuButton = target.closest('button[title="More options"]') || target.closest('button[title="More Options"]');
+      
+      // Close dropdown if clicking outside of both the menu and trigger button
+      if (!isDropdownMenu && !isMenuButton) {
         setOpenMenuId(null);
       }
     };
+    
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
@@ -243,6 +254,7 @@ const DepartmentsPage = () => {
   const handleView = (department: DepartmentWithCompany) => {
     setViewingDepartment(department);
     setIsViewModalOpen(true);
+    setIsJsonViewActive(false); // Reset JSON view when opening modal
     setOpenMenuId(null);
   };
 
@@ -280,39 +292,52 @@ const DepartmentsPage = () => {
 
   return (
     <AppLayout>
+      {/* Tooltip Styles */}
+      <style jsx>{`
+        .tooltip-wrapper {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+        }
+        .tooltip-wrapper .tooltip-content {
+          visibility: hidden;
+          opacity: 0;
+          position: absolute;
+          z-index: 9999;
+          bottom: calc(100% + 8px);
+          left: 50%;
+          transform: translateX(-50%);
+          background-color: rgba(31, 41, 55, 0.95);
+          color: white;
+          padding: 6px 12px;
+          border-radius: 8px;
+          font-size: 12px;
+          white-space: nowrap;
+          transition: opacity 0.2s ease, visibility 0.2s ease;
+          pointer-events: none;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        .tooltip-wrapper .tooltip-content::after {
+          content: '';
+          position: absolute;
+          top: 100%;
+          left: 50%;
+          transform: translateX(-50%);
+          border: 5px solid transparent;
+          border-top-color: rgba(31, 41, 55, 0.95);
+        }
+        .tooltip-wrapper:hover .tooltip-content {
+          visibility: visible;
+          opacity: 1;
+        }
+        @media (max-width: 640px) {
+          .tooltip-wrapper .tooltip-content {
+            font-size: 11px;
+            padding: 5px 10px;
+          }
+        }
+      `}</style>
       <div className="w-full h-full px-3 sm:px-4 lg:px-8 py-3 sm:py-4 lg:py-4 overflow-x-hidden">
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-4">
-          <StatsCard
-            title="Total Departments"
-            value={stats.total}
-            icon={Briefcase}
-            iconColor="purple"
-            className="bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200"
-          />
-          <StatsCard
-            title="Active"
-            value={stats.active}
-            icon={CheckCircle}
-            iconColor="green"
-            className="bg-gradient-to-r from-green-50 to-green-100 border-green-200"
-          />
-          <StatsCard
-            title="Inactive"
-            value={stats.inactive}
-            icon={XCircle}
-            iconColor="orange"
-            className="bg-gradient-to-r from-orange-50 to-orange-100 border-orange-200"
-          />
-          <StatsCard
-            title="Total Teams"
-            value={stats.totalTeams}
-            icon={Users}
-            iconColor="blue"
-            className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
-          />
-        </div>
 
         {/* Search and Filters */}
         <SearchFilterSection
@@ -431,54 +456,82 @@ const DepartmentsPage = () => {
 
         {/* Card View */}
         {!isLoading && viewMode === 'card' && filteredDepartments.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3 lg:gap-3 pb-4">
-            {filteredDepartments.map((department) => (
-              <Card key={department.id} hover className="relative cursor-pointer rounded-3xl border border-gray-300 hover:border-gray-400" onClick={() => handleView(department)}>
-                <CardContent className="px-0 py-0 sm:px-2 sm:py-1 lg:px-2 lg:py-0">
-                  <div className="space-y-1 sm:space-y-2 lg:space-y-1.5">
-                    {/* Header with Department Icon and Name and Action Menu */}
-                    <div className="flex items-center justify-between px-0 sm:px-0 -mt-0.5">
-                      <div className="flex items-center space-x-1 sm:space-x-2 flex-1 min-w-0 mr-2">
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-3 pb-4">
+            {filteredDepartments.map((department) => {
+              const tagsArray = department.tags || [];
+              
+              return (
+                <div
+                  key={department.id}
+                  className="relative bg-white rounded-xl sm:rounded-2xl border border-gray-200 hover:border-gray-300 cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-lg hover:z-50"
+                  style={{
+                    boxShadow: '0 4px 10px rgba(0,0,0,0.05)'
+                  }}
+                  onClick={() => handleView(department)}
+                >
+                  <div className="p-3 sm:p-4 space-y-1.5 sm:space-y-2">
+                    {/* Header: Icon + Title/Description + Menu */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start gap-2 flex-1 min-w-0">
+                        <div 
+                          className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center text-white flex-shrink-0"
+                          title={`Department: ${department.name || 'No Name'}`}
+                        >
                           <Briefcase className="w-4 h-4 sm:w-5 sm:h-5" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-medium text-gray-900 text-xs sm:text-sm leading-tight truncate whitespace-nowrap">{department.name || 'Untitled Department'}</h4>
-                          <p className="text-xs text-gray-600 mt-1 hidden sm:block truncate whitespace-nowrap overflow-hidden">{department.description || 'No description'}</p>
+                          <h4 
+                            className="font-semibold text-gray-900 text-sm sm:text-base leading-tight truncate"
+                            title={`Department: ${department.name || 'Untitled Department'}`}
+                          >
+                            {department.name || 'Untitled Department'}
+                          </h4>
+                          {department.description && (
+                            <p 
+                              className="text-xs text-gray-600 mt-0.5 truncate"
+                              title={department.description}
+                            >
+                              {department.description}
+                            </p>
+                          )}
                         </div>
                       </div>
-                      <div className="ml-2 -mr-1 flex-shrink-0 self-start relative" ref={openMenuId === department.id ? menuRef : null}>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="p-0.5 h-10 w-10"
-                          title="More options"
-                          onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === department.id ? null : department.id); }}
+                      <div className="relative flex-shrink-0">
+                        <button 
+                          className="p-1 hover:bg-gray-100 rounded-xl transition-colors"
+                          title="More Options"
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            setOpenMenuId(openMenuId === department.id ? null : department.id); 
+                          }}
                         >
-                          <MoreVertical className="w-5 h-5" />
-                        </Button>
+                          <MoreVertical className="w-4 h-4 text-gray-500" />
+                        </button>
                         {openMenuId === department.id && (
                           <div 
                             data-dropdown-menu
                             className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-lg z-30" 
-                            onClick={(e)=>e.stopPropagation()}
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            <button className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-t-xl flex items-center gap-2 text-sm" onClick={(e)=>{e.stopPropagation(); handleView(department); setOpenMenuId(null);}}>
+                            <button 
+                              className="w-full text-left px-4 py-2.5 hover:bg-gray-50 rounded-t-xl flex items-center gap-2 text-sm font-normal text-gray-800" 
+                              onClick={(e) => {e.stopPropagation(); handleView(department); setOpenMenuId(null);}}
+                            >
                               <Eye className="w-4 h-4" />
                               <span>View</span>
                             </button>
                             <UpdateButton
                               resource="departments"
-                              onClick={(e)=>{e?.stopPropagation(); handleEdit(department); setOpenMenuId(null);}}
-                              className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm"
+                              onClick={(e) => {e?.stopPropagation(); handleEdit(department); setOpenMenuId(null);}}
+                              className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center gap-2 text-sm font-normal text-gray-800"
                             >
                               <Edit className="w-4 h-4" />
                               <span>Edit</span>
                             </UpdateButton>
                             <DeleteButton
                               resource="departments"
-                              onClick={(e)=>{e?.stopPropagation(); handleDelete(department.id); setOpenMenuId(null);}}
-                              className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-b-xl flex items-center gap-2 text-sm text-red-600"
+                              onClick={(e) => {e?.stopPropagation(); handleDelete(department.id); setOpenMenuId(null);}}
+                              className="w-full text-left px-4 py-2.5 hover:bg-gray-50 rounded-b-xl flex items-center gap-2 text-sm font-normal text-red-600"
                             >
                               <Trash2 className="w-4 h-4" />
                               <span>Delete</span>
@@ -487,169 +540,372 @@ const DepartmentsPage = () => {
                         )}
                       </div>
                     </div>
-                    
-                    {/* Status Badge */}
-                    <div className="flex flex-row items-center justify-between gap-1 sm:gap-2 lg:gap-1.5">
-                      <Badge variant={department.active === 'active' ? 'success' : 'default'} size="sm" className="text-[11px]">
-                        {department.active}
-                      </Badge>
-                    </div>
-                    
-                    {/* Company and Teams Count */}
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-xs lg:text-[11px] text-gray-600">
-                        <span>Company</span>
-                        <span className="font-medium truncate ml-1">{department.companyName}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-xs lg:text-[11px] text-gray-600">
-                        <span>Teams</span>
-                        <span className="font-medium">{department.teams?.length || 0}</span>
-                      </div>
-                    </div>
-                    
-                    {/* Created Date */}
-                    {department.createdAt && (
-                      <div className="flex items-center space-x-2 text-xs lg:text-[11px] text-gray-600 min-w-0">
-                        <Calendar size={8} className="sm:w-3 sm:h-3" />
-                        <span className="text-xs whitespace-nowrap overflow-hidden text-ellipsis">
-                          {new Date(department.createdAt).toLocaleDateString()}
+
+                    {/* Company Name */}
+                    <div className="tooltip-wrapper">
+                      <div className="flex items-center gap-1.5">
+                        <Building2 className="w-3.5 h-3.5 text-blue-500" />
+                        <span className="text-xs text-gray-600">Company:</span>
+                        <span className="text-xs text-gray-700 font-medium truncate">
+                          {department.companyName || 'No Company'}
                         </span>
                       </div>
-                    )}
-                    
-                    {/* Tags */}
-                    {department.tags && department.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 pt-1">
-                        {department.tags.slice(0, 2).map((tag, index) => (
-                          <span
-                            key={index}
-                            className="px-1.5 py-0.5 bg-gray-100 text-gray-700 text-[10px] rounded-full"
-                          >
-                            #{tag}
-                          </span>
-                        ))}
-                        {department.tags.length > 2 && (
-                          <span className="px-1.5 py-0.5 bg-gray-100 text-gray-700 text-[10px] rounded-full">
-                            +{department.tags.length - 2}
-                          </span>
-                        )}
+                      <div className="tooltip-content">Company: {department.companyName || 'No Company'}</div>
+                    </div>
+
+                    {/* Tags (below divider) */}
+                    {tagsArray.length > 0 && (
+                      <div className="flex items-center flex-wrap gap-1.5">
+                        {/* Mobile: Show only 1 tag */}
+                        <div className="sm:hidden flex items-center gap-1.5">
+                          <div className="tooltip-wrapper">
+                            <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-md text-xs font-medium inline-block max-w-[55px] truncate">
+                              {tagsArray[0]}
+                            </span>
+                            <div className="tooltip-content">Tag: {tagsArray[0]}</div>
+                          </div>
+                          {tagsArray.length > 1 && (
+                            <div className="tooltip-wrapper">
+                              <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-md text-xs">
+                                +{tagsArray.length - 1}
+                              </span>
+                              <div className="tooltip-content">
+                                {tagsArray.length - 1} more tag{tagsArray.length - 1 !== 1 ? 's' : ''}: {tagsArray.slice(1).join(', ')}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Desktop: Show 2 tags */}
+                        <div className="hidden sm:flex items-center gap-1.5">
+                          {tagsArray.slice(0, 2).map((tag, i) => (
+                            <div key={i} className="tooltip-wrapper">
+                              <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-md text-xs font-medium">
+                                {tag}
+                              </span>
+                              <div className="tooltip-content">Tag: {tag}</div>
+                            </div>
+                          ))}
+                          {tagsArray.length > 2 && (
+                            <div className="tooltip-wrapper">
+                              <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-md text-xs">
+                                +{tagsArray.length - 2}
+                              </span>
+                              <div className="tooltip-content">
+                                {tagsArray.length - 2} more tag{tagsArray.length - 2 !== 1 ? 's' : ''}: {tagsArray.slice(2).join(', ')}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
+
+                    {/* Divider */}
+                    <div className="border-t border-gray-100"></div>
+
+                    {/* Status, Teams, and Date Row - All in one line */}
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <div className="tooltip-wrapper">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-gray-600">Status:</span>
+                          <Badge variant={department.active === 'active' ? 'success' : 'default'} size="sm" className="text-xs">
+                            {department.active}
+                          </Badge>
+                        </div>
+                        <div className="tooltip-content">Current Status: {department.active}</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {/* Teams - Hidden on mobile */}
+                        <div className="hidden sm:block">
+                          <div className="tooltip-wrapper">
+                            <div className="flex items-center gap-1">
+                              <Users className="w-3.5 h-3.5 text-purple-500" />
+                              <span className="text-gray-800 font-semibold">
+                                {department.teams?.length || 0}
+                              </span>
+                            </div>
+                            <div className="tooltip-content">Teams: {department.teams?.length || 0}</div>
+                          </div>
+                        </div>
+                        {department.createdAt && (
+                          <div className="tooltip-wrapper">
+                            <div className="flex items-center gap-1">
+                              <Calendar className="w-3.5 h-3.5 text-gray-500" />
+                              <span className="text-gray-700 font-medium">
+                                {new Date(department.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                              </span>
+                            </div>
+                            <div className="tooltip-content">
+                              Created: {new Date(department.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
+                </div>
+              );
+            })}
           </div>
         )}
 
         {/* List View */}
         {!isLoading && viewMode === 'list' && filteredDepartments.length > 0 && (
-          <div className="pt-0 sm:pt-3 md:pt-2 space-y-2 pb-4">
-            {filteredDepartments.map((department) => (
-              <div
-                key={department.id}
-                className="relative px-3 py-3 bg-white rounded-2xl border border-gray-200 hover:border-gray-300 transition-colors cursor-pointer shadow-sm"
-                onClick={() => handleView(department)}
-              >
-                <div className="flex items-start gap-3">
-                  {/* Department Icon/Avatar */}
-                  <div className="flex-shrink-0">
-                    <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center text-white">
-                      <Briefcase className="w-6 h-6" />
-                    </div>
-                  </div>
-
-                  {/* Department Details */}
-                  <div className="flex-1 min-w-0 pr-8">
-                    {/* Department Name */}
-                    <h4 className="font-semibold text-gray-900 text-base truncate">
-                      {department.name || 'Untitled Department'}
-                    </h4>
-                    
-                    {/* Description */}
-                    <p className="text-sm text-gray-600 mt-1 line-clamp-2">
-                      {department.description || 'No description'}
-                    </p>
-
-                    {/* Badges and Meta Info */}
-                    <div className="flex flex-wrap items-center gap-2 mt-2">
-                      <Badge variant={department.active === 'active' ? 'success' : 'default'} size="sm">
-                        {department.active}
-                      </Badge>
-                      <div className="flex items-center text-xs text-gray-500">
-                        <Building2 className="w-3 h-3 mr-1" />
-                        {department.companyName}
-                      </div>
-                      <div className="flex items-center text-xs text-gray-500">
-                        <Users className="w-3 h-3 mr-1" />
-                        {department.teams?.length || 0} teams
-                      </div>
-                      <div className="flex items-center text-xs text-gray-500">
-                        <Calendar className="w-3 h-3 mr-1" />
-                        {new Date(department.createdAt).toLocaleDateString()}
+          <div className="pt-0 sm:pt-3 md:pt-0 space-y-3 pb-4">
+            {filteredDepartments.map((department) => {
+              const tagsArray = department.tags || [];
+              
+              return (
+                <div
+                  key={department.id}
+                  className="relative bg-white rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all duration-200 p-4 cursor-pointer hover:z-50"
+                  style={{
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.04)'
+                  }}
+                  onClick={() => handleView(department)}
+                >
+                  {/* Top Row - Icon, Title/Description, More Menu */}
+                  <div className="flex items-start gap-3 mb-0">
+                    {/* Department Icon */}
+                    <div className="flex-shrink-0">
+                      <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-sm">
+                        <Briefcase className="w-5 h-5" />
                       </div>
                     </div>
 
-                    {/* Tags */}
-                    {department.tags && department.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {department.tags.map((tag, index) => (
-                          <span
-                            key={index}
-                            className="px-2 py-0.5 bg-gray-100 text-gray-700 text-[10px] rounded-full"
-                          >
-                            #{tag}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                    {/* Department Title + Desktop Meta Details */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-9">
+                        {/* Title - Mobile full width, Desktop shrinks */}
+                        <div className="sm:flex-shrink-0">
+                          <div className="text-sm sm:text-base font-semibold text-gray-900 truncate">
+                            {department.name || 'Untitled Department'}
+                          </div>
+                        </div>
 
-                   {/* Action Menu Button */}
-                   <div className="absolute top-2 right-2 flex items-center z-20">
-                     <div className="relative" ref={openMenuId === department.id ? menuRef : null}>
-                       <Button
-                         variant="ghost"
-                         size="sm"
-                         title="More Options"
-                         className="p-2 h-8 w-10"
-                         onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === department.id ? null : department.id); }}
-                       >
-                         <MoreVertical className="w-5 h-5" />
-                      </Button>
-                      {openMenuId === department.id && (
-                        <div 
-                          data-dropdown-menu
-                          className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-lg z-30"
-                          onClick={(e) => e.stopPropagation()}
+                        {/* Desktop Meta Details - Right side of title */}
+                        <div className="hidden sm:flex flex-wrap items-center gap-x-2 gap-y-1 text-xs flex-1">
+                          {/* Status */}
+                          <div className="tooltip-wrapper">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-gray-800 font-semibold">Status:</span>
+                              <Badge 
+                                variant={department.active === 'active' ? 'success' : 'default'} 
+                                size="sm" 
+                                className="px-2.5 py-1"
+                              >
+                                {department.active}
+                              </Badge>
+                            </div>
+                            <div className="tooltip-content">Current Status: {department.active}</div>
+                          </div>
+
+                          {/* Company */}
+                          <div className="tooltip-wrapper">
+                            <div className="flex items-center gap-1">
+                              <span className="text-gray-800 font-semibold">Company:</span>
+                              <Building2 className="w-3.5 h-3.5 text-blue-500" />
+                              <span className="text-gray-700 font-medium truncate max-w-[100px]">
+                                {department.companyName}
+                              </span>
+                            </div>
+                            <div className="tooltip-content">Company: {department.companyName}</div>
+                          </div>
+
+                          {/* Teams */}
+                          <div className="tooltip-wrapper">
+                            <div className="flex items-center gap-1">
+                              <span className="text-gray-800 font-semibold">Teams:</span>
+                              <Users className="w-3.5 h-3.5 text-purple-500" />
+                              <span className="text-gray-700 font-medium">
+                                {department.teams?.length || 0}
+                              </span>
+                            </div>
+                            <div className="tooltip-content">Teams: {department.teams?.length || 0}</div>
+                          </div>
+
+                          {/* Tags */}
+                          {tagsArray.length > 0 && (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-gray-800 font-semibold">Tags:</span>
+                              <div className="flex items-center gap-1">
+                                {tagsArray.slice(0, 2).map((tag, i) => (
+                                  <div key={i} className="tooltip-wrapper">
+                                    <span className="px-2.5 py-1 bg-purple-100 text-purple-700 rounded-md font-medium">
+                                      {tag}
+                                    </span>
+                                    <div className="tooltip-content">Tag: {tag}</div>
+                                  </div>
+                                ))}
+                                {tagsArray.length > 2 && (
+                                  <div className="tooltip-wrapper">
+                                    <span className="px-2 py-1 bg-gray-200 text-gray-700 rounded-md text-xs">
+                                      +{tagsArray.length - 2}
+                                    </span>
+                                    <div className="tooltip-content">
+                                      {tagsArray.length - 2} more tag{tagsArray.length - 2 !== 1 ? 's' : ''}: {tagsArray.slice(2).join(', ')}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Created Date */}
+                          {department.createdAt && (
+                            <div className="tooltip-wrapper">
+                              <div className="flex items-center gap-1.5">
+                                <Calendar className="w-3.5 h-3.5 text-gray-500" />
+                                <span className="text-gray-700 font-medium">
+                                  {new Date(department.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                </span>
+                              </div>
+                              <div className="tooltip-content">
+                                Created: {new Date(department.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Mobile Description - Right below title */}
+                      {department.description && (
+                        <div className="sm:hidden mt-1">
+                          <div className="text-xs text-gray-600 truncate">
+                            {department.description.length > 30 ? department.description.substring(0, 30) + '..' : department.description}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* More Options Menu */}
+                    <div 
+                      className={`flex-shrink-0 relative ${openMenuId === department.id ? 'z-50' : 'z-20'}`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="relative">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          title="More Options"
+                          className="p-2 h-10 w-10 text-gray-400 hover:text-gray-600"
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            setOpenMenuId(openMenuId === department.id ? null : department.id); 
+                          }}
                         >
-                          <button className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-t-xl flex items-center gap-2 text-sm" onClick={(e)=>{e.stopPropagation(); handleView(department); setOpenMenuId(null);}}>
-                            <Eye className="w-4 h-4" />
-                            <span>View</span>
-                          </button>
-                          <UpdateButton
-                            resource="departments"
-                            onClick={(e)=>{e?.stopPropagation(); handleEdit(department); setOpenMenuId(null);}}
-                            className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm"
+                          <MoreVertical size={24} />
+                        </Button>
+                        {openMenuId === department.id && (
+                          <div 
+                            data-dropdown-menu
+                            className="absolute right-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-xl shadow-xl z-[100]" 
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            <Edit className="w-4 h-4" />
-                            <span>Edit</span>
-                          </UpdateButton>
-                          <DeleteButton
-                            resource="departments"
-                            onClick={(e)=>{e?.stopPropagation(); handleDelete(department.id); setOpenMenuId(null);}}
-                            className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-b-xl flex items-center gap-2 text-sm text-red-600"
+                            <button 
+                              className="w-full text-left px-4 py-2.5 hover:bg-gray-50 rounded-t-xl flex items-center gap-2 text-sm font-normal text-gray-800" 
+                              onClick={(e) => {e.stopPropagation(); handleView(department); setOpenMenuId(null);}}
+                            >
+                              <Eye className="w-4 h-4" />
+                              <span>View</span>
+                            </button>
+                            <UpdateButton
+                              resource="departments"
+                              onClick={(e) => {e?.stopPropagation(); handleEdit(department); setOpenMenuId(null);}}
+                              className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center gap-2 text-sm font-normal text-gray-800"
+                            >
+                              <Edit className="w-4 h-4" />
+                              <span>Edit</span>
+                            </UpdateButton>
+                            <DeleteButton
+                              resource="departments"
+                              onClick={(e) => { e?.stopPropagation(); handleDelete(department.id); setOpenMenuId(null); }}
+                              className="w-full text-left px-4 py-2.5 hover:bg-gray-50 rounded-b-xl flex items-center gap-2 text-sm font-normal text-red-600"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              <span>Delete</span>
+                            </DeleteButton>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Desktop Description - Right below title row */}
+                  {department.description && (
+                    <div className="hidden sm:block pl-[52px] -mt-2">
+                      <div className="inline-block">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-gray-800 font-semibold">Description:</span>
+                          <span className="px-2.5 py-1 font-medium text-xs truncate max-w-2xl inline-block">
+                            {department.description.length > 100 ? department.description.substring(0, 100) + '...' : department.description}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Bottom Row - Mobile Meta Details */}
+                  <div className="pl-[52px] mt-1 sm:hidden">
+                    {/* Mobile: Single-row layout - All in one line (without company and teams) */}
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                      {/* Status */}
+                      <div className="tooltip-wrapper">
+                        <div className="flex items-center gap-1">
+                          <span className="text-gray-800 font-semibold">Status:</span>
+                          <Badge 
+                            variant={department.active === 'active' ? 'success' : 'default'} 
+                            size="sm" 
+                            className="px-2 py-0.5 text-xs"
                           >
-                            <Trash2 className="w-4 h-4" />
-                            <span>Delete</span>
-                          </DeleteButton>
+                            {department.active}
+                          </Badge>
+                        </div>
+                        <div className="tooltip-content">Current Status: {department.active}</div>
+                      </div>
+
+                      {/* Tags */}
+                      {tagsArray.length > 0 && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-gray-800 font-semibold">Tags:</span>
+                          <div className="tooltip-wrapper">
+                            <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-md font-medium">
+                              {tagsArray[0]}
+                            </span>
+                            <div className="tooltip-content">Tag: {tagsArray[0]}</div>
+                          </div>
+                          {tagsArray.length > 1 && (
+                            <div className="tooltip-wrapper">
+                              <span className="px-1.5 py-0.5 bg-gray-200 text-gray-700 rounded-md text-xs">
+                                +{tagsArray.length - 1}
+                              </span>
+                              <div className="tooltip-content">
+                                {tagsArray.length - 1} more tag{tagsArray.length - 1 !== 1 ? 's' : ''}: {tagsArray.slice(1).join(', ')}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Date */}
+                      {department.createdAt && (
+                        <div className="tooltip-wrapper">
+                          <div className="flex items-center gap-0.5">
+                            <Calendar className="w-3 h-3 text-gray-500" />
+                            <span className="text-gray-700 font-medium">
+                              {new Date(department.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </span>
+                          </div>
+                          <div className="tooltip-content">
+                            Created: {new Date(department.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                          </div>
                         </div>
                       )}
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -838,32 +1094,46 @@ const DepartmentsPage = () => {
               if (e.target === e.currentTarget) {
                 setIsViewModalOpen(false);
                 setViewingDepartment(null);
+                setIsJsonViewActive(false); // Reset JSON view when closing
               }
             }}
           >
             <div 
-              className="bg-white rounded-t-2xl lg:rounded-2xl shadow-2xl w-full lg:max-w-2xl h-[80vh] lg:h-auto lg:max-h-[90vh] flex flex-col"
+              className="bg-white rounded-t-2xl lg:rounded-2xl shadow-2xl w-full lg:max-w-2xl max-h-[85vh] lg:h-auto lg:max-h-[90vh] flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-4 rounded-t-2xl z-10 flex-shrink-0">
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Department Details</h2>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center text-white flex-shrink-0">
+                      <Briefcase className="w-5 h-5 sm:w-6 sm:h-6" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h2 className="text-lg sm:text-2xl font-bold text-gray-900 truncate">{viewingDepartment.name}</h2>
+                      <p className="text-gray-500 text-xs sm:text-sm">
+                        Department Details
+                      </p>
+                    </div>
+                  </div>
+                  {/* JSON View Button */}
+                  <Button
+                    variant={isJsonViewActive ? "primary" : "outline"}
+                    size="sm"
+                    onClick={() => setIsJsonViewActive(!isJsonViewActive)}
+                    className="flex items-center space-x-2 text-xs sm:text-sm px-3 py-2"
+                    title="Toggle JSON View"
+                  >
+                    <FileCode className="w-4 h-4" />
+                    <span>JSON View</span>
+                  </Button>
+                </div>
               </div>
 
-              <div className="flex-1 lg:flex-none overflow-y-auto lg:overflow-visible">
-                <div className="p-4 sm:p-6 pb-0 space-y-4 sm:space-y-6">
-                {/* Department Icon and Name */}
-                <div className="flex items-center gap-3 sm:gap-4">
-                  <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center text-white flex-shrink-0">
-                    <Briefcase className="w-6 h-6 sm:w-8 sm:h-8" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg sm:text-2xl font-bold text-gray-900">{viewingDepartment.name}</h3>
-                    <Badge variant={viewingDepartment.active === 'active' ? 'success' : 'default'} size="sm" className="mt-1">
-                      {viewingDepartment.active}
-                    </Badge>
-                  </div>
-                </div>
-
+              <div className="flex-1 overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+                <div className="p-4 sm:p-6 pb-24 sm:pb-6 space-y-4 sm:space-y-6">
+                {/* Conditional Rendering: Normal View or JSON View */}
+                {!isJsonViewActive ? (
+                  <>
                 {/* Description */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -944,36 +1214,31 @@ const DepartmentsPage = () => {
                     </div>
                   </div>
                 )}
+                </>
+                ) : (
+                  /* JSON View */
+                  <div className="bg-white rounded-2xl border border-gray-100 p-3 lg:p-4 shadow-sm">
+                    <div className="bg-gray-50 rounded-lg p-4 overflow-auto max-h-[70vh]">
+                      <pre className="text-xs font-mono text-gray-800 whitespace-pre-wrap break-words">
+                        {JSON.stringify({
+                          id: viewingDepartment.id,
+                          name: viewingDepartment.name,
+                          description: viewingDepartment.description,
+                          companyId: viewingDepartment.companyId,
+                          companyName: viewingDepartment.companyName,
+                          active: viewingDepartment.active,
+                          tags: viewingDepartment.tags || [],
+                          teams: viewingDepartment.teams || [],
+                          createdAt: viewingDepartment.createdAt || null,
+                          updatedAt: (viewingDepartment as any).updatedAt || null
+                        }, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                )}
                 </div>
               </div>
 
-              {/* Fixed Footer with Buttons */}
-              <div className="sticky lg:static bottom-0 bg-white border-t border-gray-200 rounded-b-2xl px-4 sm:px-6 pt-4 pb-24 sm:pb-4 lg:pb-4 z-10 flex-shrink-0">
-                <div className="flex gap-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setIsViewModalOpen(false);
-                      setViewingDepartment(null);
-                    }}
-                    className="flex-1"
-                  >
-                    Close
-                  </Button>
-                  <UpdateButton
-                    resource="departments"
-                    onClick={() => {
-                      setIsViewModalOpen(false);
-                      handleEdit(viewingDepartment);
-                    }}
-                    className="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium inline-flex items-center justify-center"
-                  >
-                    <Edit className="w-4 h-4 mr-2" />
-                    Edit Department
-                  </UpdateButton>
-                </div>
-              </div>
             </div>
           </div>
         )}
@@ -995,4 +1260,3 @@ const DepartmentsPage = () => {
 };
 
 export default DepartmentsPage;
-

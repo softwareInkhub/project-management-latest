@@ -272,7 +272,7 @@ const Dashboard = () => {
       // Generate chart data from filtered tasks
       const monthlyData = generateMonthlyChartData(filteredTasks);
       const statusData = generateTaskStatusData(filteredTasks);
-      const activities = generateRecentActivities(filteredTasks, projects);
+      const activities = generateRecentActivities(filteredTasks, projects, users);
       const upcoming = generateUpcomingTasks(filteredTasks);
 
       setDashboardData({
@@ -556,8 +556,15 @@ const Dashboard = () => {
   };
 
   // Generate recent activities
-  const generateRecentActivities = (tasks: any[], projects: any[]) => {
+  const generateRecentActivities = (tasks: any[], projects: any[], users: any[]) => {
     const activities: any[] = [];
+    
+    // Helper function to get user name from user ID
+    const getUserName = (userId: string) => {
+      if (!userId) return 'Unknown User';
+      const user = users.find(u => (u.id || u.userId) === userId);
+      return user?.name || user?.username || user?.email || userId;
+    };
     
     // Add recent task completions
     const recentTasks = tasks
@@ -566,10 +573,11 @@ const Dashboard = () => {
       .slice(0, 3);
 
     recentTasks.forEach((task: any) => {
+      const userName = getUserName(task.assignee);
       activities.push({
         id: `task-${task.id}`,
         type: 'task_completed',
-        user: task.assignee,
+        user: userName,
         action: 'completed task',
         target: task.title,
         time: getTimeAgo(task.updatedAt),
@@ -580,10 +588,11 @@ const Dashboard = () => {
     // Add recent project activities
     const recentProjects = projects.slice(0, 2);
     recentProjects.forEach((project: any) => {
+      const userName = project.assignee ? getUserName(project.assignee) : 'Team';
       activities.push({
         id: `project-${project.id}`,
         type: 'project_created',
-        user: project.assignee || 'Team',
+        user: userName,
         action: 'created project',
         target: project.name,
         time: getTimeAgo(project.createdAt),
