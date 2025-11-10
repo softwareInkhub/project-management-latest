@@ -1000,7 +1000,13 @@ const TasksPage = () => {
       key: 'dueDateRange',
       label: 'Date Range',
       icon: <Calendar className="w-4 h-4" />,
-      options: [],
+      options: [
+        { value: 'all', label: 'All Time' },
+        { value: 'today', label: 'Today' },
+        { value: 'thisWeek', label: 'This Week' },
+        { value: 'thisMonth', label: 'This Month' },
+        { value: 'next7Days', label: 'Next 7 Days' }
+      ],
       type: 'date' as const,
       multiple: false
     },
@@ -4708,7 +4714,7 @@ const TasksPage = () => {
         >
           <div 
             ref={taskFormRef}
-            className={`bg-white rounded-t-2xl lg:rounded-2xl shadow-2xl w-full transform ${
+            className={`bg-white rounded-t-2xl lg:rounded-2xl shadow-2xl w-full transform overflow-hidden ${
               isFormAnimating ? 'transition-all duration-200 ease-out translate-y-full lg:translate-y-0 lg:scale-95' : ''
             } lg:max-w-4xl lg:w-auto`}
             style={{ 

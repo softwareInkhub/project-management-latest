@@ -20,7 +20,8 @@ import {
   Calendar,
   BookOpen,
   Building2,
-  Briefcase
+  Briefcase,
+  StickyNote
 } from 'lucide-react';
 import { Avatar } from './ui/Avatar';
 import { Button } from './ui/Button';
@@ -38,6 +39,7 @@ const navigation = [
   { name: 'Departments', href: '/departments', icon: Briefcase },
   { name: 'Team', href: '/team', icon: Users },
   { name: 'Calendar', href: '/calander', icon: Calendar },
+  { name: 'Notes', href: '/notes', icon: StickyNote },
   { name: 'Notifications', href: '/notifications', icon: Bell },
 ];
 

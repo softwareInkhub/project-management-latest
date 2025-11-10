@@ -190,6 +190,8 @@ const ProjectsPage = () => {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isProjectPreviewOpen, setIsProjectPreviewOpen] = useState(false);
   const [isPreviewAnimating, setIsPreviewAnimating] = useState(false);
+  const [allCompanies, setAllCompanies] = useState<Array<{id: string; name: string}>>([]);
+  const [allDepartments, setAllDepartments] = useState<Array<{id: string; name: string; companyId: string}>>([]);
   
   // JSON view toggle
   const [isJsonViewActive, setIsJsonViewActive] = useState(false);
@@ -329,7 +331,13 @@ const ProjectsPage = () => {
       key: 'dateRange',
       label: 'Date Range',
       icon: <Calendar className="w-4 h-4" />,
-      options: [],
+      options: [
+        { value: 'all', label: 'All Time' },
+        { value: 'today', label: 'Today' },
+        { value: 'thisWeek', label: 'This Week' },
+        { value: 'thisMonth', label: 'This Month' },
+        { value: 'next7Days', label: 'Next 7 Days' }
+      ],
       type: 'date' as const,
       multiple: false
     },
@@ -420,10 +428,57 @@ const ProjectsPage = () => {
     }
   }, []);
 
-  // Load projects on mount
+  // Fetch companies for dropdown
+  const fetchCompanies = useCallback(async () => {
+    try {
+      console.log('🏢 Fetching companies for dropdown...');
+      const res = await apiService.getCompanies();
+      if (res.success && res.data) {
+        const companies = res.data.map((company: any) => ({
+          id: company.id,
+          name: company.name
+        }));
+        console.log('✅ Companies fetched:', companies.length, companies);
+        setAllCompanies(companies);
+      } else {
+        console.error('❌ Failed to fetch companies:', res.error);
+        setAllCompanies([]);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching companies:', error);
+      setAllCompanies([]);
+    }
+  }, []);
+
+  // Fetch departments for dropdown
+  const fetchDepartments = useCallback(async () => {
+    try {
+      console.log('🏢 Fetching departments for dropdown...');
+      const res = await apiService.getDepartments();
+      if (res.success && res.data) {
+        const depts = res.data.map((dept: any) => ({
+          id: dept.id,
+          name: dept.name,
+          companyId: dept.companyId
+        }));
+        console.log('✅ Departments fetched:', depts.length, depts);
+        setAllDepartments(depts);
+      } else {
+        console.error('❌ Failed to fetch departments:', res.error);
+        setAllDepartments([]);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching departments:', error);
+      setAllDepartments([]);
+    }
+  }, []);
+
+  // Load projects, companies, and departments on mount
   useEffect(() => {
     fetchProjects();
-  }, [fetchProjects]);
+    fetchCompanies();
+    fetchDepartments();
+  }, [fetchProjects, fetchCompanies, fetchDepartments]);
 
 
   const filteredProjects = projects.filter(project => {
@@ -1826,6 +1881,8 @@ const ProjectsPage = () => {
         onCancel={handleProjectFormCancel}
         isOpen={isProjectFormOpen}
         isCollapsed={isCollapsed}
+        companies={allCompanies}
+        departments={allDepartments}
       />
     </AppLayout>
   );

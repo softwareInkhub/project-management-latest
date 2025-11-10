@@ -68,6 +68,32 @@ export function TaskForm({
     timeSpent: task?.timeSpent || '0',
   });
 
+  // Update formData when task prop changes (e.g., when converting note to task)
+  useEffect(() => {
+    if (task) {
+      console.log('🔄 TaskForm: Updating formData from task prop:', task);
+      setFormData({
+        title: task.title || '',
+        description: task.description || '',
+        project: task.project || '',
+        assignee: task.assignee || currentUser?.userId || '',
+        assignedTeams: task.assignedTeams || [],
+        assignedUsers: task.assignedUsers || [],
+        status: task.status || 'To Do',
+        priority: task.priority || 'Medium',
+        dueDate: task.dueDate || '',
+        startDate: task.startDate || new Date().toISOString().split('T')[0],
+        estimatedHours: task.estimatedHours || 0,
+        tags: task.tags || '',
+        subtasks: task.subtasks || '[]',
+        comments: task.comments || '0',
+        parentId: task.parentId || null,
+        progress: task.progress || 0,
+        timeSpent: task.timeSpent || '0',
+      });
+    }
+  }, [task, currentUser]);
+
   // File attachment state
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [uploadedFileIds, setUploadedFileIds] = useState<string[]>([]);
@@ -76,19 +102,58 @@ export function TaskForm({
   const [isUploadingAll, setIsUploadingAll] = useState(false);
   const [filePreviews, setFilePreviews] = useState<{[key: string]: string}>({});
 
+  // State for existing files metadata
+  const [existingFiles, setExistingFiles] = useState<Array<{fileId: string; fileName: string; fileSize?: number}>>([]);
+
   // Load existing attachments when editing
   useEffect(() => {
     if (task?.attachments) {
       try {
         const fileIds = JSON.parse(task.attachments);
-        if (Array.isArray(fileIds)) {
+        if (Array.isArray(fileIds) && fileIds.length > 0) {
+          console.log('📎 TaskForm: Loading existing file IDs:', fileIds);
           setUploadedFileIds(fileIds);
+          
+          // Fetch file metadata for display
+          fetchExistingFilesMetadata(fileIds);
+        } else {
+          // Clear existing files if no attachments
+          setUploadedFileIds([]);
+          setExistingFiles([]);
         }
       } catch (e) {
         console.error('Failed to parse attachments:', e);
+        setUploadedFileIds([]);
+        setExistingFiles([]);
       }
+    } else {
+      // Clear if no attachments
+      setUploadedFileIds([]);
+      setExistingFiles([]);
     }
   }, [task]);
+
+  // Fetch metadata for existing files
+  const fetchExistingFilesMetadata = async (fileIds: string[]) => {
+    const filesMetadata: Array<{fileId: string; fileName: string; fileSize?: number}> = [];
+    
+    for (const fileId of fileIds) {
+      try {
+        // For now, just show fileId as filename
+        // In production, you'd fetch from Drive API: const metadata = await driveService.getFileMetadata(fileId);
+        filesMetadata.push({
+          fileId,
+          fileName: `File ${fileId.substring(0, 8)}...`, // Shortened fileId as placeholder
+          fileSize: undefined
+        });
+      } catch (error) {
+        console.error(`Failed to fetch metadata for file ${fileId}:`, error);
+      }
+    }
+    
+    console.log('✅ Existing files metadata:', filesMetadata);
+    setExistingFiles(filesMetadata);
+  };
 
   // File handling functions
   const handleFileSelect = (files: FileList | null) => {
@@ -739,6 +804,49 @@ export function TaskForm({
                 Supports all file types
               </p>
             </div>
+
+            {/* Existing Uploaded Files (from note) */}
+            {existingFiles.length > 0 && (
+              <div className="mt-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">
+                  Existing Attachments ({existingFiles.length})
+                </h4>
+                <div className="space-y-2">
+                  {existingFiles.map((file, index) => (
+                    <div
+                      key={file.fileId}
+                      className="flex items-center justify-between p-3 rounded-lg border bg-blue-50 border-blue-200 hover:border-blue-300 transition-colors"
+                    >
+                      <div className="flex items-center space-x-3 flex-1">
+                        <div className="w-10 h-10 rounded-lg border border-blue-300 flex items-center justify-center bg-blue-100 flex-shrink-0">
+                          <Paperclip className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">{file.fileName}</p>
+                          <p className="text-xs text-gray-500">
+                            From note • File ID: {file.fileId.substring(0, 12)}...
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          // Remove from existing files
+                          setExistingFiles(prev => prev.filter((_, i) => i !== index));
+                          setUploadedFileIds(prev => prev.filter((_, i) => i !== index));
+                        }}
+                        className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                        title="Remove file"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 text-xs text-gray-500">
+                  These files are already uploaded and attached to this note
+                </div>
+              </div>
+            )}
 
             {/* Attached Files List */}
             {attachedFiles.length > 0 && (

@@ -44,6 +44,7 @@ interface Project {
   title?: string;
   description?: string;
   company: string;
+  department?: string;  // Optional department
   
   // Status & Priority
   status: string;
@@ -92,6 +93,27 @@ interface Team {
   tags?: string[];
   createdAt?: string;
   updatedAt?: string;
+}
+
+interface NoteAttachment {
+  fileId: string;      // File ID from BRMH Drive
+  fileName: string;    // Original filename
+  fileSize: number;    // File size in bytes
+  uploadedAt: string;  // Upload timestamp
+}
+
+interface Note {
+  id: string; // UUID
+  title: string; // Short title or summary of the note
+  content: string; // Markdown text content
+  projectId?: string; // Link to related project (if any)
+  authorId: string; // User who created the note
+  tags?: string[]; // Optional tags for filtering
+  attachments?: NoteAttachment[]; // Array of file metadata from BRMH Drive
+  relatedTaskId?: string; // If this note was converted to a Task
+  isConvertedToTask: boolean; // True if linked/converted
+  createdAt: string; // ISO timestamp
+  updatedAt: string; // ISO timestamp
 }
 
 interface User {
@@ -1212,6 +1234,56 @@ class ApiService {
     });
   }
 
+  // Notes CRUD operations
+  async getNotes(): Promise<ApiResponse<Note[]>> {
+    return this.makeRequest<Note[]>('?tableName=project-management-notes');
+  }
+
+  async getNoteById(id: string): Promise<ApiResponse<Note>> {
+    return this.makeRequest<Note>(`?tableName=project-management-notes&id=${id}`);
+  }
+
+  async createNote(note: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>): Promise<ApiResponse<Note>> {
+    // Generate unique ID for the note
+    const noteId = `note-${Date.now()}`;
+    
+    const payload = {
+      item: {
+        ...note,
+        id: noteId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+    };
+
+    return this.makeRequest<Note>('?tableName=project-management-notes', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async updateNote(id: string, note: Partial<Note>): Promise<ApiResponse<Note>> {
+    const payload = {
+      key: { id },
+      updates: {
+        ...note,
+        updatedAt: new Date().toISOString(),
+      }
+    };
+
+    return this.makeRequest<Note>('?tableName=project-management-notes', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async deleteNote(id: string): Promise<ApiResponse<void>> {
+    return this.makeRequest<void>(`?tableName=project-management-notes&id=${id}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ id }),
+    });
+  }
+
   // WhatsApp Notification
   async sendWhatsAppNotification(taskData: any): Promise<ApiResponse<any>> {
     try {
@@ -1279,4 +1351,4 @@ ${assignmentDetails.join('\n')}`;
 }
 
 export const apiService = new ApiService();
-export type { Task, Project, Team, TeamMember, User, Sprint, Story, Company, Department, ApiResponse };
+export type { Task, Project, Team, TeamMember, User, Sprint, Story, Company, Department, Note, NoteAttachment, ApiResponse };

@@ -169,21 +169,43 @@ const DepartmentsPage = () => {
       const matchesTags = !tagsQuickFilter || tagsQuickFilter.length === 0 ||
                          (dept.tags && dept.tags.some(tag => tagsQuickFilter.includes(tag)));
       
-      // Quick filter: Date Range
-      const dateRangeFilter = quickFilterValues.dateRange;
+      // Quick filter: Date Range (same logic as Task section)
+      const dateRangeValue = quickFilterValues.dateRange;
       let matchesDateRange = true;
-      if (dateRangeFilter && dateRangeFilter !== 'all') {
+      
+      if (dateRangeValue && dateRangeValue !== 'all') {
         const deptDate = new Date(dept.createdAt);
-        const now = new Date();
+        deptDate.setHours(0, 0, 0, 0);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
         
-        if (dateRangeFilter === 'today') {
-          matchesDateRange = deptDate.toDateString() === now.toDateString();
-        } else if (dateRangeFilter === 'week') {
-          const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          matchesDateRange = deptDate >= weekAgo;
-        } else if (dateRangeFilter === 'month') {
-          const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-          matchesDateRange = deptDate >= monthAgo;
+        // Handle custom date range object
+        if (typeof dateRangeValue === 'object' && 'from' in dateRangeValue && 'to' in dateRangeValue) {
+          const fromDate = new Date(dateRangeValue.from);
+          fromDate.setHours(0, 0, 0, 0);
+          const toDate = new Date(dateRangeValue.to);
+          toDate.setHours(23, 59, 59, 999);
+          matchesDateRange = deptDate >= fromDate && deptDate <= toDate;
+        } else if (typeof dateRangeValue === 'string') {
+          // Handle preset date ranges
+          if (dateRangeValue === 'today') {
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            matchesDateRange = deptDate >= today && deptDate < tomorrow;
+          } else if (dateRangeValue === 'thisWeek') {
+            const weekEnd = new Date(today);
+            weekEnd.setDate(weekEnd.getDate() + 7);
+            matchesDateRange = deptDate >= today && deptDate < weekEnd;
+          } else if (dateRangeValue === 'thisMonth') {
+            const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            matchesDateRange = deptDate >= today && deptDate <= monthEnd;
+          } else if (dateRangeValue === 'week') {
+            const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+            matchesDateRange = deptDate >= weekAgo;
+          } else if (dateRangeValue === 'month') {
+            const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+            matchesDateRange = deptDate >= monthAgo;
+          }
         }
       }
       
@@ -380,8 +402,9 @@ const DepartmentsPage = () => {
               options: [
                 { value: 'all', label: 'All Time' },
                 { value: 'today', label: 'Today' },
-                { value: 'week', label: 'Last 7 Days' },
-                { value: 'month', label: 'Last 30 Days' }
+                { value: 'thisWeek', label: 'This Week' },
+                { value: 'thisMonth', label: 'This Month' },
+                { value: 'next7Days', label: 'Next 7 Days' }
               ],
               type: 'date'
             }

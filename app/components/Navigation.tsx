@@ -12,7 +12,8 @@ import {
   CheckSquare,
   BookOpen,
   FolderOpen,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  FileText
 } from 'lucide-react';
 import { Avatar } from './ui/Avatar';
 import { Button } from './ui/Button';
@@ -42,6 +43,7 @@ export const Navigation: React.FC<NavigationProps> = ({ onMobileMenuClick }) => 
     if (pathname === '/departments') return 'Departments';
     if (pathname === '/team') return 'Team';
     if (pathname === '/calander') return 'Calendar';
+    if (pathname === '/notes') return 'Notes';
     if (pathname === '/notifications') return 'Notifications';
     if (pathname === '/settings') return 'Settings';
     return 'ProjectFlow';
@@ -57,6 +59,7 @@ export const Navigation: React.FC<NavigationProps> = ({ onMobileMenuClick }) => 
     if (pathname === '/departments') return Briefcase;
     if (pathname === '/team') return Users;
     if (pathname === '/calander') return CalendarIcon;
+    if (pathname === '/notes') return FileText;
     if (pathname === '/notifications') return Bell;
     if (pathname === '/settings') return SettingsIcon;
     return TrendingUp;

@@ -12,6 +12,7 @@ export interface Project {
   id: string;
   name: string;
   company: string;
+  department?: string;
   status: string;
   priority: string;
   startDate: string;
@@ -27,12 +28,25 @@ export interface Project {
   notes?: string;
 }
 
+interface DepartmentData {
+  id: string;
+  name: string;
+  companyId: string;
+}
+
+interface CompanyData {
+  id: string;
+  name: string;
+}
+
 interface ProjectFormProps {
   project?: Project | null;
   onSubmit: (projectData: Partial<Project>) => void;
   onCancel: () => void;
   isOpen: boolean;
   isCollapsed?: boolean;
+  companies?: CompanyData[];
+  departments?: DepartmentData[];
 }
 
 const statusOptions = [
@@ -55,12 +69,13 @@ const priorityOptions = [
 
 // Removed dummy team members - will use real data from API
 
-export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCollapsed = false }: ProjectFormProps) {
+export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCollapsed = false, companies = [], departments = [] }: ProjectFormProps) {
   const { user } = useAuth(); // Get current user
   
   const [formData, setFormData] = useState<Partial<Project>>({
     name: '',
     company: '',
+    department: '',
     status: 'Planning',
     priority: 'Medium',
     startDate: '',
@@ -69,6 +84,18 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
     assignee: '',
     description: ''
   });
+
+  // Clear department when company changes
+  useEffect(() => {
+    if (formData.company) {
+      // Check if current department belongs to new company
+      const currentDept = departments.find(d => d.name === formData.department);
+      if (currentDept && currentDept.companyId !== formData.company) {
+        console.log('🔄 Company changed, clearing department');
+        setFormData(prev => ({ ...prev, department: '' }));
+      }
+    }
+  }, [formData.company, formData.department, departments]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   // Removed newTeamMember state - no longer needed
@@ -277,14 +304,51 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
               <label className="block text-sm font-semibold text-gray-800 mb-2">
                 Company *
               </label>
-              <Input
+              <Select
                 value={formData.company || ''}
-                onChange={(e) => handleInputChange('company', e.target.value)}
-                placeholder="Enter company name"
+                onValueChange={(val) => handleInputChange('company', val)}
+                onChange={(e) => handleInputChange('company', (e.target as any).value)}
+                options={[
+                  { value: '', label: 'Select Company' },
+                  ...companies.map(company => ({ value: company.name, label: company.name }))
+                ]}
                 className={errors.company ? 'border-red-500' : ''}
               />
               {errors.company && <p className="text-red-500 text-sm mt-1">{errors.company}</p>}
             </div>
+          </div>
+
+          {/* Department (filtered by selected company) */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-800 mb-2">
+              Department
+            </label>
+            <Select
+              value={formData.department || ''}
+              onValueChange={(val) => handleInputChange('department', val)}
+              onChange={(e) => handleInputChange('department', (e.target as any).value)}
+              options={(() => {
+                // Get selected company ID
+                const selectedCompany = companies.find(c => c.name === formData.company);
+                const companyId = selectedCompany?.id;
+                
+                // Filter departments by company ID
+                const filteredDepts = companyId 
+                  ? departments.filter(dept => dept.companyId === companyId)
+                  : [];
+                
+                console.log('🏢 Filtered departments for', formData.company, ':', filteredDepts.length);
+                
+                return [
+                  { value: '', label: 'Select Department' },
+                  ...filteredDepts.map(dept => ({ value: dept.name, label: dept.name }))
+                ];
+              })()}
+              disabled={!formData.company}
+            />
+            {!formData.company && (
+              <p className="text-xs text-gray-500 mt-1">Please select a company first</p>
+            )}
           </div>
 
           {/* Auto-assignment info */}
