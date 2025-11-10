@@ -32,6 +32,7 @@ import {
 import { useAuth } from '../hooks/useAuth';
 import { AppLayout } from '../components/AppLayout';
 import { useTheme } from '../contexts/ThemeContext';
+import { formatEmailForDisplay } from '../utils/emailUtils';
 
 export const dynamic = 'force-dynamic';
 
@@ -208,7 +209,7 @@ export default function SettingsPage() {
                             </div>
                             <div>
                               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{profileData.name}</h3>
-                              <p className="text-gray-600 dark:text-gray-300">{profileData.email}</p>
+                              <p className="text-gray-600 dark:text-gray-300">{formatEmailForDisplay(profileData.email)}</p>
                               <Badge variant="info" className="mt-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white border-0">
                                 {profileData.role}
                               </Badge>
@@ -241,7 +242,7 @@ export default function SettingsPage() {
                             Email Address
                           </label>
                           <Input
-                            value={profileData.email}
+                            value={formatEmailForDisplay(profileData.email)}
                             onChange={(e) => handleInputChange('email', e.target.value)}
                             disabled={!isEditing}
                             type="email"

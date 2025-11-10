@@ -18,6 +18,7 @@ import { Avatar } from './ui/Avatar';
 import { Button } from './ui/Button';
 import { useAuth } from '../hooks/useAuth';
 import { usePathname } from 'next/navigation';
+import { formatEmailForDisplay, formatUserDisplayName } from '../utils/emailUtils';
 
 interface NavigationProps {
   onMobileMenuClick: () => void;
@@ -87,7 +88,7 @@ export const Navigation: React.FC<NavigationProps> = ({ onMobileMenuClick }) => 
               </h1>
               {isDashboard && (
                 <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 truncate">
-                  Welcome back, <span className="font-semibold text-blue-600 dark:text-blue-400">{user?.name || user?.username || user?.email?.split('@')[0] || 'User'}</span>!
+                  Welcome back, <span className="font-semibold text-blue-600 dark:text-blue-400">{formatUserDisplayName(user?.name, user?.username, user?.email)}</span>!
                 </p>
               )}
             </div>
@@ -129,10 +130,10 @@ export const Navigation: React.FC<NavigationProps> = ({ onMobileMenuClick }) => 
             </button>
             <div className="hidden sm:block min-w-0">
               <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white truncate">
-                {user?.name || user?.username || user?.email?.split('@')[0] || 'User'}
+                {formatUserDisplayName(user?.name, user?.username, user?.email)}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400 truncate hidden lg:block">
-                {user?.email || user?.role || 'Project Manager'}
+                {formatEmailForDisplay(user?.email) || user?.role || 'Project Manager'}
               </p>
             </div>
           </div>
