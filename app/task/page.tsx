@@ -50,6 +50,8 @@ import { useAuth } from '../hooks/useAuth';
 import { apiService, Task } from '../services/api';
 import { driveService, FileItem } from '../services/drive';
 import { CreateButton, UpdateButton, DeleteButton, ReadOnlyBadge, usePermissions } from '../components/RoleBasedUI';
+import { formatEmailForDisplay, formatUserDisplayName } from '../utils/emailUtils';
+import { notificationService } from '../services/notificationService';
 
 // Advanced Filter Interfaces
 interface DateRange {
@@ -2429,6 +2431,18 @@ const TasksPage = () => {
         if (updatedTask) {
           setSelectedTask(updatedTask);
         }
+
+        // Send WhatsApp notification to the assigned user
+        try {
+          const assignedUser = allUsers.find(u => (u.id || u.userId) === userId);
+          if (assignedUser) {
+            await notificationService.notifyTaskEvent('assigned', selectedTask, [assignedUser]);
+            console.log('📱 WhatsApp notification sent to assigned user');
+          }
+        } catch (notifError) {
+          console.error('Failed to send notification:', notifError);
+          // Don't fail the operation if notification fails
+        }
       } else {
         console.error('❌ Failed to add user:', result.error);
         alert(`Failed to add user: ${result.error}`);
@@ -2443,6 +2457,7 @@ const TasksPage = () => {
     if (!selectedTask) return;
     
     try {
+      const team = allTeams.find(t => t.id === teamId);
       const currentTeams = selectedTask.assignedTeams || [];
       const updatedTeams = [...currentTeams, teamId];
       
@@ -2457,6 +2472,36 @@ const TasksPage = () => {
         const updatedTask = tasks.find(t => t.id === selectedTask.id);
         if (updatedTask) {
           setSelectedTask(updatedTask);
+        }
+
+        // Send WhatsApp notifications to team members
+        try {
+          if (team && team.members) {
+            // Parse team members
+            let teamMembers = [];
+            if (typeof team.members === 'string') {
+              try {
+                teamMembers = JSON.parse(team.members);
+              } catch (e) {
+                console.error('Failed to parse team members:', e);
+              }
+            } else if (Array.isArray(team.members)) {
+              teamMembers = team.members;
+            }
+
+            // Get user objects for team members
+            const teamUsers = teamMembers
+              .map((memberId: string) => allUsers.find(u => (u.id || u.userId) === memberId))
+              .filter((u: any) => u);
+
+            if (teamUsers.length > 0) {
+              await notificationService.notifyTaskEvent('assigned', selectedTask, teamUsers);
+              console.log(`📱 WhatsApp notifications sent to ${teamUsers.length} team members`);
+            }
+          }
+        } catch (notifError) {
+          console.error('Failed to send team notification:', notifError);
+          // Don't fail the operation if notification fails
         }
       } else {
         console.error('❌ Failed to add team:', result.error);

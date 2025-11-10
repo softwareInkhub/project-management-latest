@@ -37,6 +37,7 @@ import { useSidebar } from '../components/AppLayout';
 import { useAuth } from '../hooks/useAuth';
 import { useToast, ToastContainer } from '../components/ui/Toast';
 import { CreateButton, UpdateButton, DeleteButton, ReadOnlyBadge, usePermissions } from '../components/RoleBasedUI';
+import { formatEmailForDisplay, formatUserDisplayName } from '../utils/emailUtils';
 
 // Team interfaces
 interface TeamMember {
@@ -521,7 +522,7 @@ const TeamsPage = () => {
 
   // Add member
   const addMember = (user: any) => {
-  const userName = user.name || user.username || user.email;
+  const userName = formatUserDisplayName(user.name, user.username, user.email);
   const memberId = getStableUserId(user);
   if (!memberId) return; // cannot add without a stable id
   const alreadyAdded = teamForm.members.some(m => m.id === memberId);
@@ -552,7 +553,7 @@ const TeamsPage = () => {
 
   // Filter users for dropdown
 const filteredUsers = allUsers.filter(user => {
-  const userName = user.name || user.username || user.email;
+  const userName = formatUserDisplayName(user.name, user.username, user.email);
   const query = usersSearch.trim().toLowerCase();
   
   // Exclude already selected members by stable id
@@ -1387,7 +1388,7 @@ const filteredUsers = allUsers.filter(user => {
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-gray-900 truncate">{member.name}</p>
                           {member.email && (
-                            <p className="text-sm text-gray-600 truncate">{member.email}</p>
+                            <p className="text-sm text-gray-600 truncate">{formatEmailForDisplay(member.email)}</p>
                           )}
                         </div>
                         <Badge variant={getRoleColor(member.role)} size="sm" className="flex-shrink-0">
@@ -1608,14 +1609,14 @@ const filteredUsers = allUsers.filter(user => {
                                 className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center space-x-3 transition-colors"
                               >
                                 <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                                  {(user.name || user.username || user.email || '?').charAt(0).toUpperCase()}
+                                  {formatUserDisplayName(user.name, user.username, user.email).charAt(0).toUpperCase()}
                                 </div>
                                 <div className="flex-1">
                                   <p className="font-medium text-gray-900">
-                                    {user.name || user.username || user.email}
+                                    {formatUserDisplayName(user.name, user.username, user.email)}
                                   </p>
                                   {user.email && user.name && (
-                                    <p className="text-sm text-gray-500">{user.email}</p>
+                                    <p className="text-sm text-gray-500">{formatEmailForDisplay(user.email)}</p>
                                   )}
                                 </div>
                                 <div className="text-blue-600">

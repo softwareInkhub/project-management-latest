@@ -1,13 +1,16 @@
 'use client';
 
 import { apiService } from './api';
+import { whapiService } from './whapiService';
+import { isPhoneEmail } from '../utils/emailUtils';
 
 export interface NotificationEvent {
-  type: 'task_created' | 'task_updated' | 'task_deleted' | 'project_created' | 'project_updated' | 'project_deleted' | 'team_created' | 'team_updated' | 'team_deleted';
-  entityType: 'task' | 'project' | 'team';
+  type: 'task_created' | 'task_updated' | 'task_deleted' | 'task_assigned' | 'project_created' | 'project_updated' | 'project_deleted' | 'project_assigned' | 'team_created' | 'team_updated' | 'team_deleted' | 'team_assigned' | 'sprint_created' | 'sprint_assigned' | 'story_created' | 'story_assigned' | 'calendar_event_created' | 'calendar_event_assigned' | 'company_assigned' | 'department_assigned';
+  entityType: 'task' | 'project' | 'team' | 'sprint' | 'story' | 'calendar' | 'company' | 'department';
   entityId: string;
   data: any;
   timestamp: string;
+  assignedUsers?: Array<{ email?: string; name?: string; id?: string; userId?: string }>;
 }
 
 export interface NotificationConfig {
@@ -27,43 +30,118 @@ export interface NotificationConfig {
 class NotificationService {
   private baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://brmh.in';
 
-  // Send notification for task events
-  async notifyTaskEvent(eventType: 'created' | 'updated' | 'deleted', taskData: any): Promise<void> {
+  // Send notification for task events with WhatsApp support
+  async notifyTaskEvent(eventType: 'created' | 'updated' | 'deleted' | 'assigned', taskData: any, assignedUsers?: Array<{ email?: string; name?: string; id?: string; userId?: string }>): Promise<void> {
     const event: NotificationEvent = {
       type: `task_${eventType}` as any,
       entityType: 'task',
       entityId: taskData.id,
       data: taskData,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      assignedUsers
     };
 
     await this.sendNotification(event);
+
+    // Send WhatsApp notifications to phone-based users
+    if (assignedUsers && assignedUsers.length > 0) {
+      await this.sendWhatsAppToPhoneUsers(assignedUsers, 'task', taskData);
+    }
   }
 
-  // Send notification for project events
-  async notifyProjectEvent(eventType: 'created' | 'updated' | 'deleted', projectData: any): Promise<void> {
+  // Send notification for project events with WhatsApp support
+  async notifyProjectEvent(eventType: 'created' | 'updated' | 'deleted' | 'assigned', projectData: any, assignedUsers?: Array<{ email?: string; name?: string; id?: string; userId?: string }>): Promise<void> {
     const event: NotificationEvent = {
       type: `project_${eventType}` as any,
       entityType: 'project',
       entityId: projectData.id,
       data: projectData,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      assignedUsers
     };
 
     await this.sendNotification(event);
+
+    // Send WhatsApp notifications to phone-based users
+    if (assignedUsers && assignedUsers.length > 0) {
+      await this.sendWhatsAppToPhoneUsers(assignedUsers, 'project', projectData);
+    }
   }
 
-  // Send notification for team events
-  async notifyTeamEvent(eventType: 'created' | 'updated' | 'deleted', teamData: any): Promise<void> {
+  // Send notification for team events with WhatsApp support
+  async notifyTeamEvent(eventType: 'created' | 'updated' | 'deleted' | 'assigned', teamData: any, assignedUsers?: Array<{ email?: string; name?: string; id?: string; userId?: string }>): Promise<void> {
     const event: NotificationEvent = {
       type: `team_${eventType}` as any,
       entityType: 'team',
       entityId: teamData.id,
       data: teamData,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      assignedUsers
     };
 
     await this.sendNotification(event);
+
+    // Send WhatsApp notifications to phone-based users
+    if (assignedUsers && assignedUsers.length > 0) {
+      await this.sendWhatsAppToPhoneUsers(assignedUsers, 'team', teamData);
+    }
+  }
+
+  // Send notification for sprint/story events
+  async notifySprintStoryEvent(eventType: 'created' | 'assigned', type: 'sprint' | 'story', data: any, assignedUsers?: Array<{ email?: string; name?: string; id?: string; userId?: string }>): Promise<void> {
+    const event: NotificationEvent = {
+      type: `${type}_${eventType}` as any,
+      entityType: type,
+      entityId: data.id,
+      data,
+      timestamp: new Date().toISOString(),
+      assignedUsers
+    };
+
+    await this.sendNotification(event);
+
+    // Send WhatsApp notifications to phone-based users
+    if (assignedUsers && assignedUsers.length > 0) {
+      await this.sendWhatsAppToPhoneUsers(assignedUsers, type, data);
+    }
+  }
+
+  // Send notification for calendar events
+  async notifyCalendarEvent(eventType: 'created' | 'assigned', eventData: any, assignedUsers?: Array<{ email?: string; name?: string; id?: string; userId?: string }>): Promise<void> {
+    const event: NotificationEvent = {
+      type: `calendar_event_${eventType}` as any,
+      entityType: 'calendar',
+      entityId: eventData.id,
+      data: eventData,
+      timestamp: new Date().toISOString(),
+      assignedUsers
+    };
+
+    await this.sendNotification(event);
+
+    // Send WhatsApp notifications to phone-based users
+    if (assignedUsers && assignedUsers.length > 0) {
+      await this.sendWhatsAppToPhoneUsers(assignedUsers, 'calendar', eventData);
+    }
+  }
+
+  // Send notification for company/department assignments
+  async notifyOrgAssignment(type: 'company' | 'department', data: any, assignedUsers?: Array<{ email?: string; name?: string; id?: string; userId?: string }>): Promise<void> {
+    const event: NotificationEvent = {
+      type: `${type}_assigned` as any,
+      entityType: type,
+      entityId: data.id,
+      data,
+      timestamp: new Date().toISOString(),
+      assignedUsers
+    };
+
+    await this.sendNotification(event);
+
+    // Send WhatsApp notifications to phone-based users
+    if (assignedUsers && assignedUsers.length > 0) {
+      await this.sendWhatsAppToPhoneUsers(assignedUsers, type, data);
+    }
   }
 
   // Generic notification sender
@@ -261,6 +339,98 @@ class NotificationService {
     };
 
     await this.sendNotification(event);
+  }
+
+  // Send WhatsApp notifications to users with phone-based emails
+  private async sendWhatsAppToPhoneUsers(
+    users: Array<{ email?: string; name?: string; id?: string; userId?: string }>,
+    entityType: 'task' | 'project' | 'team' | 'sprint' | 'story' | 'calendar' | 'company' | 'department',
+    data: any
+  ): Promise<void> {
+    try {
+      // Filter users with phone-based emails
+      const phoneUsers = users.filter(user => user.email && isPhoneEmail(user.email));
+      
+      if (phoneUsers.length === 0) {
+        return; // No phone-based users to notify
+      }
+
+      console.log(`📱 Sending WhatsApp notifications to ${phoneUsers.length} phone-based users`);
+
+      // Format message based on entity type
+      let message = '';
+      
+      switch (entityType) {
+        case 'task':
+          message = whapiService.formatTaskAssignmentMessage({
+            title: data.title || data.name || 'New Task',
+            project: data.project || data.projectName,
+            assignee: data.createdBy || data.assignedBy || 'Team',
+            dueDate: data.dueDate ? new Date(data.dueDate).toLocaleDateString() : undefined,
+            priority: data.priority,
+            description: data.description
+          });
+          break;
+
+        case 'project':
+          message = whapiService.formatProjectAssignmentMessage({
+            name: data.name || data.title || 'New Project',
+            description: data.description,
+            startDate: data.startDate ? new Date(data.startDate).toLocaleDateString() : undefined,
+            endDate: data.endDate ? new Date(data.endDate).toLocaleDateString() : undefined,
+            team: data.team || data.teamName
+          });
+          break;
+
+        case 'team':
+          message = whapiService.formatTeamAssignmentMessage({
+            name: data.name || 'New Team',
+            description: data.description,
+            role: data.role
+          });
+          break;
+
+        case 'sprint':
+        case 'story':
+          message = whapiService.formatSprintStoryAssignmentMessage({
+            title: data.title || data.name || `New ${entityType}`,
+            type: entityType,
+            project: data.project || data.projectName,
+            startDate: data.startDate ? new Date(data.startDate).toLocaleDateString() : undefined,
+            endDate: data.endDate ? new Date(data.endDate).toLocaleDateString() : undefined,
+            description: data.description
+          });
+          break;
+
+        case 'calendar':
+          message = whapiService.formatCalendarEventMessage({
+            title: data.title || data.summary || 'New Event',
+            start: data.start ? new Date(data.start).toLocaleString() : new Date().toLocaleString(),
+            end: data.end ? new Date(data.end).toLocaleString() : undefined,
+            location: data.location,
+            description: data.description
+          });
+          break;
+
+        case 'company':
+        case 'department':
+          message = whapiService.formatOrgAssignmentMessage({
+            name: data.name || `New ${entityType}`,
+            type: entityType,
+            description: data.description,
+            role: data.role
+          });
+          break;
+      }
+
+      // Send WhatsApp message to each phone-based user
+      const results = await whapiService.notifyUsers(phoneUsers, message);
+      
+      console.log(`📱 WhatsApp notifications sent: ${results.sent} success, ${results.failed} failed`);
+    } catch (error) {
+      console.error('Failed to send WhatsApp notifications to phone users:', error);
+      // Don't throw - we don't want WhatsApp failures to break the main flow
+    }
   }
 }
 

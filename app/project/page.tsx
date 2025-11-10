@@ -46,6 +46,7 @@ import { useAuth } from '../hooks/useAuth';
 import ProjectForm, { Project } from '../components/ui/ProjectForm';
 import ProjectInlineAdvancedFilters from '../components/ui/ProjectInlineAdvancedFilters';
 import { CreateButton, UpdateButton, DeleteButton, ReadOnlyBadge, usePermissions } from '../components/RoleBasedUI';
+import { formatEmailForDisplay, formatUserDisplayName } from '../utils/emailUtils';
 
 // Advanced Filter Interfaces
 interface DateRange {

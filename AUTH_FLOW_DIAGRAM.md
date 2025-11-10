@@ -226,6 +226,9 @@
 
 ## 🚨 Common Pitfalls to Avoid
 
+
+
+
 ### ❌ DON'T: Store sensitive tokens in localStorage
 **Why:** localStorage is accessible to JavaScript (XSS risk)
 **Solution:** Store in httpOnly cookies (already implemented ✅)

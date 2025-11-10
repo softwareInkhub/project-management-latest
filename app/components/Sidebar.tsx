@@ -29,6 +29,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useSidebar } from './AppLayout';
 import { useTabs } from '../hooks/useTabs';
 import { getRoleDisplayName, getRoleBadgeColor } from '../utils/rbac';
+import { formatEmailForDisplay, formatUserDisplayName } from '../utils/emailUtils';
 
 const navigation = [
   { name: 'Dashboard', href: '/Dashboard', icon: LayoutDashboard },
@@ -194,10 +195,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onMobile
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                {user?.name || user?.username || user?.email?.split('@')[0] || 'User'}
+                {formatUserDisplayName(user?.name, user?.username, user?.email)}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                {user?.email || 'Member'}
+                {formatEmailForDisplay(user?.email) || 'Member'}
               </p>
               {user?.role && (
                 <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium mt-1 ${getRoleBadgeColor(user.role)}`}>
