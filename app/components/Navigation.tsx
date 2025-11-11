@@ -39,7 +39,9 @@ export const Navigation: React.FC<NavigationProps> = ({ onMobileMenuClick }) => 
     if (isDashboard) return 'Dashboard';
     if (isProjects) return 'Projects';
     if (pathname === '/task') return 'Tasks';
-    if (pathname === '/sprint-stories') return 'Sprint & Stories';
+    if (pathname === '/sprint') return 'Sprint';
+    if (pathname === '/story') return 'Stories';
+    if (pathname === '/sprint-stories') return 'Sprint Board';
     if (pathname === '/companies') return 'Companies';
     if (pathname === '/departments') return 'Departments';
     if (pathname === '/team') return 'Team';
@@ -55,6 +57,8 @@ export const Navigation: React.FC<NavigationProps> = ({ onMobileMenuClick }) => 
     if (isDashboard) return TrendingUp;
     if (isProjects) return FolderOpen;
     if (pathname === '/task') return CheckSquare;
+    if (pathname === '/sprint') return BookOpen;
+    if (pathname === '/story') return FileText;
     if (pathname === '/sprint-stories') return BookOpen;
     if (pathname === '/companies') return Building2;
     if (pathname === '/departments') return Briefcase;

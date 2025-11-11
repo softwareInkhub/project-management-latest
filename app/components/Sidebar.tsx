@@ -21,7 +21,9 @@ import {
   BookOpen,
   Building2,
   Briefcase,
-  StickyNote
+  StickyNote,
+  RefreshCw,
+  FileText
 } from 'lucide-react';
 import { Avatar } from './ui/Avatar';
 import { Button } from './ui/Button';
@@ -35,7 +37,9 @@ const navigation = [
   { name: 'Dashboard', href: '/Dashboard', icon: LayoutDashboard },
   { name: 'Projects', href: '/project', icon: FolderKanban },
   { name: 'Tasks', href: '/task', icon: CheckSquare },
-  { name: 'Sprint & Stories', href: '/sprint-stories', icon: BookOpen },
+  { name: 'Sprint Board', href: '/sprint-stories', icon: BookOpen },
+  { name: 'Sprint', href: '/sprint', icon: RefreshCw },
+  { name: 'Stories', href: '/story', icon: FileText },
   { name: 'Companies', href: '/companies', icon: Building2 },
   { name: 'Departments', href: '/departments', icon: Briefcase },
   { name: 'Team', href: '/team', icon: Users },

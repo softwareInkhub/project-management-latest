@@ -40,6 +40,7 @@ import { useAuth } from '../hooks/useAuth';
 import { apiService, Note, NoteAttachment, Task } from '../services/api';
 import { driveService } from '../services/drive';
 import { TaskForm } from '../components/ui/TaskForm';
+import { CreateButton, UpdateButton, DeleteButton, usePermissions } from '../components/RoleBasedUI';
 
 // Markdown rendering function
 const renderMarkdown = (markdown: string): string => {
@@ -1017,13 +1018,15 @@ const NotesPage: React.FC = () => {
                   ? 'Try adjusting your filters' 
                   : 'Create your first note to get started'}
               </p>
-              <Button
-                onClick={handleNewNote}
-                className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg"
-              >
-                <Plus className="w-5 h-5" />
-                <span>Create Your First Note</span>
-              </Button>
+              <CreateButton resource="notes">
+                <Button
+                  onClick={handleNewNote}
+                  className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg"
+                >
+                  <Plus className="w-5 h-5" />
+                  <span>Create Your First Note</span>
+                </Button>
+              </CreateButton>
             </div>
           ) : viewMode === 'card' ? (
             /* Card View */
@@ -1088,20 +1091,22 @@ const NotesPage: React.FC = () => {
                                 <Eye className="w-4 h-4" />
                                 <span>View</span>
                               </button>
-                              <button
+                              <UpdateButton
+                                resource="notes"
+                                onClick={(e) => {e?.stopPropagation(); openNoteModal(note, true); setOpenDropdown(null);}}
                                 className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center gap-2 text-sm font-normal text-gray-800"
-                                onClick={(e) => {e.stopPropagation(); openNoteModal(note, true); setOpenDropdown(null);}}
                               >
                                 <Edit3 className="w-4 h-4" />
                                 <span>Edit</span>
-                              </button>
-                              <button
+                              </UpdateButton>
+                              <DeleteButton
+                                resource="notes"
+                                onClick={(e) => {e?.stopPropagation(); handleDeleteNote(note.id); setOpenDropdown(null);}}
                                 className="w-full text-left px-4 py-2.5 hover:bg-gray-50 rounded-b-lg flex items-center gap-2 text-sm font-normal text-red-600"
-                                onClick={(e) => {e.stopPropagation(); handleDeleteNote(note.id); setOpenDropdown(null);}}
                               >
                                 <Trash2 className="w-4 h-4" />
                                 <span>Delete</span>
-                              </button>
+                              </DeleteButton>
                             </div>
                           )}
                         </div>
@@ -1472,20 +1477,22 @@ const NotesPage: React.FC = () => {
                               <Eye className="w-4 h-4" />
                               <span>View</span>
                             </button>
-                            <button
+                            <UpdateButton
+                              resource="notes"
+                              onClick={(e) => {e?.stopPropagation(); openNoteModal(note, true); setOpenDropdown(null);}}
                               className="w-full text-left px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 text-sm font-normal text-gray-800 dark:text-gray-300"
-                              onClick={(e) => {e.stopPropagation(); openNoteModal(note, true); setOpenDropdown(null);}}
                             >
                               <Edit3 className="w-4 h-4" />
                               <span>Edit</span>
-                            </button>
-                            <button
+                            </UpdateButton>
+                            <DeleteButton
+                              resource="notes"
+                              onClick={(e) => {e?.stopPropagation(); handleDeleteNote(note.id); setOpenDropdown(null);}}
                               className="w-full text-left px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-b-lg flex items-center gap-2 text-sm font-normal text-red-600 dark:text-red-400"
-                              onClick={(e) => {e.stopPropagation(); handleDeleteNote(note.id); setOpenDropdown(null);}}
                             >
                               <Trash2 className="w-4 h-4" />
                               <span>Delete</span>
-                            </button>
+                            </DeleteButton>
                           </div>
                         )}
                       </div>
@@ -1500,13 +1507,15 @@ const NotesPage: React.FC = () => {
 
         {/* Floating Action Button - Mobile Only (Hidden when modals are open) */}
         {!showNewNoteModal && !isNoteModalOpen && !showConvertModal && (
-          <button
-            onClick={handleNewNote}
-            className="lg:hidden fixed bottom-20 right-6 z-50 w-14 h-14 bg-purple-600 hover:bg-purple-700 rounded-full shadow-lg flex items-center justify-center text-white transition-all hover:scale-110"
-            aria-label="Create new note"
-          >
-            <Plus className="w-6 h-6" />
-          </button>
+          <CreateButton resource="notes">
+            <button
+              onClick={handleNewNote}
+              className="lg:hidden fixed bottom-20 right-6 z-50 w-14 h-14 bg-purple-600 hover:bg-purple-700 rounded-full shadow-lg flex items-center justify-center text-white transition-all hover:scale-110"
+              aria-label="Create new note"
+            >
+              <Plus className="w-6 h-6" />
+            </button>
+          </CreateButton>
         )}
       </div>
 
@@ -1541,7 +1550,8 @@ const NotesPage: React.FC = () => {
                   {!isEditing ? (
                     <>
                       {!selectedNote.isConvertedToTask && (
-                        <button
+                        <UpdateButton
+                          resource="notes"
                           onClick={() => {
                             console.log('🔄 Opening Convert to Task modal');
                             console.log('📝 Note data:', {
@@ -1562,7 +1572,7 @@ const NotesPage: React.FC = () => {
                           <span className="hidden sm:inline">→ </span>
                           <span className="sm:hidden">→</span>
                           <span>Convert</span>
-                        </button>
+                        </UpdateButton>
                       )}
                     </>
                   ) : (
@@ -2231,6 +2241,8 @@ const NotesPage: React.FC = () => {
               projects={allProjectsList}
               teams={allTeams}
               users={allUsers}
+              stories={[]}
+              sprints={[]}
               currentUser={{
                 userId: user?.email || user?.username || '',
                 email: user?.email || '',

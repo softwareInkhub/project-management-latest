@@ -16,6 +16,7 @@ export interface Permission {
   'create:companies'?: boolean;
   'create:departments'?: boolean;
   'create:teams'?: boolean;
+  'create:notes'?: boolean;
   
   // Update permissions
   'update:projects'?: boolean;
@@ -23,6 +24,7 @@ export interface Permission {
   'update:companies'?: boolean;
   'update:departments'?: boolean;
   'update:teams'?: boolean;
+  'update:notes'?: boolean;
   
   // Delete permissions
   'delete:projects'?: boolean;
@@ -30,6 +32,7 @@ export interface Permission {
   'delete:companies'?: boolean;
   'delete:departments'?: boolean;
   'delete:teams'?: boolean;
+  'delete:notes'?: boolean;
   
   // Special permissions
   'manage:settings'?: boolean;
@@ -48,16 +51,19 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'create:companies',
     'create:departments',
     'create:teams',
+    'create:notes',
     'update:projects',
     'update:tasks',
     'update:companies',
     'update:departments',
     'update:teams',
+    'update:notes',
     'delete:projects',
     'delete:tasks',
     'delete:companies',
     'delete:departments',
     'delete:teams',
+    'delete:notes',
     'manage:settings',
     'manage:users',
     'manage:roles',
@@ -69,23 +75,28 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'create:companies',
     'create:departments',
     'create:teams',
+    'create:notes',
     'update:projects',
     'update:tasks',
     'update:companies',
     'update:departments',
     'update:teams',
+    'update:notes',
     'delete:projects',
     'delete:tasks',
     'delete:companies',
     'delete:departments',
     'delete:teams',
+    'delete:notes',
     'manage:settings',
   ],
   'manager': [
     'read:all',
     'create:tasks',
+    'create:notes',
     'update:tasks',
     'update:projects',
+    'update:notes',
   ],
   'user': [
     'read:all',
@@ -125,21 +136,21 @@ export function isAdmin(role: UserRole | string): boolean {
 /**
  * Check if user can create resources
  */
-export function canCreate(role: UserRole | string, resource: 'projects' | 'tasks' | 'companies' | 'departments' | 'teams'): boolean {
+export function canCreate(role: UserRole | string, resource: 'projects' | 'tasks' | 'companies' | 'departments' | 'teams' | 'notes'): boolean {
   return hasPermission(role, `create:${resource}`);
 }
 
 /**
  * Check if user can update resources
  */
-export function canUpdate(role: UserRole | string, resource: 'projects' | 'tasks' | 'companies' | 'departments' | 'teams'): boolean {
+export function canUpdate(role: UserRole | string, resource: 'projects' | 'tasks' | 'companies' | 'departments' | 'teams' | 'notes'): boolean {
   return hasPermission(role, `update:${resource}`);
 }
 
 /**
  * Check if user can delete resources
  */
-export function canDelete(role: UserRole | string, resource: 'projects' | 'tasks' | 'companies' | 'departments' | 'teams'): boolean {
+export function canDelete(role: UserRole | string, resource: 'projects' | 'tasks' | 'companies' | 'departments' | 'teams' | 'notes'): boolean {
   return hasPermission(role, `delete:${resource}`);
 }
 

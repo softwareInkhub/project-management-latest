@@ -15,6 +15,8 @@ interface Task {
   title: string;
   description: string;
   project: string;
+  story_id?: string;         // Link to Story
+  sprint_id?: string;        // Link to Sprint
   assignee: string;
   assignedTeams?: string[];
   assignedUsers?: string[];
@@ -1150,6 +1152,7 @@ class ApiService {
   async deleteSprint(id: string): Promise<ApiResponse<void>> {
     return this.makeRequest<void>(`?tableName=project-management-sprints&id=${id}`, {
       method: 'DELETE',
+      body: JSON.stringify({ id }),
     });
   }
 

@@ -17,6 +17,8 @@ interface TaskFormProps {
   projects?: string[];
   teams?: any[];
   users?: any[];
+  stories?: any[];
+  sprints?: any[];
   isLoadingUsers?: boolean;
   isLoadingTeams?: boolean;
   formHeight?: number;
@@ -34,6 +36,8 @@ export function TaskForm({
   projects = [],
   teams = [],
   users = [],
+  stories = [],
+  sprints = [],
   isLoadingUsers = false,
   isLoadingTeams = false,
   formHeight = 80,
@@ -52,6 +56,8 @@ export function TaskForm({
     title: task?.title || '',
     description: task?.description || '',
     project: task?.project || '',
+    story_id: task?.story_id || '',
+    sprint_id: task?.sprint_id || '',
     assignee: task?.assignee || currentUser?.userId || '',
     assignedTeams: task?.assignedTeams || [],
     assignedUsers: task?.assignedUsers || [],
@@ -76,6 +82,8 @@ export function TaskForm({
         title: task.title || '',
         description: task.description || '',
         project: task.project || '',
+        story_id: task.story_id || '',
+        sprint_id: task.sprint_id || '',
         assignee: task.assignee || currentUser?.userId || '',
         assignedTeams: task.assignedTeams || [],
         assignedUsers: task.assignedUsers || [],
@@ -408,10 +416,10 @@ export function TaskForm({
         <form onSubmit={handleSubmit}>
           {/* All Form Fields in Single Layout */}
           <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-6 shadow-sm space-y-6">
-            {/* Row 1: Task Title, Project, Status, Priority */}
-            <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 ">
+            {/* Row 1: Task Title, Project, Sprint, Story */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
               {/* Task Title */}
-              <div className="sm:col-span-2">
+              <div>
                 <label className="block text-sm font-semibold text-gray-800 mb-2">
                   Task Title *
                 </label>
@@ -429,116 +437,115 @@ export function TaskForm({
                 )}
               </div>
 
-              {/* Project and Status - Side by side on mobile */}
-              <div className="grid grid-cols-2 gap-4   sm:contents ">
-                {/* Project */}
-                <div >
-                  <label className="block text-sm font-semibold text-gray-800 mb-2">
-                    Project *
-                  </label>
-                  <Select
-                    value={formData.project || ''}
-                    onValueChange={(val) => handleInputChange('project', val)}
-                    onChange={(e) => handleInputChange('project', (e.target as any).value)}
-                    options={[
-                      { value: '', label: 'Select Project' },
-                      ...projects.map(project => ({ value: project, label: project }))
-                    ]}
-                className={`w-full h-12 text-base ${errors.project ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500 focus:border-blue-500'}`}
-                  />
-                  {errors.project && (
-                    <p className="text-red-500 text-sm mt-2 flex items-center gap-1 ">
-                      <span className="w-1 h-1 bg-red-500 rounded-full"></span>
-                      {errors.project}
-                    </p>
-                  )}
-                </div>
-
-                {/* Status */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-800 mb-2">
-                    Status
-                  </label>
-                  <Select
-                    value={formData.status || 'To Do'}
-                    onValueChange={(val) => handleInputChange('status', val)}
-                    onChange={(e) => handleInputChange('status', (e.target as any).value)}
-                    options={[
-                      { value: 'To Do', label: 'To Do' },
-                      { value: 'In Progress', label: 'In Progress' },
-                      { value: 'Completed', label: 'Completed' },
-                      { value: 'Overdue', label: 'Overdue' }
-                    ]}
-                className="w-full h-12 text-base focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
+              {/* Project */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-800 mb-2">
+                  Project *
+                </label>
+                <Select
+                  value={formData.project || ''}
+                  onValueChange={(val) => handleInputChange('project', val)}
+                  onChange={(e) => handleInputChange('project', (e.target as any).value)}
+                  options={[
+                    { value: '', label: 'Select Project' },
+                    ...projects.map(project => ({ value: project, label: project }))
+                  ]}
+                  className={`w-full h-12 text-base ${errors.project ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500 focus:border-blue-500'}`}
+                />
+                {errors.project && (
+                  <p className="text-red-500 text-sm mt-2 flex items-center gap-1 ">
+                    <span className="w-1 h-1 bg-red-500 rounded-full"></span>
+                    {errors.project}
+                  </p>
+                )}
               </div>
 
-              {/* Priority and Estimated Time (Mobile Only) */}
-              <div className="grid grid-cols-2 gap-4 sm:contents">
-                {/* Priority */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-800 mb-2">
-                    Priority
-                  </label>
-                  <Select
-                    value={formData.priority || 'Medium'}
-                    onValueChange={(val) => handleInputChange('priority', val)}
-                    onChange={(e) => handleInputChange('priority', (e.target as any).value)}
-                    options={[
-                      { value: 'Low', label: 'Low' },
-                      { value: 'Medium', label: 'Medium' },
-                      { value: 'High', label: 'High' }
-                    ]}
-                className="w-full h-12 text-base focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-                {/* Estimated Time (Mobile Only) */}
-                <div className="sm:hidden">
-                  <label className="block text-sm font-semibold text-gray-800 mb-2">
-                    Estimated Time
-                  </label>
-                  <Select
-                    value={getHoursFromEstimatedHours(formData.estimatedHours || 0).toString()}
-                    onValueChange={(val) => {
-                      const hours = parseInt(val);
-                      handleInputChange('estimatedHours', hours);
-                    }}
-                    onChange={(e) => {
-                      const hours = parseInt((e.target as any).value);
-                      handleInputChange('estimatedHours', hours);
-                    }}
-                    options={Array.from({ length: 25 }, (_, i) => ({
-                      value: i.toString(),
-                      label: `${i} ${i === 1 ? 'hour' : 'hours'}`
-                    }))}
-                    placeholder="Hours"
-                className={`w-full h-12 text-base ${errors.estimatedHours ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500 focus:border-blue-500'}`}
-                  />
-                  {errors.estimatedHours && (
-                    <p className="text-red-500 text-sm mt-2 flex items-center gap-1">
-                      <span className="w-1 h-1 bg-red-500 rounded-full"></span>
-                      {errors.estimatedHours}
-                    </p>
-                  )}
-                </div>
+              {/* Sprint */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-800 mb-2">
+                  Sprint
+                </label>
+                <Select
+                  value={formData.sprint_id || ''}
+                  onValueChange={(val) => handleInputChange('sprint_id', val)}
+                  onChange={(e) => handleInputChange('sprint_id', (e.target as any).value)}
+                  options={[
+                    { value: '', label: 'No Sprint' },
+                    ...sprints.map(sprint => ({ value: sprint.id, label: sprint.name }))
+                  ]}
+                  className="w-full h-12 text-base focus:ring-blue-500 focus:border-blue-500"
+                />
               </div>
 
+              {/* Story */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-800 mb-2">
+                  Story
+                </label>
+                <Select
+                  value={formData.story_id || ''}
+                  onValueChange={(val) => handleInputChange('story_id', val)}
+                  onChange={(e) => handleInputChange('story_id', (e.target as any).value)}
+                  options={[
+                    { value: '', label: 'No Story' },
+                    ...stories.map(story => ({ value: story.id, label: story.title }))
+                  ]}
+                  className="w-full h-12 text-base focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
             </div>
 
-            {/* Row 2: Start Date, Due Date, and Estimated Time */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 sm:gap-5">
+            {/* Row 2: Status, Priority, Start Date, Due Date, Estimated Time */}
+            <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
+              {/* Status */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-800 mb-2">
+                  Status
+                </label>
+                <Select
+                  value={formData.status || 'To Do'}
+                  onValueChange={(val) => handleInputChange('status', val)}
+                  onChange={(e) => handleInputChange('status', (e.target as any).value)}
+                  options={[
+                    { value: 'To Do', label: 'To Do' },
+                    { value: 'In Progress', label: 'In Progress' },
+                    { value: 'Completed', label: 'Completed' },
+                    { value: 'Overdue', label: 'Overdue' }
+                  ]}
+                  className="w-full h-12 text-base focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              {/* Priority */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-800 mb-2">
+                  Priority
+                </label>
+                <Select
+                  value={formData.priority || 'Medium'}
+                  onValueChange={(val) => handleInputChange('priority', val)}
+                  onChange={(e) => handleInputChange('priority', (e.target as any).value)}
+                  options={[
+                    { value: 'Low', label: 'Low' },
+                    { value: 'Medium', label: 'Medium' },
+                    { value: 'High', label: 'High' }
+                  ]}
+                  className="w-full h-12 text-base focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              {/* Start Date */}
               <div>
                 <label className="block text-sm font-semibold text-gray-800 mb-2">
                   Start Date *
                 </label>
                 <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-3.5 h-3.5 hidden sm:block" />
+                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 hidden sm:block" />
                   <Input
                     type="date"
                     value={formData.startDate || ''}
                     onChange={(e) => handleInputChange('startDate', e.target.value)}
-                    className={`h-12 pl-4 pr-3 sm:pl-10 text-sm ${errors.startDate ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500 focus:border-blue-500'}`}
+                    className={`h-10 w-full pl-4 pr-3 sm:pl-10 text-base ${errors.startDate ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500 focus:border-blue-500'}`}
                   />
                 </div>
                 {errors.startDate && (
@@ -549,17 +556,18 @@ export function TaskForm({
                 )}
               </div>
 
+              {/* Due Date */}
               <div>
                 <label className="block text-sm font-semibold text-gray-800 mb-2">
                   Due Date *
                 </label>
                 <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-3.5 h-3.5 hidden sm:block" />
+                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 hidden sm:block" />
                   <Input
                     type="date"
                     value={formData.dueDate || ''}
                     onChange={(e) => handleInputChange('dueDate', e.target.value)}
-                    className={`h-12 pl-4 pr-3 sm:pl-10 text-sm ${errors.dueDate ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500 focus:border-blue-500'}`}
+                    className={`h-10 w-full pl-4 pr-3 sm:pl-10 text-base ${errors.dueDate ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500 focus:border-blue-500'}`}
                   />
                 </div>
                 {errors.dueDate && (
@@ -570,8 +578,8 @@ export function TaskForm({
                 )}
               </div>
 
-              {/* Estimated Time (Desktop Only) */}
-              <div className="hidden sm:block">
+              {/* Estimated Time */}
+              <div>
                 <label className="block text-sm font-semibold text-gray-800 mb-2">
                   Estimated Time
                 </label>
@@ -590,7 +598,7 @@ export function TaskForm({
                     label: `${i} ${i === 1 ? 'hour' : 'hours'}`
                   }))}
                   placeholder="Hours"
-                  className={`h-12 text-base ${errors.estimatedHours ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500 focus:border-blue-500'}`}
+                  className={`w-full h-12 text-base ${errors.estimatedHours ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500 focus:border-blue-500'}`}
                 />
                 {errors.estimatedHours && (
                   <p className="text-red-500 text-sm mt-2 flex items-center gap-1">

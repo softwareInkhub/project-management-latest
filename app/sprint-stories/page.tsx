@@ -457,43 +457,52 @@ export default function SprintStoriesPage() {
 
   const handleCreateTaskForStory = async (taskData: any) => {
     try {
-      // Create the task first
-      const result = await apiService.createTask(taskData);
+      // Get the story to extract sprint_id and project_id
+      const story = stories.find(s => s.id === taskData.story_id);
+      if (!story) {
+        alert('Story not found');
+        return;
+      }
+
+      // Create the task with full relationship data
+      const result = await apiService.createTask({
+        ...taskData,
+        project: story.project_id,    // From story
+        sprint_id: story.sprint_id,   // From story
+        story_id: story.id            // The story itself
+      });
+      
       if (result.success && result.data) {
         const newTask = result.data;
         
-        // Now associate this task with the story
-        const story = stories.find(s => s.id === taskData.story_id);
-        if (story) {
-          const updatedTasks = [
-            ...(story.tasks || []),
-            {
-              task_id: newTask.id,
-              title: newTask.title,
-              status: newTask.status,
-              assigned_to: newTask.assignee
-            }
-          ];
-          
-          // Update the story with the new task
-          const updateResult = await apiService.updateStory(story.id, {
-            ...story,
-            tasks: updatedTasks
-          });
-          
-          if (updateResult.success) {
-            // Reload tasks
-            const tasksRes = await apiService.getTasks();
-            if (tasksRes.success) {
-              setExistingTasks(tasksRes.data || []);
-            }
-            // Reload stories to get updated task associations
-            const storiesRes = await apiService.getStories();
-            if (storiesRes.success) {
-              setStories(storiesRes.data || []);
-            }
-            alert('Task created and associated with story successfully!');
+        // Update the story's tasks array
+        const updatedTasks = [
+          ...(story.tasks || []),
+          {
+            task_id: newTask.id,
+            title: newTask.title,
+            status: newTask.status,
+            assigned_to: newTask.assignee
           }
+        ];
+        
+        // Update the story with the new task (only update tasks field)
+        const updateResult = await apiService.updateStory(story.id, {
+          tasks: updatedTasks
+        });
+        
+        if (updateResult.success) {
+          // Reload tasks
+          const tasksRes = await apiService.getTasks();
+          if (tasksRes.success) {
+            setExistingTasks(tasksRes.data || []);
+          }
+          // Reload stories to get updated task associations
+          const storiesRes = await apiService.getStories();
+          if (storiesRes.success) {
+            setStories(storiesRes.data || []);
+          }
+          alert('Task created and associated with story successfully!');
         }
       }
     } catch (error) {
@@ -503,13 +512,31 @@ export default function SprintStoriesPage() {
   };
 
   const openTaskCreationModal = (storyId: string, storyTitle: string) => {
-    setSelectedStoryForTask({ id: storyId, title: storyTitle });
+    // Find the story to get complete context
+    const story = stories.find(s => s.id === storyId);
+    if (story) {
+      setSelectedStoryForTask({ 
+        id: storyId, 
+        title: storyTitle,
+        sprint_id: story.sprint_id,
+        sprint_name: getSprintName(story.sprint_id),
+        project_id: story.project_id,
+        project_name: getProjectName(story.project_id)
+      } as any);
+    } else {
+      setSelectedStoryForTask({ id: storyId, title: storyTitle });
+    }
     setShowTaskCreationModal(true);
   };
 
   const getProjectName = (projectId: string) => {
     const project = projects.find(p => p.id === projectId);
     return project?.name || projectId;
+  };
+
+  const getSprintName = (sprintId: string) => {
+    const sprint = sprints.find(s => s.id === sprintId);
+    return sprint?.name || 'No Sprint';
   };
 
   const getTeamName = (teamId: string) => {
@@ -1510,28 +1537,32 @@ export default function SprintStoriesPage() {
                   </label>
                   
                   {/* Add Existing Task */}
-                  <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg max-w-xl mx-auto w-full">
+                  <div className="mb-4 p-3 sm:p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg max-w-xl mx-auto w-full">
                     <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Add Existing Task</h4>
-                    <div className="flex gap-3">
+                    <div className="flex flex-col sm:flex-row gap-3">
                       <select
                         value={selectedExistingTask}
                         onChange={(e) => setSelectedExistingTask(e.target.value)}
-                        className="w-72 sm:w-96 max-w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-600 dark:text-white"
+                        className="flex-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-600 dark:text-white text-sm overflow-hidden"
                       >
                         <option value="">Select an existing task</option>
                         {existingTasks
                           .filter(task => !storyFormData.tasks.some(st => st.task_id === task.id))
-                          .map((task, index) => (
-                            <option key={task.id || `existing-task-${index}`} value={task.id}>
-                              {task.title} - {task.status} - {getUserName(task.assignee)}
-                            </option>
-                          ))}
+                          .map((task, index) => {
+                            // Truncate title if too long for mobile
+                            const displayTitle = task.title.length > 30 ? task.title.substring(0, 30) + '...' : task.title;
+                            return (
+                              <option key={task.id || `existing-task-${index}`} value={task.id}>
+                                {displayTitle} - {task.status}
+                              </option>
+                            );
+                          })}
                       </select>
                       <button
                         type="button"
                         onClick={addExistingTaskToStory}
                         disabled={!selectedExistingTask}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-md transition-colors text-sm"
+                        className="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-md transition-colors text-sm flex-shrink-0"
                       >
                         Add Task
                       </button>
@@ -1631,6 +1662,12 @@ export default function SprintStoriesPage() {
           storyId={selectedStoryForTask.id}
           storyTitle={selectedStoryForTask.title}
           users={users}
+          storyData={{
+            sprint_id: (selectedStoryForTask as any).sprint_id,
+            sprint_name: (selectedStoryForTask as any).sprint_name,
+            project_id: (selectedStoryForTask as any).project_id,
+            project_name: (selectedStoryForTask as any).project_name
+          }}
         />
       )}
     </AppLayout>

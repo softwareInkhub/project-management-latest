@@ -321,7 +321,11 @@ export const SearchFilterSection = <T extends string = string>({
           <div className="flex items-center space-x-2 flex-shrink-0">
               {/* Action Button - Hidden on mobile */}
               {actionButton && (
-                <CreateButton resource={searchPlaceholder.includes('task') ? 'tasks' : 'projects'}>
+                <CreateButton resource={
+                  searchPlaceholder.includes('task') ? 'tasks' : 
+                  searchPlaceholder.includes('note') ? 'notes' : 
+                  'projects'
+                }>
                   <button
                     onClick={actionButton.onClick}
                     className="hidden lg:flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex-shrink-0"

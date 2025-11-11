@@ -70,7 +70,7 @@ export const AdminOnly: React.FC<AdminOnlyProps> = ({ fallback = null, children 
  * Can be used as a wrapper (passes through children) or as a button itself
  */
 interface CreateButtonProps {
-  resource: 'projects' | 'tasks' | 'companies' | 'departments' | 'teams';
+  resource: 'projects' | 'tasks' | 'companies' | 'departments' | 'teams' | 'notes';
   children: React.ReactNode;
   onClick?: (event?: React.MouseEvent<HTMLButtonElement>) => void;
   className?: string;
@@ -108,7 +108,7 @@ export const CreateButton: React.FC<CreateButtonProps> = ({
  * Can be used as a wrapper (passes through children) or as a button itself
  */
 interface UpdateButtonProps {
-  resource: 'projects' | 'tasks' | 'companies' | 'departments' | 'teams';
+  resource: 'projects' | 'tasks' | 'companies' | 'departments' | 'teams' | 'notes';
   children: React.ReactNode;
   onClick?: (event?: React.MouseEvent<HTMLButtonElement>) => void;
   className?: string;
@@ -146,7 +146,7 @@ export const UpdateButton: React.FC<UpdateButtonProps> = ({
  * Can be used as a wrapper (passes through children) or as a button itself
  */
 interface DeleteButtonProps {
-  resource: 'projects' | 'tasks' | 'companies' | 'departments' | 'teams';
+  resource: 'projects' | 'tasks' | 'companies' | 'departments' | 'teams' | 'notes';
   children: React.ReactNode;
   onClick?: (event?: React.MouseEvent<HTMLButtonElement>) => void;
   className?: string;
@@ -211,11 +211,11 @@ export const usePermissions = () => {
     userRole,
     isAdmin: isAdmin(userRole),
     hasPermission: (permission: string) => hasPermission(userRole, permission),
-    canCreate: (resource: 'projects' | 'tasks' | 'companies' | 'departments' | 'teams') => 
+    canCreate: (resource: 'projects' | 'tasks' | 'companies' | 'departments' | 'teams' | 'notes') => 
       canCreate(userRole, resource),
-    canUpdate: (resource: 'projects' | 'tasks' | 'companies' | 'departments' | 'teams') => 
+    canUpdate: (resource: 'projects' | 'tasks' | 'companies' | 'departments' | 'teams' | 'notes') => 
       canUpdate(userRole, resource),
-    canDelete: (resource: 'projects' | 'tasks' | 'companies' | 'departments' | 'teams') => 
+    canDelete: (resource: 'projects' | 'tasks' | 'companies' | 'departments' | 'teams' | 'notes') => 
       canDelete(userRole, resource),
   };
 };

@@ -32,7 +32,9 @@ import {
   Settings,
   ChevronDown,
   ChevronUp,
-  FileCode
+  FileCode,
+  FileText,
+  Activity
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -47,7 +49,7 @@ import { AdvancedFilterModal } from '../components/ui/AdvancedFilterModal';
 import { useTabs } from '../hooks/useTabs';
 import { useSidebar } from '../components/AppLayout';
 import { useAuth } from '../hooks/useAuth';
-import { apiService, Task } from '../services/api';
+import { apiService, Task, Story, Sprint } from '../services/api';
 import { driveService, FileItem } from '../services/drive';
 import { CreateButton, UpdateButton, DeleteButton, ReadOnlyBadge, usePermissions } from '../components/RoleBasedUI';
 import { formatEmailForDisplay, formatUserDisplayName } from '../utils/emailUtils';
@@ -914,6 +916,8 @@ const TasksPage = () => {
     setDeleteConfirmText('');
   };
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [stories, setStories] = useState<Story[]>([]);
+  const [sprints, setSprints] = useState<Sprint[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const taskFormRef = useRef<HTMLDivElement>(null);
@@ -1040,6 +1044,25 @@ const TasksPage = () => {
     }
   ], [tasks, uniqueProjects, uniqueTags]);
 
+  // Helper functions to get names from IDs
+  const getStoryName = (storyId?: string): string => {
+    if (!storyId) return 'No Story';
+    const story = stories.find(s => s.id === storyId);
+    return story?.title || 'Unknown Story';
+  };
+
+  const getSprintName = (sprintId?: string): string => {
+    if (!sprintId) return 'No Sprint';
+    const sprint = sprints.find(s => s.id === sprintId);
+    return sprint?.name || 'Unknown Sprint';
+  };
+
+  const getProjectName = (projectId?: string): string => {
+    if (!projectId) return 'No Project';
+    const project = allProjects.find(p => p.id === projectId || p.name === projectId);
+    return project?.name || projectId;
+  };
+
   // API Functions
   const fetchTasks = async () => {
     try {
@@ -1048,18 +1071,30 @@ const TasksPage = () => {
       setError(null);
       
       console.log('📡 Calling apiService.getTasks()...');
-      const response = await apiService.getTasks();
-      console.log('📡 API response received:', response);
+      const [tasksRes, storiesRes, sprintsRes] = await Promise.all([
+        apiService.getTasks(),
+        apiService.getStories(),
+        apiService.getSprints()
+      ]);
+      console.log('📡 API response received:', tasksRes);
       
-      if (response.success && response.data) {
-        console.log('✅ Tasks fetched successfully, count:', response.data.length);
-        setTasks(response.data);
+      if (tasksRes.success && tasksRes.data) {
+        console.log('✅ Tasks fetched successfully, count:', tasksRes.data.length);
+        setTasks(tasksRes.data);
       } else {
-        console.log('❌ API returned error:', response.error);
-        setError(response.error || 'Failed to fetch tasks');
+        console.log('❌ API returned error:', tasksRes.error);
+        setError(tasksRes.error || 'Failed to fetch tasks');
         // Fallback to mock data if API fails
         console.log('🔄 Falling back to mock data...');
         setTasks(mockTasks);
+      }
+
+      if (storiesRes.success && storiesRes.data) {
+        setStories(storiesRes.data);
+      }
+
+      if (sprintsRes.success && sprintsRes.data) {
+        setSprints(sprintsRes.data);
       }
     } catch (error) {
       console.error('❌ Error fetching tasks:', error);
@@ -1119,12 +1154,34 @@ const TasksPage = () => {
   const deleteTask = async (taskId: string) => {
     try {
       console.log('🗑️ Calling apiService.deleteTask with ID:', taskId);
+      
+      // Find the task to get its story_id before deletion
+      const taskToDelete = tasks.find(t => t.id === taskId);
+      
       const response = await apiService.deleteTask(taskId);
       console.log('🗑️ API response:', response);
       
       if (response.success) {
         console.log('✅ API deletion successful, updating local state');
+        
+        // Remove task from tasks list
         setTasks(prev => prev.filter(task => task.id !== taskId));
+        
+        // If task was associated with a story, update the story's tasks array
+        if (taskToDelete?.story_id) {
+          try {
+            const story = stories.find(s => s.id === taskToDelete.story_id);
+            if (story && story.tasks) {
+              const updatedTasks = story.tasks.filter((t: any) => t.task_id !== taskId);
+              await apiService.updateStory(story.id, { tasks: updatedTasks });
+              console.log('✅ Removed task from story tasks array');
+            }
+          } catch (storyError) {
+            console.error('⚠️ Error updating story tasks array:', storyError);
+            // Don't fail the deletion if story update fails
+          }
+        }
+        
         return { success: true };
       } else {
         console.error('❌ API deletion failed:', response.error);
@@ -3526,9 +3583,9 @@ const TasksPage = () => {
                     {/* Project Avatar */}
                     <div className="tooltip-wrapper flex-shrink-0">
                       <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-                        {(task.project || 'T').charAt(0).toUpperCase()}
+                        {(getProjectName(task.project) || 'T').charAt(0).toUpperCase()}
                       </div>
-                      <div className="tooltip-content">Project: {task.project || 'No Project'}</div>
+                      <div className="tooltip-content">Project: {getProjectName(task.project) || 'No Project'}</div>
                     </div>
 
                     {/* Task Title + Desktop Meta Details */}
@@ -3549,10 +3606,10 @@ const TasksPage = () => {
                           <div className="flex items-center gap-1.5">
                             <span className="text-gray-800 font-semibold">Project:</span>
                             <span className="px-2.5 py-1 rounded-md bg-gray-100 text-gray-700 font-medium">
-                              {task.project || 'N/A'}
+                              {getProjectName(task.project) || 'N/A'}
                             </span>
                           </div>
-                          <div className="tooltip-content">Project: {task.project || 'N/A'}</div>
+                          <div className="tooltip-content">Project: {getProjectName(task.project) || 'N/A'}</div>
                         </div>
 
                         {/* Priority */}
@@ -3751,10 +3808,10 @@ const TasksPage = () => {
                           <div className="flex items-center gap-1">
                             <span className="text-gray-800 font-semibold">Project:</span>
                             <span className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-700 font-medium">
-                              {task.project || 'N/A'}
+                              {getProjectName(task.project) || 'N/A'}
                             </span>
                           </div>
-                          <div className="tooltip-content">Project: {task.project || 'N/A'}</div>
+                          <div className="tooltip-content">Project: {getProjectName(task.project) || 'N/A'}</div>
                         </div>
 
                         {/* Priority */}
@@ -4057,8 +4114,8 @@ const TasksPage = () => {
                          
                          {/* Project */}
                          <td className="px-3 py-3 text-sm text-gray-700 border-r border-gray-200" style={{ width: '110px' }}>
-                           <div className="truncate" title={task.project}>
-                             {task.project}
+                           <div className="truncate" title={getProjectName(task.project)}>
+                             {getProjectName(task.project)}
                            </div>
                          </td>
                          
@@ -4364,8 +4421,8 @@ const TasksPage = () => {
                          
                          {/* Project */}
                          <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200" style={{ width: '140px' }}>
-                           <div className="truncate" title={task.project}>
-                             {task.project}
+                           <div className="truncate" title={getProjectName(task.project)}>
+                             {getProjectName(task.project)}
                            </div>
                          </td>
                          
@@ -4538,9 +4595,9 @@ const TasksPage = () => {
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <div 
                           className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-xs flex-shrink-0"
-                          title={`Project: ${task.project || 'No Project'}`}
+                          title={`Project: ${getProjectName(task.project) || 'No Project'}`}
                         >
-                          {(task.project || 'T').charAt(0).toUpperCase()}
+                          {(getProjectName(task.project) || 'T').charAt(0).toUpperCase()}
                         </div>
                         <h4 
                           className="font-medium text-gray-900 text-sm leading-tight truncate flex-1"
@@ -4681,9 +4738,9 @@ const TasksPage = () => {
                         {/* Project - Always visible */}
                         <div className="tooltip-wrapper">
                           <div className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-md font-medium">
-                            {task.project}
+                            {getProjectName(task.project)}
                           </div>
-                          <div className="tooltip-content">Project: {task.project}</div>
+                          <div className="tooltip-content">Project: {getProjectName(task.project)}</div>
                         </div>
                         
                         {/* Time - Desktop only (hidden on mobile) */}
@@ -4778,6 +4835,8 @@ const TasksPage = () => {
               projects={allProjects.map(project => project.name)}
               teams={allTeams}
               users={allUsers}
+              stories={stories}
+              sprints={sprints}
               isLoadingUsers={isLoadingUsers}
               isLoadingTeams={isLoadingTeams}
               formHeight={formHeight}
@@ -4865,49 +4924,71 @@ const TasksPage = () => {
                       <p className="text-gray-600 dark:text-gray-300 text-sm break-words">{selectedTask.description}</p>
                     </div>
 
-                    {/* All 6 fields in one row on desktop */}
-                    {/* Project */}
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-800 dark:text-gray-200 mb-1.5">Project</label>
-                      <Badge variant="default" size="md" className="text-sm px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
-                        {selectedTask.project}
-                      </Badge>
-                    </div>
+                    {/* Row 1: All Meta Details Including Dates in One Line */}
+                    <div className="col-span-2 lg:col-span-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {/* Story */}
+                      {selectedTask.story_id && (
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-800 dark:text-gray-200 mb-1.5">Story</label>
+                          <Badge variant="default" size="md" className="text-sm px-3 py-1.5 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300">
+                            {getStoryName(selectedTask.story_id)}
+                          </Badge>
+                        </div>
+                      )}
 
-                    {/* Status */}
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-800 dark:text-gray-200 mb-1.5">Status</label>
-                      <Badge variant={getStatusConfig(selectedTask.status).color as any} size="md" className="text-sm px-3 py-1.5">
-                        {getStatusConfig(selectedTask.status).label}
-                      </Badge>
-                    </div>
+                      {/* Sprint */}
+                      {selectedTask.sprint_id && (
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-800 dark:text-gray-200 mb-1.5">Sprint</label>
+                          <Badge variant="default" size="md" className="text-sm px-3 py-1.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+                            {getSprintName(selectedTask.sprint_id)}
+                          </Badge>
+                        </div>
+                      )}
 
-                    {/* Priority */}
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-800 dark:text-gray-200 mb-1.5">Priority</label>
-                      <Badge variant={getPriorityConfig(selectedTask.priority).color as any} size="md" className="text-sm px-3 py-1.5">
-                        {getPriorityConfig(selectedTask.priority).label}
-                      </Badge>
-                    </div>
+                      {/* Project */}
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-800 dark:text-gray-200 mb-1.5">Project</label>
+                        <Badge variant="default" size="md" className="text-sm px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                          {getProjectName(selectedTask.project)}
+                        </Badge>
+                      </div>
 
-                    {/* Estimated Time */}
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-800 dark:text-gray-200 mb-1.5">Estimated Time</label>
-                      <p className="text-gray-600 dark:text-gray-300 text-sm py-1.5">{selectedTask.estimatedHours} hours</p>
-                    </div>
+                      {/* Status */}
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-800 dark:text-gray-200 mb-1.5">Status</label>
+                        <Badge variant={getStatusConfig(selectedTask.status).color as any} size="md" className="text-sm px-3 py-1.5">
+                          {getStatusConfig(selectedTask.status).label}
+                        </Badge>
+                      </div>
 
-                    {/* Start Date */}
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-800 dark:text-gray-200 mb-1.5">Start Date</label>
-                      <p className="text-gray-600 dark:text-gray-300 text-sm py-1.5">{new Date(selectedTask.startDate).toLocaleDateString()}</p>
-                    </div>
+                      {/* Priority */}
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-800 dark:text-gray-200 mb-1.5">Priority</label>
+                        <Badge variant={getPriorityConfig(selectedTask.priority).color as any} size="md" className="text-sm px-3 py-1.5">
+                          {getPriorityConfig(selectedTask.priority).label}
+                        </Badge>
+                      </div>
 
-                    {/* Due Date */}
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-800 dark:text-gray-200 mb-1.5">Due Date</label>
-                      <p className={`text-sm py-1.5 ${isOverdue(selectedTask.dueDate) ? 'text-red-600 dark:text-red-400 font-medium' : 'text-gray-600 dark:text-gray-300'}`}>
-                        {new Date(selectedTask.dueDate).toLocaleDateString()}
-                      </p>
+                      {/* Estimated Time */}
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-800 dark:text-gray-200 mb-1.5">Estimated Time</label>
+                        <p className="text-gray-600 dark:text-gray-300 text-sm py-1.5">{selectedTask.estimatedHours} hours</p>
+                      </div>
+
+                      {/* Start Date */}
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-800 dark:text-gray-200 mb-1.5">Start Date</label>
+                        <p className="text-gray-600 dark:text-gray-300 text-sm py-1.5">{new Date(selectedTask.startDate).toLocaleDateString()}</p>
+                      </div>
+
+                      {/* Due Date */}
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-800 dark:text-gray-200 mb-1.5">Due Date</label>
+                        <p className={`text-sm py-1.5 ${isOverdue(selectedTask.dueDate) ? 'text-red-600 dark:text-red-400 font-medium' : 'text-gray-600 dark:text-gray-300'}`}>
+                          {new Date(selectedTask.dueDate).toLocaleDateString()}
+                        </p>
+                      </div>
                     </div>
 
                     {/* Tags Card - Full width */}
@@ -5358,7 +5439,7 @@ const TasksPage = () => {
                                           <Badge variant={getStatusConfig(task.status).color as any} size="sm" className="text-[10px] px-1.5 py-0">
                                             {task.status}
                                           </Badge>
-                                          <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{task.project}</span>
+                                          <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{getProjectName(task.project)}</span>
                                         </div>
                                       </div>
                                       <button
@@ -5404,7 +5485,7 @@ const TasksPage = () => {
                                         <Badge variant={getStatusConfig(subtask.status).color as any} size="sm" className="text-[10px] px-1.5 py-0">
                                           {subtask.status}
                                         </Badge>
-                                        <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{subtask.project}</span>
+                                        <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{getProjectName(subtask.project)}</span>
                                       </div>
                                     </div>
                                   </div>
@@ -5446,7 +5527,7 @@ const TasksPage = () => {
                                             <Badge variant={getStatusConfig(subtask.status).color as any} size="sm" className="text-[10px] px-1.5 py-0">
                                               {subtask.status}
                                             </Badge>
-                                            <span className="text-[10px] text-green-600 dark:text-green-500 truncate">{subtask.project}</span>
+                                            <span className="text-[10px] text-green-600 dark:text-green-500 truncate">{getProjectName(subtask.project)}</span>
                                           </div>
                                         </div>
                                       </div>

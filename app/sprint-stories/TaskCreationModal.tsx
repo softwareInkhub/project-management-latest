@@ -10,6 +10,12 @@ interface TaskCreationModalProps {
   storyId: string;
   storyTitle: string;
   users: any[];
+  storyData?: {
+    sprint_id?: string;
+    sprint_name?: string;
+    project_id?: string;
+    project_name?: string;
+  };
 }
 
 export const TaskCreationModal: React.FC<TaskCreationModalProps> = ({
@@ -18,7 +24,8 @@ export const TaskCreationModal: React.FC<TaskCreationModalProps> = ({
   onCreateTask,
   storyId,
   storyTitle,
-  users
+  users,
+  storyData
 }) => {
   const [taskData, setTaskData] = useState({
     title: '',
@@ -90,6 +97,31 @@ export const TaskCreationModal: React.FC<TaskCreationModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="p-4 sm:p-6 pb-24 sm:pb-6 space-y-5">
+          {/* Context Information - Story/Sprint/Project */}
+          {storyData && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 sm:p-4 space-y-2">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Task Context</h4>
+              <div className="grid grid-cols-3 gap-2 sm:gap-3 text-xs sm:text-sm">
+                {storyData.project_name && (
+                  <div>
+                    <span className="text-gray-600 dark:text-gray-400 block">Project:</span>
+                    <p className="font-medium text-gray-900 dark:text-white mt-1 truncate" title={storyData.project_name}>{storyData.project_name}</p>
+                  </div>
+                )}
+                {storyData.sprint_name && (
+                  <div>
+                    <span className="text-gray-600 dark:text-gray-400 block">Sprint:</span>
+                    <p className="font-medium text-gray-900 dark:text-white mt-1 truncate" title={storyData.sprint_name}>{storyData.sprint_name}</p>
+                  </div>
+                )}
+                <div>
+                  <span className="text-gray-600 dark:text-gray-400 block">Story:</span>
+                  <p className="font-medium text-gray-900 dark:text-white mt-1 truncate" title={storyTitle}>{storyTitle}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Task Title */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">

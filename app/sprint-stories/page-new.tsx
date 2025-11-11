@@ -1152,28 +1152,32 @@ export default function SprintStoriesPage() {
                   </label>
                   
                   {/* Add Existing Task */}
-                  <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg max-w-2xl mx-auto w-full">
+                  <div className="mb-4 p-3 sm:p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg max-w-2xl mx-auto w-full">
                     <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Add Existing Task</h4>
-                    <div className="flex gap-3">
+                    <div className="flex flex-col sm:flex-row gap-3">
                       <select
                         value={selectedExistingTask}
                         onChange={(e) => setSelectedExistingTask(e.target.value)}
-                        className="w-72 sm:w-96 max-w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-600 dark:text-white"
+                        className="flex-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-600 dark:text-white text-sm overflow-hidden"
                       >
                         <option value="">Select an existing task</option>
                         {existingTasks
                           .filter(task => !storyFormData.tasks.some(st => st.task_id === task.id))
-                          .map((task, index) => (
-                            <option key={task.id || `existing-task-${index}`} value={task.id}>
-                              {task.title} - {task.status} - {getUserName(task.assignee)}
-                            </option>
-                          ))}
+                          .map((task, index) => {
+                            // Truncate title if too long for mobile
+                            const displayTitle = task.title.length > 30 ? task.title.substring(0, 30) + '...' : task.title;
+                            return (
+                              <option key={task.id || `existing-task-${index}`} value={task.id}>
+                                {displayTitle} - {task.status}
+                              </option>
+                            );
+                          })}
                       </select>
                       <button
                         type="button"
                         onClick={addExistingTaskToStory}
                         disabled={!selectedExistingTask}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-md transition-colors text-sm"
+                        className="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-md transition-colors text-sm flex-shrink-0"
                       >
                         Add Task
                       </button>
