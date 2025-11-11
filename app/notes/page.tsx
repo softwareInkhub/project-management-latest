@@ -1003,7 +1003,7 @@ const NotesPage: React.FC = () => {
           />
 
         {/* Main Content - Card/List View */}
-        <div className="flex-1 overflow-y-auto pb-4 pt-2">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden pb-4 pt-2">
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
@@ -1027,7 +1027,7 @@ const NotesPage: React.FC = () => {
             </div>
           ) : viewMode === 'card' ? (
             /* Card View */
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-3 pb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3 pb-4">
               {filteredNotes.map(note => {
                 const noteTags = note.tags || [];
                 const noteAttachments = (() => {
@@ -1039,16 +1039,16 @@ const NotesPage: React.FC = () => {
                 return (
                   <div
                     key={note.id}
-                    className="bg-white rounded-xl sm:rounded-2xl border border-gray-200 cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-lg w-full"
+                    className="bg-white rounded-xl sm:rounded-2xl border border-gray-200 cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-lg w-full max-w-full overflow-hidden"
                     style={{
                       minHeight: '140px',
                       boxShadow: '0 4px 10px rgba(0,0,0,0.05)'
                     }}
                     onClick={() => openNoteModal(note)}
                   >
-                    <div className="p-3 sm:p-4 space-y-1.5 sm:space-y-2">
+                    <div className="p-3 sm:p-4 space-y-1.5 sm:space-y-2 w-full">
                       {/* Header: Avatar + Title + Menu */}
-                      <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start justify-between gap-2 w-full">
                         <div className="flex items-center gap-2 flex-1 min-w-0">
                           <div className="flex-shrink-0">
                             <div 
@@ -1159,9 +1159,6 @@ const NotesPage: React.FC = () => {
                           </p>
                         </div>
                       )}
-
-                      {/* Divider */}
-                      <div className="border-t border-gray-100"></div>
 
                       {/* Status and Date - Two Lines */}
                       <div className="space-y-1.5 text-xs">
