@@ -46,6 +46,12 @@ import { ViewToggle } from '../components/ui/ViewToggle';
 import { AppLayout } from '../components/AppLayout';
 import { TaskForm } from '../components/ui/TaskForm';
 import { AdvancedFilterModal } from '../components/ui/AdvancedFilterModal';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
+import rehypeSanitize from 'rehype-sanitize';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useTabs } from '../hooks/useTabs';
 import { useSidebar } from '../components/AppLayout';
 import { useAuth } from '../hooks/useAuth';
@@ -82,6 +88,75 @@ interface SortOption {
   field: string;
   direction: 'asc' | 'desc';
 }
+
+// Markdown rendering component
+const MarkdownRenderer: React.FC<{ content: string; className?: string }> = ({ content, className = '' }) => {
+  return (
+    <div className={`prose prose-sm max-w-none dark:prose-invert ${className}`}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeRaw, rehypeSanitize]}
+        components={{
+          code({ node, inline, className, children, ...props }: any) {
+            const match = /language-(\w+)/.exec(className || '');
+            return !inline && match ? (
+              <SyntaxHighlighter
+                style={vscDarkPlus}
+                language={match[1]}
+                PreTag="div"
+                className="rounded-md my-4"
+                {...props}
+              >
+                {String(children).replace(/\n$/, '')}
+              </SyntaxHighlighter>
+            ) : (
+              <code className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
+                {children}
+              </code>
+            );
+          },
+          h1: ({ children }) => <h1 className="text-2xl font-bold mt-6 mb-4">{children}</h1>,
+          h2: ({ children }) => <h2 className="text-xl font-bold mt-5 mb-3">{children}</h2>,
+          h3: ({ children }) => <h3 className="text-lg font-bold mt-4 mb-2">{children}</h3>,
+          h4: ({ children }) => <h4 className="text-base font-bold mt-3 mb-2">{children}</h4>,
+          h5: ({ children }) => <h5 className="text-sm font-bold mt-2 mb-1">{children}</h5>,
+          h6: ({ children }) => <h6 className="text-xs font-bold mt-2 mb-1">{children}</h6>,
+          a: ({ children, href }) => (
+            <a href={href} className="text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">
+              {children}
+            </a>
+          ),
+          ul: ({ children }) => <ul className="list-disc list-inside my-3 ml-4 space-y-1">{children}</ul>,
+          ol: ({ children }) => <ol className="list-decimal list-inside my-3 ml-4 space-y-1">{children}</ol>,
+          li: ({ children }) => <li className="ml-2">{children}</li>,
+          blockquote: ({ children }) => (
+            <blockquote className="border-l-4 border-gray-300 dark:border-gray-600 pl-4 py-2 my-4 italic bg-gray-50 dark:bg-gray-800/50">
+              {children}
+            </blockquote>
+          ),
+          p: ({ children }) => <p className="my-2 leading-relaxed">{children}</p>,
+          table: ({ children }) => (
+            <div className="overflow-x-auto my-4">
+              <table className="min-w-full divide-y divide-gray-300 dark:divide-gray-600">{children}</table>
+            </div>
+          ),
+          th: ({ children }) => (
+            <th className="px-4 py-2 bg-gray-100 dark:bg-gray-800 font-semibold text-left">{children}</th>
+          ),
+          td: ({ children }) => (
+            <td className="px-4 py-2 border-t border-gray-200 dark:border-gray-700">{children}</td>
+          ),
+          img: ({ src, alt }) => (
+            <img src={src} alt={alt} className="max-w-full h-auto rounded-lg my-4" />
+          ),
+          hr: () => <hr className="my-6 border-gray-300 dark:border-gray-600" />,
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
+};
 
 // SortableTableHeader Component
 const SortableTableHeader = React.memo(({ 
@@ -4832,7 +4907,7 @@ const TasksPage = () => {
               onCancel={handleTaskFormCancel}
               isEditing={!!selectedTask}
               isCreatingSubtask={isCreatingSubtask}
-              projects={allProjects.map(project => project.name)}
+              projects={allProjects}
               teams={allTeams}
               users={allUsers}
               stories={stories}
@@ -4921,7 +4996,13 @@ const TasksPage = () => {
                     {/* Description - Full width */}
                     <div className="col-span-2 lg:col-span-6 lg:mb-4">
                       <label className="block text-xs font-semibold text-gray-800 dark:text-gray-200 mb-1.5">Description</label>
-                      <p className="text-gray-600 dark:text-gray-300 text-sm break-words">{selectedTask.description}</p>
+                      {selectedTask.description ? (
+                        <div className="text-gray-600 dark:text-gray-300 text-sm bg-gray-50 dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                          <MarkdownRenderer content={selectedTask.description} />
+                        </div>
+                      ) : (
+                        <p className="text-gray-400 dark:text-gray-500 text-sm italic">No description provided</p>
+                      )}
                     </div>
 
                     {/* Row 1: All Meta Details Including Dates in One Line */}

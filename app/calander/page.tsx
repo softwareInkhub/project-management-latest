@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AppLayout } from '../components/AppLayout';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -18,8 +18,28 @@ import {
   Target,
   Activity,
   Edit,
-  Trash2
+  Trash2,
+  Bold,
+  Italic,
+  Strikethrough,
+  Heading,
+  Quote,
+  Code,
+  List,
+  ListOrdered,
+  CheckSquare,
+  Image as ImageIcon,
+  Table,
+  Minus,
+  Eye,
+  FileEdit
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
+import rehypeSanitize from 'rehype-sanitize';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { startGoogleCalendarAuth, getGoogleCalendarStatus, disconnectGoogleCalendar } from '../utils/googleCalendarClient';
 import { createEvent } from '../utils/googleCalendarApi';
 import { useAuth } from '../hooks/useAuth';
@@ -53,6 +73,79 @@ interface CalendarTaskData extends TaskData {
   calendarId?: string;
   eventId?: string;
 }
+
+// Markdown Renderer Component
+const MarkdownRenderer = ({ content }: { content: string }) => (
+  <div className="prose prose-sm dark:prose-invert max-w-none">
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      rehypePlugins={[rehypeRaw, rehypeSanitize]}
+      components={{
+        code({ node, inline, className, children, ...props }: any) {
+          const match = /language-(\w+)/.exec(className || '');
+          return !inline && match ? (
+            <SyntaxHighlighter
+              style={vscDarkPlus}
+              language={match[1]}
+              PreTag="div"
+              {...props}
+            >
+              {String(children).replace(/\n$/, '')}
+            </SyntaxHighlighter>
+          ) : (
+            <code className={className} {...props}>
+              {children}
+            </code>
+          );
+        },
+        h1: ({ children }) => <h1 className="text-3xl font-bold mt-6 mb-4">{children}</h1>,
+        h2: ({ children }) => <h2 className="text-2xl font-bold mt-5 mb-3">{children}</h2>,
+        h3: ({ children }) => <h3 className="text-xl font-bold mt-4 mb-2">{children}</h3>,
+        h4: ({ children }) => <h4 className="text-lg font-bold mt-3 mb-2">{children}</h4>,
+        h5: ({ children }) => <h5 className="text-base font-bold mt-2 mb-1">{children}</h5>,
+        h6: ({ children }) => <h6 className="text-sm font-bold mt-2 mb-1">{children}</h6>,
+        p: ({ children }) => <p className="mb-4">{children}</p>,
+        ul: ({ children }) => <ul className="list-disc list-inside mb-4 space-y-2">{children}</ul>,
+        ol: ({ children }) => <ol className="list-decimal list-inside mb-4 space-y-2">{children}</ol>,
+        li: ({ children }) => <li className="ml-4">{children}</li>,
+        blockquote: ({ children }) => (
+          <blockquote className="border-l-4 border-gray-300 dark:border-gray-600 pl-4 italic my-4">
+            {children}
+          </blockquote>
+        ),
+        a: ({ children, href }) => (
+          <a href={href} className="text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">
+            {children}
+          </a>
+        ),
+        table: ({ children }) => (
+          <div className="overflow-x-auto my-4">
+            <table className="min-w-full border-collapse border border-gray-300 dark:border-gray-600">
+              {children}
+            </table>
+          </div>
+        ),
+        thead: ({ children }) => <thead className="bg-gray-100 dark:bg-gray-700">{children}</thead>,
+        tbody: ({ children }) => <tbody>{children}</tbody>,
+        tr: ({ children }) => <tr className="border-b border-gray-300 dark:border-gray-600">{children}</tr>,
+        th: ({ children }) => (
+          <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-left font-semibold">
+            {children}
+          </th>
+        ),
+        td: ({ children }) => (
+          <td className="border border-gray-300 dark:border-gray-600 px-4 py-2">{children}</td>
+        ),
+        hr: () => <hr className="my-6 border-t-2 border-gray-300 dark:border-gray-600" />,
+        img: ({ src, alt }) => (
+          <img src={src} alt={alt} className="max-w-full h-auto rounded-lg my-4" />
+        ),
+      }}
+    >
+      {content}
+    </ReactMarkdown>
+  </div>
+);
 
 export default function CalendarPage() {
   const { user } = useAuth();
@@ -114,6 +207,11 @@ export default function CalendarPage() {
   const [eventEndTime, setEventEndTime] = useState('10:00');
   const [eventLocation, setEventLocation] = useState('');
   
+  // Markdown editor state
+  const [isDescriptionPreview, setIsDescriptionPreview] = useState(false);
+  const [showHeadingDropdown, setShowHeadingDropdown] = useState(false);
+  const headingDropdownRef = useRef<HTMLDivElement>(null);
+  
   // Sprint form state
   const [sprintFormData, setSprintFormData] = useState({
     name: '',
@@ -157,6 +255,23 @@ export default function CalendarPage() {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Close heading dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (headingDropdownRef.current && !headingDropdownRef.current.contains(event.target as Node)) {
+        setShowHeadingDropdown(false);
+      }
+    };
+
+    if (showHeadingDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showHeadingDropdown]);
 
   const loadData = async () => {
     setLoading(true);
@@ -237,6 +352,110 @@ export default function CalendarPage() {
       await disconnectGoogleCalendar(user.userId);
       setIsConnected(false);
     }
+  };
+
+  // Markdown helper functions for event description
+  const insertMarkdown = (before: string, after: string = '') => {
+    const textarea = document.getElementById('event-description-textarea') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = eventDescription.substring(start, end);
+    const newText = eventDescription.substring(0, start) + before + selectedText + after + eventDescription.substring(end);
+    
+    setEventDescription(newText);
+    
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + before.length, start + before.length + selectedText.length);
+    }, 0);
+  };
+
+  const insertHeading = (level: number) => {
+    const prefix = '#'.repeat(level) + ' ';
+    insertMarkdown(prefix);
+    setShowHeadingDropdown(false);
+  };
+
+  const insertTable = () => {
+    const table = '\n| Header 1 | Header 2 | Header 3 |\n|----------|----------|----------|\n| Cell 1   | Cell 2   | Cell 3   |\n| Cell 4   | Cell 5   | Cell 6   |\n';
+    const textarea = document.getElementById('event-description-textarea') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const newText = eventDescription.substring(0, start) + table + eventDescription.substring(start);
+    setEventDescription(newText);
+
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + table.length, start + table.length);
+    }, 0);
+  };
+
+  const insertCodeBlock = () => {
+    const codeBlock = '\n```javascript\n// Your code here\n```\n';
+    const textarea = document.getElementById('event-description-textarea') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const newText = eventDescription.substring(0, start) + codeBlock + eventDescription.substring(start);
+    setEventDescription(newText);
+
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + 15, start + 15);
+    }, 0);
+  };
+
+  const insertTaskList = () => {
+    const taskList = '\n- [ ] Task 1\n- [ ] Task 2\n- [ ] Task 3\n';
+    const textarea = document.getElementById('event-description-textarea') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const newText = eventDescription.substring(0, start) + taskList + eventDescription.substring(start);
+    setEventDescription(newText);
+
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + taskList.length, start + taskList.length);
+    }, 0);
+  };
+
+  const insertBlockquote = () => {
+    const textarea = document.getElementById('event-description-textarea') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = eventDescription.substring(start, end) || 'Quote text';
+    
+    const lines = selectedText.split('\n');
+    const quotedText = lines.map(line => '> ' + line).join('\n');
+    
+    const newText = eventDescription.substring(0, start) + quotedText + eventDescription.substring(end);
+    setEventDescription(newText);
+
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start, start + quotedText.length);
+    }, 0);
+  };
+
+  const insertHorizontalRule = () => {
+    const hr = '\n---\n';
+    const textarea = document.getElementById('event-description-textarea') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const newText = eventDescription.substring(0, start) + hr + eventDescription.substring(start);
+    setEventDescription(newText);
+
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + hr.length, start + hr.length);
+    }, 0);
   };
 
   const handleCreateEvent = async () => {
@@ -1635,7 +1854,7 @@ export default function CalendarPage() {
             }}
           >
             <div 
-              className="bg-white rounded-t-2xl lg:rounded-2xl w-full lg:w-[480px] shadow-2xl max-h-[90vh] overflow-hidden"
+              className="bg-white rounded-t-2xl lg:rounded-2xl w-full lg:max-w-3xl shadow-2xl max-h-[90vh] overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex flex-col h-full max-h-[90vh]">
@@ -1672,16 +1891,195 @@ export default function CalendarPage() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Description
-                      </label>
-                      <textarea
-                        value={eventDescription}
-                        onChange={(e) => setEventDescription(e.target.value)}
-                        placeholder="Event description"
-                        rows={3}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                      />
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Description
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setIsDescriptionPreview(false)}
+                            className={`p-1.5 rounded transition-colors ${
+                              !isDescriptionPreview
+                                ? 'bg-blue-100 text-blue-600'
+                                : 'text-gray-500 hover:bg-gray-100'
+                            }`}
+                            title="Edit"
+                          >
+                            <FileEdit className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setIsDescriptionPreview(true)}
+                            className={`p-1.5 rounded transition-colors ${
+                              isDescriptionPreview
+                                ? 'bg-blue-100 text-blue-600'
+                                : 'text-gray-500 hover:bg-gray-100'
+                            }`}
+                            title="Preview"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {!isDescriptionPreview && (
+                        <div className="border border-gray-300 rounded-lg overflow-hidden">
+                          {/* Markdown Toolbar */}
+                          <div className="bg-gray-50 border-b border-gray-300 p-2 flex flex-wrap gap-1">
+                            <button
+                              type="button"
+                              onClick={() => insertMarkdown('**', '**')}
+                              className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+                              title="Bold"
+                            >
+                              <Bold className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => insertMarkdown('*', '*')}
+                              className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+                              title="Italic"
+                            >
+                              <Italic className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => insertMarkdown('~~', '~~')}
+                              className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+                              title="Strikethrough"
+                            >
+                              <Strikethrough className="w-4 h-4" />
+                            </button>
+                            
+                            <div className="relative" ref={headingDropdownRef}>
+                              <button
+                                type="button"
+                                onClick={() => setShowHeadingDropdown(!showHeadingDropdown)}
+                                className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+                                title="Headings"
+                              >
+                                <Heading className="w-4 h-4" />
+                              </button>
+                              {showHeadingDropdown && (
+                                <div className="absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-10 py-1 min-w-[120px]">
+                                  {[1, 2, 3, 4, 5, 6].map((level) => (
+                                    <button
+                                      key={level}
+                                      type="button"
+                                      onClick={() => insertHeading(level)}
+                                      className="w-full text-left px-3 py-1.5 hover:bg-gray-100 transition-colors text-sm"
+                                    >
+                                      Heading {level}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => insertBlockquote()}
+                              className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+                              title="Blockquote"
+                            >
+                              <Quote className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => insertMarkdown('`', '`')}
+                              className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+                              title="Inline Code"
+                            >
+                              <Code className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => insertCodeBlock()}
+                              className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+                              title="Code Block"
+                            >
+                              <Code className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => insertMarkdown('\n- ')}
+                              className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+                              title="Unordered List"
+                            >
+                              <List className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => insertMarkdown('\n1. ')}
+                              className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+                              title="Ordered List"
+                            >
+                              <ListOrdered className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => insertTaskList()}
+                              className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+                              title="Task List"
+                            >
+                              <CheckSquare className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => insertMarkdown('[', '](url)')}
+                              className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+                              title="Link"
+                            >
+                              <LinkIcon className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => insertMarkdown('![alt](', ')')}
+                              className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+                              title="Image"
+                            >
+                              <ImageIcon className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => insertTable()}
+                              className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+                              title="Table"
+                            >
+                              <Table className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => insertHorizontalRule()}
+                              className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+                              title="Horizontal Rule"
+                            >
+                              <Minus className="w-4 h-4" />
+                            </button>
+                          </div>
+
+                          {/* Textarea */}
+                          <textarea
+                            id="event-description-textarea"
+                            value={eventDescription}
+                            onChange={(e) => setEventDescription(e.target.value)}
+                            placeholder="Event description (Markdown supported)"
+                            rows={6}
+                            className="w-full px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none"
+                          />
+                        </div>
+                      )}
+
+                      {isDescriptionPreview && (
+                        <div className="border border-gray-300 rounded-lg p-4 bg-gray-50 max-h-[200px] overflow-y-auto">
+                          {eventDescription ? (
+                            <MarkdownRenderer content={eventDescription} />
+                          ) : (
+                            <p className="text-gray-400 italic">No description yet. Switch to edit mode to add content.</p>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <div>

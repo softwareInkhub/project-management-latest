@@ -5,8 +5,35 @@ import { Button } from './Button';
 import { Input } from './Input';
 import { Select } from './Select';
 import { Badge } from './Badge';
-import { X, Calendar, User, Crown } from 'lucide-react';
+import { 
+  X, 
+  Calendar, 
+  User, 
+  Crown,
+  Bold,
+  Italic,
+  Strikethrough,
+  Heading,
+  Quote,
+  Code,
+  Code2,
+  List,
+  ListOrdered,
+  CheckSquare,
+  Link as LinkIcon,
+  Image as ImageIcon,
+  Table,
+  Minus,
+  ChevronDown,
+  Eye
+} from 'lucide-react';
 import { useAuth } from '@/app/hooks/useAuth';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
+import rehypeSanitize from 'rehype-sanitize';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 export interface Project {
   id: string;
@@ -67,6 +94,75 @@ const priorityOptions = [
   { value: 'Critical', label: 'Critical' }
 ];
 
+// Markdown rendering component
+const MarkdownRenderer: React.FC<{ content: string; className?: string }> = ({ content, className = '' }) => {
+  return (
+    <div className={`prose prose-sm max-w-none dark:prose-invert ${className}`}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeRaw, rehypeSanitize]}
+        components={{
+          code({ node, inline, className, children, ...props }: any) {
+            const match = /language-(\w+)/.exec(className || '');
+            return !inline && match ? (
+              <SyntaxHighlighter
+                style={vscDarkPlus}
+                language={match[1]}
+                PreTag="div"
+                className="rounded-md my-4"
+                {...props}
+              >
+                {String(children).replace(/\n$/, '')}
+              </SyntaxHighlighter>
+            ) : (
+              <code className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
+                {children}
+              </code>
+            );
+          },
+          h1: ({ children }) => <h1 className="text-2xl font-bold mt-6 mb-4">{children}</h1>,
+          h2: ({ children }) => <h2 className="text-xl font-bold mt-5 mb-3">{children}</h2>,
+          h3: ({ children }) => <h3 className="text-lg font-bold mt-4 mb-2">{children}</h3>,
+          h4: ({ children }) => <h4 className="text-base font-bold mt-3 mb-2">{children}</h4>,
+          h5: ({ children }) => <h5 className="text-sm font-bold mt-2 mb-1">{children}</h5>,
+          h6: ({ children }) => <h6 className="text-xs font-bold mt-2 mb-1">{children}</h6>,
+          a: ({ children, href }) => (
+            <a href={href} className="text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">
+              {children}
+            </a>
+          ),
+          ul: ({ children }) => <ul className="list-disc list-inside my-3 ml-4 space-y-1">{children}</ul>,
+          ol: ({ children }) => <ol className="list-decimal list-inside my-3 ml-4 space-y-1">{children}</ol>,
+          li: ({ children }) => <li className="ml-2">{children}</li>,
+          blockquote: ({ children }) => (
+            <blockquote className="border-l-4 border-gray-300 dark:border-gray-600 pl-4 py-2 my-4 italic bg-gray-50 dark:bg-gray-800/50">
+              {children}
+            </blockquote>
+          ),
+          p: ({ children }) => <p className="my-2 leading-relaxed">{children}</p>,
+          table: ({ children }) => (
+            <div className="overflow-x-auto my-4">
+              <table className="min-w-full divide-y divide-gray-300 dark:divide-gray-600">{children}</table>
+            </div>
+          ),
+          th: ({ children }) => (
+            <th className="px-4 py-2 bg-gray-100 dark:bg-gray-800 font-semibold text-left">{children}</th>
+          ),
+          td: ({ children }) => (
+            <td className="px-4 py-2 border-t border-gray-200 dark:border-gray-700">{children}</td>
+          ),
+          img: ({ src, alt }) => (
+            <img src={src} alt={alt} className="max-w-full h-auto rounded-lg my-4" />
+          ),
+          hr: () => <hr className="my-6 border-gray-300 dark:border-gray-600" />,
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
+};
+
 // Removed dummy team members - will use real data from API
 
 export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCollapsed = false, companies = [], departments = [] }: ProjectFormProps) {
@@ -102,6 +198,11 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
   const [formHeight, setFormHeight] = useState<number>(75); // Mobile slide-up height in vh
   const [isDragging, setIsDragging] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
+  
+  // Markdown editor state
+  const [isDescriptionPreview, setIsDescriptionPreview] = useState(false);
+  const [showHeadingDropdown, setShowHeadingDropdown] = useState(false);
+  const headingDropdownRef = useRef<HTMLDivElement>(null);
   
   // Removed team member and team selection - no longer needed
 
@@ -167,6 +268,143 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
       document.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isDragging]);
+
+  // Close heading dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (headingDropdownRef.current && !headingDropdownRef.current.contains(event.target as Node)) {
+        setShowHeadingDropdown(false);
+      }
+    };
+
+    if (showHeadingDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showHeadingDropdown]);
+
+  // Markdown helper functions
+  const insertMarkdown = (prefix: string, suffix: string = '', placeholder: string = 'text') => {
+    const textarea = document.getElementById('project-description-editor') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = (formData.description || '').substring(start, end);
+    const textToInsert = selectedText || placeholder;
+    const newText = (formData.description || '').substring(0, start) + prefix + textToInsert + suffix + (formData.description || '').substring(end);
+    
+    handleInputChange('description', newText);
+    
+    setTimeout(() => {
+      textarea.focus();
+      if (!selectedText) {
+        textarea.selectionStart = start + prefix.length;
+        textarea.selectionEnd = start + prefix.length + placeholder.length;
+      } else {
+        textarea.selectionStart = start + prefix.length;
+        textarea.selectionEnd = end + prefix.length;
+      }
+    }, 0);
+  };
+
+  const insertHeading = (level: number) => {
+    const textarea = document.getElementById('project-description-editor') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const lineStart = (formData.description || '').lastIndexOf('\n', start - 1) + 1;
+    const prefix = '#'.repeat(level) + ' ';
+    
+    const beforeLine = (formData.description || '').substring(0, lineStart);
+    const afterLine = (formData.description || '').substring(lineStart);
+    const newText = beforeLine + prefix + afterLine;
+    
+    handleInputChange('description', newText);
+    
+    setTimeout(() => {
+      textarea.focus();
+      textarea.selectionStart = textarea.selectionEnd = lineStart + prefix.length;
+    }, 0);
+  };
+
+  const insertTable = () => {
+    const tableTemplate = '\n| Header 1 | Header 2 | Header 3 |\n|----------|----------|----------|\n| Cell 1   | Cell 2   | Cell 3   |\n| Cell 4   | Cell 5   | Cell 6   |\n';
+    const textarea = document.getElementById('project-description-editor') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const newText = (formData.description || '').substring(0, start) + tableTemplate + (formData.description || '').substring(start);
+    
+    handleInputChange('description', newText);
+    
+    setTimeout(() => {
+      textarea.focus();
+      textarea.selectionStart = textarea.selectionEnd = start + tableTemplate.length;
+    }, 0);
+  };
+
+  const insertCodeBlock = () => {
+    const textarea = document.getElementById('project-description-editor') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = (formData.description || '').substring(start, end);
+    const codeBlock = '\n```javascript\n' + (selectedText || 'your code here') + '\n```\n';
+    const newText = (formData.description || '').substring(0, start) + codeBlock + (formData.description || '').substring(end);
+    
+    handleInputChange('description', newText);
+    
+    setTimeout(() => {
+      textarea.focus();
+      const codeStart = start + '\n```javascript\n'.length;
+      textarea.selectionStart = codeStart;
+      textarea.selectionEnd = codeStart + (selectedText || 'your code here').length;
+    }, 0);
+  };
+
+  const insertTaskList = () => {
+    insertMarkdown('- [ ] ', '', 'task item');
+  };
+
+  const insertBlockquote = () => {
+    const textarea = document.getElementById('project-description-editor') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const lineStart = (formData.description || '').lastIndexOf('\n', start - 1) + 1;
+    
+    const beforeLine = (formData.description || '').substring(0, lineStart);
+    const afterLine = (formData.description || '').substring(lineStart);
+    const newText = beforeLine + '> ' + afterLine;
+    
+    handleInputChange('description', newText);
+    
+    setTimeout(() => {
+      textarea.focus();
+      textarea.selectionStart = textarea.selectionEnd = lineStart + 2;
+    }, 0);
+  };
+
+  const insertHorizontalRule = () => {
+    const textarea = document.getElementById('project-description-editor') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const hrText = '\n---\n';
+    const newText = (formData.description || '').substring(0, start) + hrText + (formData.description || '').substring(start);
+    
+    handleInputChange('description', newText);
+    
+    setTimeout(() => {
+      textarea.focus();
+      textarea.selectionStart = textarea.selectionEnd = start + hrText.length;
+    }, 0);
+  };
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -248,7 +486,7 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
       }}
     >
       <div 
-        className="bg-white rounded-t-2xl lg:rounded-2xl w-screen lg:w-auto max-w-none lg:max-w-2xl shadow-2xl overflow-hidden"
+        className="bg-white rounded-t-2xl lg:rounded-2xl w-screen lg:w-auto max-w-none lg:max-w-3xl shadow-2xl overflow-hidden"
         style={{ 
           width: '100vw',
           height: isDesktop ? 'auto' : `${formHeight}vh`,
@@ -352,24 +590,149 @@ export default function ProjectForm({ project, onSubmit, onCancel, isOpen, isCol
           </div>
 
           {/* Auto-assignment info */}
-          <div>
+          {/* <div>
             <p className="text-xs text-gray-500">
               Project will be automatically assigned to: <span className="font-semibold">{user?.name || user?.email || 'Current User'}</span>
             </p>
-          </div>
+          </div> */}
 
-          {/* Description */}
+          {/* Description with Markdown Support */}
           <div>
             <label className="block text-sm font-semibold text-gray-800 mb-2">
               Description
             </label>
-            <textarea
-              value={formData.description || ''}
-              onChange={(e) => handleInputChange('description', e.target.value)}
-              placeholder="Enter project description"
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-            />
+            
+            {/* Markdown Toolbar */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 border-b border-gray-200 mb-3">
+              {/* Left side - Formatting buttons */}
+              <div className="flex items-center space-x-1 flex-wrap">
+                {/* Text Formatting */}
+                <button type="button" onClick={() => insertMarkdown('**', '**', 'bold text')} className="p-2 hover:bg-gray-100 rounded transition-colors" title="Bold">
+                  <Bold className="w-4 h-4" />
+                </button>
+                <button type="button" onClick={() => insertMarkdown('*', '*', 'italic text')} className="p-2 hover:bg-gray-100 rounded transition-colors" title="Italic">
+                  <Italic className="w-4 h-4" />
+                </button>
+                <button type="button" onClick={() => insertMarkdown('~~', '~~', 'strikethrough')} className="p-2 hover:bg-gray-100 rounded transition-colors" title="Strikethrough">
+                  <Strikethrough className="w-4 h-4" />
+                </button>
+                
+                <div className="w-px h-6 bg-gray-300 mx-1"></div>
+                
+                {/* Heading Dropdown */}
+                <div className="relative" ref={headingDropdownRef}>
+                  <button 
+                    type="button"
+                    onClick={() => setShowHeadingDropdown(!showHeadingDropdown)}
+                    className="p-2 hover:bg-gray-100 rounded transition-colors flex items-center space-x-1" 
+                    title="Heading"
+                  >
+                    <Heading className="w-4 h-4" />
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                  {showHeadingDropdown && (
+                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[120px]">
+                      {[1, 2, 3, 4, 5, 6].map(level => (
+                        <button
+                          key={level}
+                          type="button"
+                          onClick={() => { insertHeading(level); setShowHeadingDropdown(false); }}
+                          className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm"
+                        >
+                          <span className={`font-bold`} style={{ fontSize: `${20 - level}px` }}>H{level}</span> Heading {level}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
+                <button type="button" onClick={insertBlockquote} className="p-2 hover:bg-gray-100 rounded transition-colors" title="Blockquote">
+                  <Quote className="w-4 h-4" />
+                </button>
+                
+                <div className="w-px h-6 bg-gray-300 mx-1"></div>
+                
+                {/* Code */}
+                <button type="button" onClick={() => insertMarkdown('`', '`', 'code')} className="p-2 hover:bg-gray-100 rounded transition-colors" title="Inline Code">
+                  <Code className="w-4 h-4" />
+                </button>
+                <button type="button" onClick={insertCodeBlock} className="p-2 hover:bg-gray-100 rounded transition-colors" title="Code Block">
+                  <Code2 className="w-4 h-4" />
+                </button>
+                
+                <div className="w-px h-6 bg-gray-300 mx-1"></div>
+                
+                {/* Lists */}
+                <button type="button" onClick={() => insertMarkdown('- ', '', 'list item')} className="p-2 hover:bg-gray-100 rounded transition-colors" title="Unordered List">
+                  <List className="w-4 h-4" />
+                </button>
+                <button type="button" onClick={() => insertMarkdown('1. ', '', 'list item')} className="p-2 hover:bg-gray-100 rounded transition-colors" title="Ordered List">
+                  <ListOrdered className="w-4 h-4" />
+                </button>
+                <button type="button" onClick={insertTaskList} className="p-2 hover:bg-gray-100 rounded transition-colors" title="Task List">
+                  <CheckSquare className="w-4 h-4" />
+                </button>
+                
+                <div className="w-px h-6 bg-gray-300 mx-1"></div>
+                
+                {/* Insert Elements */}
+                <button type="button" onClick={() => insertMarkdown('[', '](url)', 'link text')} className="p-2 hover:bg-gray-100 rounded transition-colors" title="Link">
+                  <LinkIcon className="w-4 h-4" />
+                </button>
+                <button type="button" onClick={() => insertMarkdown('![', '](image-url)', 'alt text')} className="p-2 hover:bg-gray-100 rounded transition-colors" title="Image">
+                  <ImageIcon className="w-4 h-4" />
+                </button>
+                <button type="button" onClick={insertTable} className="p-2 hover:bg-gray-100 rounded transition-colors" title="Table">
+                  <Table className="w-4 h-4" />
+                </button>
+                <button type="button" onClick={insertHorizontalRule} className="p-2 hover:bg-gray-100 rounded transition-colors" title="Horizontal Rule">
+                  <Minus className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Right side - Edit/Preview toggle */}
+              <div className="flex items-center space-x-2 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsDescriptionPreview(false)}
+                  className={`px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap text-sm ${
+                    !isDescriptionPreview 
+                      ? 'bg-blue-100 text-blue-700 font-medium' 
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsDescriptionPreview(true)}
+                  className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap text-sm ${
+                    isDescriptionPreview 
+                      ? 'bg-blue-100 text-blue-700 font-medium' 
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  <Eye className="w-4 h-4" />
+                  <span>Preview</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Editor or Preview */}
+            {!isDescriptionPreview ? (
+              <textarea
+                id="project-description-editor"
+                value={formData.description || ''}
+                onChange={(e) => handleInputChange('description', e.target.value)}
+                placeholder="Enter project description (Markdown supported)"
+                rows={6}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none font-mono text-sm"
+              />
+            ) : (
+              <div className="w-full min-h-[150px] max-h-[250px] overflow-y-auto border border-gray-300 rounded-lg p-4 bg-gray-50">
+                <MarkdownRenderer content={formData.description || ''} />
+              </div>
+            )}
           </div>
 
            {/* Date Fields - Mobile: 2 columns, Desktop: 4 columns */}

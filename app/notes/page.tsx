@@ -27,7 +27,14 @@ import {
   ChevronDown,
   Filter,
   Calendar,
-  FolderOpen
+  FolderOpen,
+  Heading,
+  Quote,
+  Table,
+  Strikethrough,
+  Code2,
+  Minus,
+  Square
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -41,42 +48,80 @@ import { apiService, Note, NoteAttachment, Task } from '../services/api';
 import { driveService } from '../services/drive';
 import { TaskForm } from '../components/ui/TaskForm';
 import { CreateButton, UpdateButton, DeleteButton, usePermissions } from '../components/RoleBasedUI';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
+import rehypeSanitize from 'rehype-sanitize';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
-// Markdown rendering function
-const renderMarkdown = (markdown: string): string => {
-  let html = markdown;
-  
-  // Headers
-  html = html.replace(/^### (.*$)/gim, '<h3 class="text-lg font-bold mt-4 mb-2">$1</h3>');
-  html = html.replace(/^## (.*$)/gim, '<h2 class="text-xl font-bold mt-4 mb-2">$1</h2>');
-  html = html.replace(/^# (.*$)/gim, '<h1 class="text-2xl font-bold mt-4 mb-2">$1</h1>');
-  
-  // Bold
-  html = html.replace(/\*\*(.*?)\*\*/gim, '<strong class="font-bold">$1</strong>');
-  
-  // Italic
-  html = html.replace(/\*(.*?)\*/gim, '<em class="italic">$1</em>');
-  
-  // Links
-  html = html.replace(/\[(.*?)\]\((.*?)\)/gim, '<a href="$2" class="text-purple-600 hover:underline" target="_blank">$1</a>');
-  
-  // Code blocks
-  html = html.replace(/```([\s\S]*?)```/gim, '<pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded my-2 overflow-x-auto"><code>$1</code></pre>');
-  
-  // Inline code
-  html = html.replace(/`(.*?)`/gim, '<code class="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-sm">$1</code>');
-  
-  // Unordered lists
-  html = html.replace(/^\- (.*$)/gim, '<li class="ml-4">$1</li>');
-  html = html.replace(/(<li class="ml-4">.*<\/li>)/gim, '<ul class="list-disc list-inside my-2">$1</ul>');
-  
-  // Ordered lists
-  html = html.replace(/^\d+\. (.*$)/gim, '<li class="ml-4">$1</li>');
-  
-  // Line breaks
-  html = html.replace(/\n/gim, '<br/>');
-  
-  return html;
+// Markdown rendering component with full support
+const MarkdownRenderer: React.FC<{ content: string; className?: string }> = ({ content, className = '' }) => {
+  return (
+    <div className={`prose prose-sm max-w-none dark:prose-invert ${className}`}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeRaw, rehypeSanitize]}
+        components={{
+        code({ node, inline, className, children, ...props }: any) {
+          const match = /language-(\w+)/.exec(className || '');
+          return !inline && match ? (
+            <SyntaxHighlighter
+              style={vscDarkPlus}
+              language={match[1]}
+              PreTag="div"
+              className="rounded-md my-4"
+              {...props}
+            >
+              {String(children).replace(/\n$/, '')}
+            </SyntaxHighlighter>
+          ) : (
+            <code className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
+              {children}
+            </code>
+          );
+        },
+        h1: ({ children }) => <h1 className="text-2xl font-bold mt-6 mb-4">{children}</h1>,
+        h2: ({ children }) => <h2 className="text-xl font-bold mt-5 mb-3">{children}</h2>,
+        h3: ({ children }) => <h3 className="text-lg font-bold mt-4 mb-2">{children}</h3>,
+        h4: ({ children }) => <h4 className="text-base font-bold mt-3 mb-2">{children}</h4>,
+        h5: ({ children }) => <h5 className="text-sm font-bold mt-2 mb-1">{children}</h5>,
+        h6: ({ children }) => <h6 className="text-xs font-bold mt-2 mb-1">{children}</h6>,
+        a: ({ children, href }) => (
+          <a href={href} className="text-purple-600 dark:text-purple-400 hover:underline" target="_blank" rel="noopener noreferrer">
+            {children}
+          </a>
+        ),
+        ul: ({ children }) => <ul className="list-disc list-inside my-3 ml-4 space-y-1">{children}</ul>,
+        ol: ({ children }) => <ol className="list-decimal list-inside my-3 ml-4 space-y-1">{children}</ol>,
+        li: ({ children }) => <li className="ml-2">{children}</li>,
+        blockquote: ({ children }) => (
+          <blockquote className="border-l-4 border-gray-300 dark:border-gray-600 pl-4 py-2 my-4 italic bg-gray-50 dark:bg-gray-800/50">
+            {children}
+          </blockquote>
+        ),
+        p: ({ children }) => <p className="my-2 leading-relaxed">{children}</p>,
+        table: ({ children }) => (
+          <div className="overflow-x-auto my-4">
+            <table className="min-w-full divide-y divide-gray-300 dark:divide-gray-600">{children}</table>
+          </div>
+        ),
+        th: ({ children }) => (
+          <th className="px-4 py-2 bg-gray-100 dark:bg-gray-800 font-semibold text-left">{children}</th>
+        ),
+        td: ({ children }) => (
+          <td className="px-4 py-2 border-t border-gray-200 dark:border-gray-700">{children}</td>
+        ),
+        img: ({ src, alt }) => (
+          <img src={src} alt={alt} className="max-w-full h-auto rounded-lg my-4" />
+        ),
+        hr: () => <hr className="my-6 border-gray-300 dark:border-gray-600" />,
+      }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
 };
 
 // Helper function to convert note attachments to task format
@@ -116,13 +161,15 @@ const NotesPage: React.FC = () => {
   const [showNewNoteModal, setShowNewNoteModal] = useState(false);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [allTeams, setAllTeams] = useState<any[]>([]);
-  const [allProjectsList, setAllProjectsList] = useState<string[]>([]); // All projects from API
+  const [allProjectsList, setAllProjectsList] = useState<any[]>([]); // All projects from API
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
   const [newTagInput, setNewTagInput] = useState('');
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const [previewFile, setPreviewFile] = useState<{ url: string; fileName: string; fileType: string } | null>(null);
+  const [showHeadingDropdown, setShowHeadingDropdown] = useState(false);
+  const headingDropdownRef = useRef<HTMLDivElement>(null);
 
   // Form state for new/editing note
   const [formData, setFormData] = useState({
@@ -180,6 +227,23 @@ const NotesPage: React.FC = () => {
     };
   }, [openDropdown]);
 
+  // Close heading dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (headingDropdownRef.current && !headingDropdownRef.current.contains(event.target as Node)) {
+        setShowHeadingDropdown(false);
+      }
+    };
+
+    if (showHeadingDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showHeadingDropdown]);
+
   const loadNotes = async () => {
     setLoading(true);
     try {
@@ -236,10 +300,9 @@ const NotesPage: React.FC = () => {
       console.log('📁 Fetching ALL projects from API...');
       const res = await apiService.getProjects();
       if (res.success && res.data) {
-        // Extract project names from Project objects
-        const projectNames = res.data.map((project: any) => project.name);
-        console.log('✅ All projects fetched:', projectNames.length, projectNames);
-        setAllProjectsList(projectNames);
+        // Store full project objects instead of just names
+        console.log('✅ All projects fetched:', res.data.length, res.data);
+        setAllProjectsList(res.data);
       } else {
         console.error('❌ Failed to fetch projects:', res.error);
         setAllProjectsList([]);
@@ -742,21 +805,123 @@ const NotesPage: React.FC = () => {
     }
   };
 
-  const insertMarkdown = (prefix: string, suffix: string = '') => {
+  const insertMarkdown = (prefix: string, suffix: string = '', placeholder: string = 'text') => {
     const textarea = document.getElementById('markdown-editor') as HTMLTextAreaElement;
     if (!textarea) return;
 
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
     const selectedText = formData.content.substring(start, end);
-    const newText = formData.content.substring(0, start) + prefix + selectedText + suffix + formData.content.substring(end);
+    const textToInsert = selectedText || placeholder;
+    const newText = formData.content.substring(0, start) + prefix + textToInsert + suffix + formData.content.substring(end);
     
     setFormData({ ...formData, content: newText });
     
     setTimeout(() => {
       textarea.focus();
-      textarea.selectionStart = start + prefix.length;
-      textarea.selectionEnd = end + prefix.length;
+      if (!selectedText) {
+        // Select the placeholder text for easy overwriting
+        textarea.selectionStart = start + prefix.length;
+        textarea.selectionEnd = start + prefix.length + placeholder.length;
+      } else {
+        textarea.selectionStart = start + prefix.length;
+        textarea.selectionEnd = end + prefix.length;
+      }
+    }, 0);
+  };
+
+  const insertHeading = (level: number) => {
+    const textarea = document.getElementById('markdown-editor') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const lineStart = formData.content.lastIndexOf('\n', start - 1) + 1;
+    const prefix = '#'.repeat(level) + ' ';
+    
+    const beforeLine = formData.content.substring(0, lineStart);
+    const afterLine = formData.content.substring(lineStart);
+    const newText = beforeLine + prefix + afterLine;
+    
+    setFormData({ ...formData, content: newText });
+    
+    setTimeout(() => {
+      textarea.focus();
+      textarea.selectionStart = textarea.selectionEnd = lineStart + prefix.length;
+    }, 0);
+  };
+
+  const insertTable = () => {
+    const tableTemplate = '\n| Header 1 | Header 2 | Header 3 |\n|----------|----------|----------|\n| Cell 1   | Cell 2   | Cell 3   |\n| Cell 4   | Cell 5   | Cell 6   |\n';
+    const textarea = document.getElementById('markdown-editor') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const newText = formData.content.substring(0, start) + tableTemplate + formData.content.substring(start);
+    
+    setFormData({ ...formData, content: newText });
+    
+    setTimeout(() => {
+      textarea.focus();
+      textarea.selectionStart = textarea.selectionEnd = start + tableTemplate.length;
+    }, 0);
+  };
+
+  const insertCodeBlock = () => {
+    const textarea = document.getElementById('markdown-editor') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = formData.content.substring(start, end);
+    const codeBlock = '\n```javascript\n' + (selectedText || 'your code here') + '\n```\n';
+    const newText = formData.content.substring(0, start) + codeBlock + formData.content.substring(end);
+    
+    setFormData({ ...formData, content: newText });
+    
+    setTimeout(() => {
+      textarea.focus();
+      const codeStart = start + '\n```javascript\n'.length;
+      textarea.selectionStart = codeStart;
+      textarea.selectionEnd = codeStart + (selectedText || 'your code here').length;
+    }, 0);
+  };
+
+  const insertTaskList = () => {
+    insertMarkdown('- [ ] ', '', 'task item');
+  };
+
+  const insertBlockquote = () => {
+    const textarea = document.getElementById('markdown-editor') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const lineStart = formData.content.lastIndexOf('\n', start - 1) + 1;
+    
+    const beforeLine = formData.content.substring(0, lineStart);
+    const afterLine = formData.content.substring(lineStart);
+    const newText = beforeLine + '> ' + afterLine;
+    
+    setFormData({ ...formData, content: newText });
+    
+    setTimeout(() => {
+      textarea.focus();
+      textarea.selectionStart = textarea.selectionEnd = lineStart + 2;
+    }, 0);
+  };
+
+  const insertHorizontalRule = () => {
+    const textarea = document.getElementById('markdown-editor') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const hrText = '\n---\n';
+    const newText = formData.content.substring(0, start) + hrText + formData.content.substring(start);
+    
+    setFormData({ ...formData, content: newText });
+    
+    setTimeout(() => {
+      textarea.focus();
+      textarea.selectionStart = textarea.selectionEnd = start + hrText.length;
     }, 0);
   };
 
@@ -1591,36 +1756,89 @@ const NotesPage: React.FC = () => {
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-24 sm:pb-6 scrollbar-hide">
               {isEditing ? (
                 <div className="space-y-4">
-                  {/* Markdown Toolbar */}
+                  {/* Enhanced Professional Markdown Toolbar */}
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 border-b border-gray-200 dark:border-gray-700">
                     {/* Left side - Formatting buttons */}
                     <div className="flex items-center space-x-1 flex-wrap">
-                      <button onClick={() => insertMarkdown('**', '**')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title="Bold">
+                      {/* Text Formatting */}
+                      <button onClick={() => insertMarkdown('**', '**', 'bold text')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Bold (Ctrl+B)">
                         <Bold className="w-4 h-4" />
                       </button>
-                      <button onClick={() => insertMarkdown('*', '*')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title="Italic">
+                      <button onClick={() => insertMarkdown('*', '*', 'italic text')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Italic (Ctrl+I)">
                         <Italic className="w-4 h-4" />
                       </button>
-                      <button onClick={() => insertMarkdown('`', '`')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title="Code">
+                      <button onClick={() => insertMarkdown('~~', '~~', 'strikethrough')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Strikethrough">
+                        <Strikethrough className="w-4 h-4" />
+                      </button>
+                      
+                      <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+                      
+                      {/* Heading Dropdown */}
+                      <div className="relative" ref={headingDropdownRef}>
+                        <button 
+                          onClick={() => setShowHeadingDropdown(!showHeadingDropdown)}
+                          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors flex items-center space-x-1" 
+                          title="Heading"
+                        >
+                          <Heading className="w-4 h-4" />
+                          <ChevronDown className="w-3 h-3" />
+                        </button>
+                        {showHeadingDropdown && (
+                          <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-10 min-w-[120px]">
+                            {[1, 2, 3, 4, 5, 6].map(level => (
+                              <button
+                                key={level}
+                                onClick={() => { insertHeading(level); setShowHeadingDropdown(false); }}
+                                className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"
+                              >
+                                <span className={`font-bold`} style={{ fontSize: `${20 - level}px` }}>H{level}</span> Heading {level}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      
+                      <button onClick={insertBlockquote} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Blockquote">
+                        <Quote className="w-4 h-4" />
+                      </button>
+                      
+                      <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+                      
+                      {/* Code */}
+                      <button onClick={() => insertMarkdown('`', '`', 'code')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Inline Code">
                         <Code className="w-4 h-4" />
                       </button>
+                      <button onClick={insertCodeBlock} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Code Block">
+                        <Code2 className="w-4 h-4" />
+                      </button>
                       
                       <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
                       
-                      <button onClick={() => insertMarkdown('- ', '')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title="Unordered List">
+                      {/* Lists */}
+                      <button onClick={() => insertMarkdown('- ', '', 'list item')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Unordered List">
                         <List className="w-4 h-4" />
                       </button>
-                      <button onClick={() => insertMarkdown('1. ', '')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title="Ordered List">
+                      <button onClick={() => insertMarkdown('1. ', '', 'list item')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Ordered List">
                         <ListOrdered className="w-4 h-4" />
+                      </button>
+                      <button onClick={insertTaskList} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Task List">
+                        <CheckSquare className="w-4 h-4" />
                       </button>
                       
                       <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
                       
-                      <button onClick={() => insertMarkdown('[', '](url)')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title="Link">
+                      {/* Insert Elements */}
+                      <button onClick={() => insertMarkdown('[', '](url)', 'link text')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Link">
                         <LinkIcon className="w-4 h-4" />
                       </button>
-                      <button onClick={() => insertMarkdown('![alt](', 'image-url)')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title="Image">
+                      <button onClick={() => insertMarkdown('![', '](image-url)', 'alt text')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Image">
                         <ImageIcon className="w-4 h-4" />
+                      </button>
+                      <button onClick={insertTable} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Table">
+                        <Table className="w-4 h-4" />
+                      </button>
+                      <button onClick={insertHorizontalRule} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Horizontal Rule">
+                        <Minus className="w-4 h-4" />
                       </button>
                     </div>
 
@@ -1630,7 +1848,7 @@ const NotesPage: React.FC = () => {
                         onClick={() => setIsPreview(false)}
                         className={`px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap ${
                           !isPreview 
-                            ? 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-white' 
+                            ? 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 font-medium' 
                             : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                         }`}
                       >
@@ -1660,11 +1878,8 @@ const NotesPage: React.FC = () => {
                       placeholder="Start typing your note... (Markdown supported)"
                     />
                   ) : (
-                    <div className="w-full min-h-[300px] border border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
-                      <div 
-                        className="prose dark:prose-invert max-w-none"
-                        dangerouslySetInnerHTML={{ __html: renderMarkdown(formData.content) }}
-                      />
+                    <div className="w-full min-h-[300px] max-h-[400px] overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
+                      <MarkdownRenderer content={formData.content} />
                     </div>
                   )}
 
@@ -1840,10 +2055,12 @@ const NotesPage: React.FC = () => {
               ) : (
                 <div>
                   {/* Preview Content */}
-                  <div 
-                    className="prose prose-lg dark:prose-invert max-w-none mb-6"
-                    dangerouslySetInnerHTML={{ __html: renderMarkdown(formData.content || selectedNote?.content || '') }}
-                  />
+                  <div className="mb-6">
+                    <MarkdownRenderer 
+                      content={formData.content || selectedNote?.content || ''} 
+                      className="text-base"
+                    />
+                  </div>
 
                   {/* Tags Display */}
                   {currentTags.length > 0 && (
@@ -1967,36 +2184,89 @@ const NotesPage: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Content</label>
-                {/* Markdown Toolbar */}
+                {/* Enhanced Professional Markdown Toolbar */}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 border-b border-gray-200 dark:border-gray-700 mb-3">
                   {/* Left side - Formatting buttons */}
                   <div className="flex items-center space-x-1 flex-wrap">
-                    <button onClick={() => insertMarkdown('**', '**')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title="Bold">
+                    {/* Text Formatting */}
+                    <button onClick={() => insertMarkdown('**', '**', 'bold text')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Bold (Ctrl+B)">
                       <Bold className="w-4 h-4" />
                     </button>
-                    <button onClick={() => insertMarkdown('*', '*')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title="Italic">
+                    <button onClick={() => insertMarkdown('*', '*', 'italic text')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Italic (Ctrl+I)">
                       <Italic className="w-4 h-4" />
                     </button>
-                    <button onClick={() => insertMarkdown('`', '`')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title="Code">
+                    <button onClick={() => insertMarkdown('~~', '~~', 'strikethrough')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Strikethrough">
+                      <Strikethrough className="w-4 h-4" />
+                    </button>
+                    
+                    <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+                    
+                    {/* Heading Dropdown */}
+                    <div className="relative" ref={headingDropdownRef}>
+                      <button 
+                        onClick={() => setShowHeadingDropdown(!showHeadingDropdown)}
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors flex items-center space-x-1" 
+                        title="Heading"
+                      >
+                        <Heading className="w-4 h-4" />
+                        <ChevronDown className="w-3 h-3" />
+                      </button>
+                      {showHeadingDropdown && (
+                        <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-10 min-w-[120px]">
+                          {[1, 2, 3, 4, 5, 6].map(level => (
+                            <button
+                              key={level}
+                              onClick={() => { insertHeading(level); setShowHeadingDropdown(false); }}
+                              className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"
+                            >
+                              <span className={`font-bold`} style={{ fontSize: `${20 - level}px` }}>H{level}</span> Heading {level}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <button onClick={insertBlockquote} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Blockquote">
+                      <Quote className="w-4 h-4" />
+                    </button>
+                    
+                    <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+                    
+                    {/* Code */}
+                    <button onClick={() => insertMarkdown('`', '`', 'code')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Inline Code">
                       <Code className="w-4 h-4" />
                     </button>
+                    <button onClick={insertCodeBlock} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Code Block">
+                      <Code2 className="w-4 h-4" />
+                    </button>
                     
                     <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
                     
-                    <button onClick={() => insertMarkdown('- ', '')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title="Unordered List">
+                    {/* Lists */}
+                    <button onClick={() => insertMarkdown('- ', '', 'list item')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Unordered List">
                       <List className="w-4 h-4" />
                     </button>
-                    <button onClick={() => insertMarkdown('1. ', '')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title="Ordered List">
+                    <button onClick={() => insertMarkdown('1. ', '', 'list item')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Ordered List">
                       <ListOrdered className="w-4 h-4" />
+                    </button>
+                    <button onClick={insertTaskList} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Task List">
+                      <CheckSquare className="w-4 h-4" />
                     </button>
                     
                     <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
                     
-                    <button onClick={() => insertMarkdown('[', '](url)')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title="Link">
+                    {/* Insert Elements */}
+                    <button onClick={() => insertMarkdown('[', '](url)', 'link text')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Link">
                       <LinkIcon className="w-4 h-4" />
                     </button>
-                    <button onClick={() => insertMarkdown('![alt](', 'image-url)')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title="Image">
+                    <button onClick={() => insertMarkdown('![', '](image-url)', 'alt text')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Image">
                       <ImageIcon className="w-4 h-4" />
+                    </button>
+                    <button onClick={insertTable} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Table">
+                      <Table className="w-4 h-4" />
+                    </button>
+                    <button onClick={insertHorizontalRule} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Horizontal Rule">
+                      <Minus className="w-4 h-4" />
                     </button>
                   </div>
 
@@ -2006,7 +2276,7 @@ const NotesPage: React.FC = () => {
                       onClick={() => setIsPreview(false)}
                       className={`px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap ${
                         !isPreview 
-                          ? 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-white' 
+                          ? 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 font-medium' 
                           : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                       }`}
                     >
@@ -2016,7 +2286,7 @@ const NotesPage: React.FC = () => {
                       onClick={() => setIsPreview(true)}
                       className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap ${
                         isPreview 
-                          ? 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-white' 
+                          ? 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 font-medium' 
                           : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                       }`}
                     >
@@ -2036,11 +2306,8 @@ const NotesPage: React.FC = () => {
                     placeholder="Start typing... (Markdown supported)"
                   />
                 ) : (
-                  <div className="w-full min-h-[300px] border border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
-                    <div 
-                      className="prose dark:prose-invert max-w-none"
-                      dangerouslySetInnerHTML={{ __html: renderMarkdown(formData.content) }}
-                    />
+                  <div className="w-full min-h-[300px] max-h-[400px] overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
+                    <MarkdownRenderer content={formData.content} />
                   </div>
                 )}
               </div>

@@ -29,8 +29,26 @@ import {
   List,
   CheckSquare,
   FileCode,
-  Zap
+  Zap,
+  Bold,
+  Italic,
+  Strikethrough,
+  Heading,
+  Quote,
+  Code,
+  Code2,
+  ListOrdered,
+  Link as LinkIcon,
+  Image as ImageIcon,
+  Table,
+  Minus
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
+import rehypeSanitize from 'rehype-sanitize';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -89,6 +107,75 @@ const getStatusConfig = (status: string) => {
     color: 'default',
     icon: Circle
   };
+};
+
+// Markdown rendering component
+const MarkdownRenderer: React.FC<{ content: string; className?: string }> = ({ content, className = '' }) => {
+  return (
+    <div className={`prose prose-sm max-w-none dark:prose-invert ${className}`}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeRaw, rehypeSanitize]}
+        components={{
+          code({ node, inline, className, children, ...props }: any) {
+            const match = /language-(\w+)/.exec(className || '');
+            return !inline && match ? (
+              <SyntaxHighlighter
+                style={vscDarkPlus}
+                language={match[1]}
+                PreTag="div"
+                className="rounded-md my-4"
+                {...props}
+              >
+                {String(children).replace(/\n$/, '')}
+              </SyntaxHighlighter>
+            ) : (
+              <code className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
+                {children}
+              </code>
+            );
+          },
+          h1: ({ children }) => <h1 className="text-2xl font-bold mt-6 mb-4">{children}</h1>,
+          h2: ({ children }) => <h2 className="text-xl font-bold mt-5 mb-3">{children}</h2>,
+          h3: ({ children }) => <h3 className="text-lg font-bold mt-4 mb-2">{children}</h3>,
+          h4: ({ children }) => <h4 className="text-base font-bold mt-3 mb-2">{children}</h4>,
+          h5: ({ children }) => <h5 className="text-sm font-bold mt-2 mb-1">{children}</h5>,
+          h6: ({ children }) => <h6 className="text-xs font-bold mt-2 mb-1">{children}</h6>,
+          a: ({ children, href }) => (
+            <a href={href} className="text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">
+              {children}
+            </a>
+          ),
+          ul: ({ children }) => <ul className="list-disc list-inside my-3 ml-4 space-y-1">{children}</ul>,
+          ol: ({ children }) => <ol className="list-decimal list-inside my-3 ml-4 space-y-1">{children}</ol>,
+          li: ({ children }) => <li className="ml-2">{children}</li>,
+          blockquote: ({ children }) => (
+            <blockquote className="border-l-4 border-gray-300 dark:border-gray-600 pl-4 py-2 my-4 italic bg-gray-50 dark:bg-gray-800/50">
+              {children}
+            </blockquote>
+          ),
+          p: ({ children }) => <p className="my-2 leading-relaxed">{children}</p>,
+          table: ({ children }) => (
+            <div className="overflow-x-auto my-4">
+              <table className="min-w-full divide-y divide-gray-300 dark:divide-gray-600">{children}</table>
+            </div>
+          ),
+          th: ({ children }) => (
+            <th className="px-4 py-2 bg-gray-100 dark:bg-gray-800 font-semibold text-left">{children}</th>
+          ),
+          td: ({ children }) => (
+            <td className="px-4 py-2 border-t border-gray-200 dark:border-gray-700">{children}</td>
+          ),
+          img: ({ src, alt }) => (
+            <img src={src} alt={alt} className="max-w-full h-auto rounded-lg my-4" />
+          ),
+          hr: () => <hr className="my-6 border-gray-300 dark:border-gray-600" />,
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
 };
 
 const SprintPage = () => {
@@ -171,6 +258,14 @@ const SprintPage = () => {
     retrospective_notes: ''
   });
 
+  // Markdown editor state
+  const [isGoalPreview, setIsGoalPreview] = useState(false);
+  const [isRetroPreview, setIsRetroPreview] = useState(false);
+  const [showHeadingDropdownGoal, setShowHeadingDropdownGoal] = useState(false);
+  const [showHeadingDropdownRetro, setShowHeadingDropdownRetro] = useState(false);
+  const headingDropdownGoalRef = useRef<HTMLDivElement>(null);
+  const headingDropdownRetroRef = useRef<HTMLDivElement>(null);
+
   // Load data
   useEffect(() => {
     loadData();
@@ -195,6 +290,116 @@ const SprintPage = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isSprintPreviewOpen]);
+
+  // Close heading dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (headingDropdownGoalRef.current && !headingDropdownGoalRef.current.contains(event.target as Node)) {
+        setShowHeadingDropdownGoal(false);
+      }
+      if (headingDropdownRetroRef.current && !headingDropdownRetroRef.current.contains(event.target as Node)) {
+        setShowHeadingDropdownRetro(false);
+      }
+    };
+
+    if (showHeadingDropdownGoal || showHeadingDropdownRetro) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showHeadingDropdownGoal, showHeadingDropdownRetro]);
+
+  // Markdown helper functions for Goal field
+  const insertMarkdownGoal = (prefix: string, suffix: string = '', placeholder: string = 'text') => {
+    const textarea = document.getElementById('sprint-goal-editor') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = sprintForm.goal.substring(start, end);
+    const textToInsert = selectedText || placeholder;
+    const newText = sprintForm.goal.substring(0, start) + prefix + textToInsert + suffix + sprintForm.goal.substring(end);
+    
+    setSprintForm({ ...sprintForm, goal: newText });
+    
+    setTimeout(() => {
+      textarea.focus();
+      if (!selectedText) {
+        textarea.selectionStart = start + prefix.length;
+        textarea.selectionEnd = start + prefix.length + placeholder.length;
+      } else {
+        textarea.selectionStart = start + prefix.length;
+        textarea.selectionEnd = end + prefix.length;
+      }
+    }, 0);
+  };
+
+  const insertHeadingGoal = (level: number) => {
+    const textarea = document.getElementById('sprint-goal-editor') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const lineStart = sprintForm.goal.lastIndexOf('\n', start - 1) + 1;
+    const prefix = '#'.repeat(level) + ' ';
+    
+    const beforeLine = sprintForm.goal.substring(0, lineStart);
+    const afterLine = sprintForm.goal.substring(lineStart);
+    const newText = beforeLine + prefix + afterLine;
+    
+    setSprintForm({ ...sprintForm, goal: newText });
+    
+    setTimeout(() => {
+      textarea.focus();
+      textarea.selectionStart = textarea.selectionEnd = lineStart + prefix.length;
+    }, 0);
+  };
+
+  // Markdown helper functions for Retrospective field
+  const insertMarkdownRetro = (prefix: string, suffix: string = '', placeholder: string = 'text') => {
+    const textarea = document.getElementById('sprint-retro-editor') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = sprintForm.retrospective_notes.substring(start, end);
+    const textToInsert = selectedText || placeholder;
+    const newText = sprintForm.retrospective_notes.substring(0, start) + prefix + textToInsert + suffix + sprintForm.retrospective_notes.substring(end);
+    
+    setSprintForm({ ...sprintForm, retrospective_notes: newText });
+    
+    setTimeout(() => {
+      textarea.focus();
+      if (!selectedText) {
+        textarea.selectionStart = start + prefix.length;
+        textarea.selectionEnd = start + prefix.length + placeholder.length;
+      } else {
+        textarea.selectionStart = start + prefix.length;
+        textarea.selectionEnd = end + prefix.length;
+      }
+    }, 0);
+  };
+
+  const insertHeadingRetro = (level: number) => {
+    const textarea = document.getElementById('sprint-retro-editor') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const lineStart = sprintForm.retrospective_notes.lastIndexOf('\n', start - 1) + 1;
+    const prefix = '#'.repeat(level) + ' ';
+    
+    const beforeLine = sprintForm.retrospective_notes.substring(0, lineStart);
+    const afterLine = sprintForm.retrospective_notes.substring(lineStart);
+    const newText = beforeLine + prefix + afterLine;
+    
+    setSprintForm({ ...sprintForm, retrospective_notes: newText });
+    
+    setTimeout(() => {
+      textarea.focus();
+      textarea.selectionStart = textarea.selectionEnd = lineStart + prefix.length;
+    }, 0);
+  };
 
   const loadData = async () => {
     try {
@@ -1218,11 +1423,23 @@ const SprintPage = () => {
                       </div>
                     )}
 
+                    {/* Goal */}
+                    {selectedSprint.goal && (
+                      <div className="mb-4">
+                        <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Goal</label>
+                        <div className="text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                          <MarkdownRenderer content={selectedSprint.goal} />
+                        </div>
+                      </div>
+                    )}
+
                     {/* Retrospective Notes */}
                     {selectedSprint.retrospective_notes && (
                       <div>
                         <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Retrospective Notes</label>
-                        <p className="text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{selectedSprint.retrospective_notes}</p>
+                        <div className="text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                          <MarkdownRenderer content={selectedSprint.retrospective_notes} />
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1288,7 +1505,7 @@ const SprintPage = () => {
             </div>
 
             {/* Form Content - Scrollable */}
-            <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
+            <div className="flex-1 overflow-y-auto scrollbar-hide px-4 sm:px-6 py-4">
               <form onSubmit={handleSprintSubmit} className="space-y-4">
               {/* Row 1: Sprint Name, Status, Start Date, Duration */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -1301,7 +1518,7 @@ const SprintPage = () => {
                     required
                     value={sprintForm.name}
                     onChange={(e) => setSprintForm({ ...sprintForm, name: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="h-9 w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Enter sprint name"
                   />
                 </div>
@@ -1312,7 +1529,7 @@ const SprintPage = () => {
                   <select
                     value={sprintForm.status}
                     onChange={(e) => setSprintForm({ ...sprintForm, status: e.target.value as any })}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="h-9 w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="planned">Planned</option>
                     <option value="active">Active</option>
@@ -1328,7 +1545,7 @@ const SprintPage = () => {
                     required
                     value={sprintForm.start_date}
                     onChange={(e) => setSprintForm({ ...sprintForm, start_date: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className=" h-9 w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
                 <div>
@@ -1338,7 +1555,7 @@ const SprintPage = () => {
                   <select
                     value={sprintForm.duration_weeks}
                     onChange={(e) => setSprintForm({ ...sprintForm, duration_weeks: parseInt(e.target.value) })}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className=" h-9 w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value={1}>1 Week</option>
                     <option value={2}>2 Weeks</option>
@@ -1397,37 +1614,285 @@ const SprintPage = () => {
                     min="0"
                     value={sprintForm.velocity}
                     onChange={(e) => setSprintForm({ ...sprintForm, velocity: parseInt(e.target.value) || 0 })}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="h-9 w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
               </div>
 
-              {/* Row 3: Goal (full width) */}
+              {/* Row 3: Goal with Markdown Support (full width) */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Goal
                 </label>
-                <textarea
-                  value={sprintForm.goal}
-                  onChange={(e) => setSprintForm({ ...sprintForm, goal: e.target.value })}
-                  placeholder="Enter sprint goal"
-                  rows={2}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                />
+                
+                {/* Markdown Toolbar - Full Version like Notes */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 border-b border-gray-200 dark:border-gray-600 mb-3">
+                  {/* Left side - Formatting buttons */}
+                  <div className="flex items-center space-x-1 flex-wrap">
+                    {/* Text Formatting */}
+                    <button type="button" onClick={() => insertMarkdownGoal('**', '**', 'bold text')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Bold">
+                      <Bold className="w-4 h-4" />
+                    </button>
+                    <button type="button" onClick={() => insertMarkdownGoal('*', '*', 'italic text')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Italic">
+                      <Italic className="w-4 h-4" />
+                    </button>
+                    <button type="button" onClick={() => insertMarkdownGoal('~~', '~~', 'strikethrough')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Strikethrough">
+                      <Strikethrough className="w-4 h-4" />
+                    </button>
+                    
+                    <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+                    
+                    {/* Heading Dropdown */}
+                    <div className="relative" ref={headingDropdownGoalRef}>
+                      <button 
+                        type="button"
+                        onClick={() => setShowHeadingDropdownGoal(!showHeadingDropdownGoal)}
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors flex items-center space-x-1" 
+                        title="Heading"
+                      >
+                        <Heading className="w-4 h-4" />
+                        <ChevronDown className="w-3 h-3" />
+                      </button>
+                      {showHeadingDropdownGoal && (
+                        <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-10 min-w-[120px]">
+                          {[1, 2, 3, 4, 5, 6].map(level => (
+                            <button
+                              key={level}
+                              type="button"
+                              onClick={() => { insertHeadingGoal(level); setShowHeadingDropdownGoal(false); }}
+                              className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"
+                            >
+                              <span className={`font-bold`} style={{ fontSize: `${20 - level}px` }}>H{level}</span> Heading {level}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <button type="button" onClick={() => insertMarkdownGoal('> ', '', 'quote')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Blockquote">
+                      <Quote className="w-4 h-4" />
+                    </button>
+                    
+                    <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+                    
+                    {/* Code */}
+                    <button type="button" onClick={() => insertMarkdownGoal('`', '`', 'code')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Inline Code">
+                      <Code className="w-4 h-4" />
+                    </button>
+                    <button type="button" onClick={() => insertMarkdownGoal('\n```javascript\n', '\n```\n', 'code here')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Code Block">
+                      <Code2 className="w-4 h-4" />
+                    </button>
+                    
+                    <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+                    
+                    {/* Lists */}
+                    <button type="button" onClick={() => insertMarkdownGoal('- ', '', 'list item')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Unordered List">
+                      <List className="w-4 h-4" />
+                    </button>
+                    <button type="button" onClick={() => insertMarkdownGoal('1. ', '', 'list item')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Ordered List">
+                      <ListOrdered className="w-4 h-4" />
+                    </button>
+                    <button type="button" onClick={() => insertMarkdownGoal('- [ ] ', '', 'task item')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Task List">
+                      <CheckSquare className="w-4 h-4" />
+                    </button>
+                    
+                    <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+                    
+                    {/* Insert Elements */}
+                    <button type="button" onClick={() => insertMarkdownGoal('[', '](url)', 'link text')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Link">
+                      <LinkIcon className="w-4 h-4" />
+                    </button>
+                    <button type="button" onClick={() => insertMarkdownGoal('![', '](image-url)', 'alt text')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Image">
+                      <ImageIcon className="w-4 h-4" />
+                    </button>
+                    <button type="button" onClick={() => insertMarkdownGoal('\n| Header 1 | Header 2 |\n|----------|----------|\n| Cell 1   | Cell 2   |\n', '', '')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Table">
+                      <Table className="w-4 h-4" />
+                    </button>
+                    <button type="button" onClick={() => insertMarkdownGoal('\n---\n', '', '')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Horizontal Rule">
+                      <Minus className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Right side - Edit/Preview toggle */}
+                  <div className="flex items-center space-x-2 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setIsGoalPreview(false)}
+                      className={`px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap text-sm ${
+                        !isGoalPreview 
+                          ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium' 
+                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsGoalPreview(true)}
+                      className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap text-sm ${
+                        isGoalPreview 
+                          ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium' 
+                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      <Eye className="w-4 h-4" />
+                      <span>Preview</span>
+                    </button>
+                  </div>
+                </div>
+
+                {!isGoalPreview ? (
+                  <textarea
+                    id="sprint-goal-editor"
+                    value={sprintForm.goal}
+                    onChange={(e) => setSprintForm({ ...sprintForm, goal: e.target.value })}
+                    placeholder="Enter sprint goal (Markdown supported)"
+                    rows={4}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none font-mono text-sm"
+                  />
+                ) : (
+                  <div className="w-full min-h-[100px] max-h-[200px] overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
+                    <MarkdownRenderer content={sprintForm.goal || ''} />
+                  </div>
+                )}
               </div>
 
-              {/* Row 4: Retrospective Notes (full width) */}
+              {/* Row 4: Retrospective Notes with Markdown Support (full width) */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Retrospective Notes
                 </label>
-                <textarea
-                  value={sprintForm.retrospective_notes}
-                  onChange={(e) => setSprintForm({ ...sprintForm, retrospective_notes: e.target.value })}
-                  placeholder="Enter retrospective notes"
-                  rows={2}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                />
+                
+                {/* Markdown Toolbar - Full Version like Notes */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 border-b border-gray-200 dark:border-gray-600 mb-3">
+                  {/* Left side - Formatting buttons */}
+                  <div className="flex items-center space-x-1 flex-wrap">
+                    {/* Text Formatting */}
+                    <button type="button" onClick={() => insertMarkdownRetro('**', '**', 'bold text')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Bold">
+                      <Bold className="w-4 h-4" />
+                    </button>
+                    <button type="button" onClick={() => insertMarkdownRetro('*', '*', 'italic text')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Italic">
+                      <Italic className="w-4 h-4" />
+                    </button>
+                    <button type="button" onClick={() => insertMarkdownRetro('~~', '~~', 'strikethrough')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Strikethrough">
+                      <Strikethrough className="w-4 h-4" />
+                    </button>
+                    
+                    <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+                    
+                    {/* Heading Dropdown */}
+                    <div className="relative" ref={headingDropdownRetroRef}>
+                      <button 
+                        type="button"
+                        onClick={() => setShowHeadingDropdownRetro(!showHeadingDropdownRetro)}
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors flex items-center space-x-1" 
+                        title="Heading"
+                      >
+                        <Heading className="w-4 h-4" />
+                        <ChevronDown className="w-3 h-3" />
+                      </button>
+                      {showHeadingDropdownRetro && (
+                        <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-10 min-w-[120px]">
+                          {[1, 2, 3, 4, 5, 6].map(level => (
+                            <button
+                              key={level}
+                              type="button"
+                              onClick={() => { insertHeadingRetro(level); setShowHeadingDropdownRetro(false); }}
+                              className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"
+                            >
+                              <span className={`font-bold`} style={{ fontSize: `${20 - level}px` }}>H{level}</span> Heading {level}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <button type="button" onClick={() => insertMarkdownRetro('> ', '', 'quote')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Blockquote">
+                      <Quote className="w-4 h-4" />
+                    </button>
+                    
+                    <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+                    
+                    {/* Code */}
+                    <button type="button" onClick={() => insertMarkdownRetro('`', '`', 'code')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Inline Code">
+                      <Code className="w-4 h-4" />
+                    </button>
+                    <button type="button" onClick={() => insertMarkdownRetro('\n```javascript\n', '\n```\n', 'code here')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Code Block">
+                      <Code2 className="w-4 h-4" />
+                    </button>
+                    
+                    <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+                    
+                    {/* Lists */}
+                    <button type="button" onClick={() => insertMarkdownRetro('- ', '', 'list item')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Unordered List">
+                      <List className="w-4 h-4" />
+                    </button>
+                    <button type="button" onClick={() => insertMarkdownRetro('1. ', '', 'list item')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Ordered List">
+                      <ListOrdered className="w-4 h-4" />
+                    </button>
+                    <button type="button" onClick={() => insertMarkdownRetro('- [ ] ', '', 'task item')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Task List">
+                      <CheckSquare className="w-4 h-4" />
+                    </button>
+                    
+                    <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+                    
+                    {/* Insert Elements */}
+                    <button type="button" onClick={() => insertMarkdownRetro('[', '](url)', 'link text')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Link">
+                      <LinkIcon className="w-4 h-4" />
+                    </button>
+                    <button type="button" onClick={() => insertMarkdownRetro('![', '](image-url)', 'alt text')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Image">
+                      <ImageIcon className="w-4 h-4" />
+                    </button>
+                    <button type="button" onClick={() => insertMarkdownRetro('\n| Header 1 | Header 2 |\n|----------|----------|\n| Cell 1   | Cell 2   |\n', '', '')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Table">
+                      <Table className="w-4 h-4" />
+                    </button>
+                    <button type="button" onClick={() => insertMarkdownRetro('\n---\n', '', '')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Horizontal Rule">
+                      <Minus className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Right side - Edit/Preview toggle */}
+                  <div className="flex items-center space-x-2 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setIsRetroPreview(false)}
+                      className={`px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap text-sm ${
+                        !isRetroPreview 
+                          ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium' 
+                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsRetroPreview(true)}
+                      className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap text-sm ${
+                        isRetroPreview 
+                          ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium' 
+                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      <Eye className="w-4 h-4" />
+                      <span>Preview</span>
+                    </button>
+                  </div>
+                </div>
+
+                {!isRetroPreview ? (
+                  <textarea
+                    id="sprint-retro-editor"
+                    value={sprintForm.retrospective_notes}
+                    onChange={(e) => setSprintForm({ ...sprintForm, retrospective_notes: e.target.value })}
+                    placeholder="Enter retrospective notes (Markdown supported)"
+                    rows={4}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none font-mono text-sm"
+                  />
+                ) : (
+                  <div className="w-full min-h-[100px] max-h-[200px] overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
+                    <MarkdownRenderer content={sprintForm.retrospective_notes || ''} />
+                  </div>
+                )}
               </div>
               </form>
             </div>
